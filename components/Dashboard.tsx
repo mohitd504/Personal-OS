@@ -239,9 +239,14 @@ function loadNut(d:string){return LS(nutKey(d),{meals:[],water:0});}
 function nutTotals(d:string){const n=loadNut(d);const t={cal:0,protein:0,carbs:0,fat:0,fiber:0};n.meals.forEach((m:any)=>{t.cal+=m.cal||0;t.protein+=m.protein||0;t.carbs+=m.carbs||0;t.fat+=m.fat||0;t.fiber+=m.fiber||0;});return t;}
 function Nutrition({ sett, refresh, tick }: any) {
   const n=loadNut(today()); const t=nutTotals(today());
-  const add=()=>{ const el=(id:string)=>(document.getElementById(id) as HTMLInputElement); const name=el("nName").value.trim(); if(!name)return;
-    let cal=+el("nCal").value||0; const p=+el("nP").value||0,c=+el("nC").value||0,f=+el("nF").value||0,fb=+el("nFb").value||0;
-    if(!cal) cal=Math.round(p*4+c*4+f*9);
+  const [busy,setBusy]=useState(false);
+  const add=async()=>{ const el=(id:string)=>(document.getElementById(id) as HTMLInputElement); const name=el("nName").value.trim(); if(!name)return;
+    let cal=+el("nCal").value||0; let p=+el("nP").value||0,c=+el("nC").value||0,f=+el("nF").value||0,fb=+el("nFb").value||0;
+    if(!(cal||p||c||f||fb)){
+      setBusy(true);
+      try{ const r=await fetch("/api/nutrition",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({food:name})}); const d=await r.json(); cal=d.cal||0;p=d.protein||0;c=d.carbs||0;f=d.fat||0;fb=d.fiber||0; }catch(e){}
+      setBusy(false);
+    } else if(!cal){ cal=Math.round(p*4+c*4+f*9); }
     const m=loadNut(today()); m.meals.push({name,cal,protein:p,carbs:c,fat:f,fiber:fb}); SS(nutKey(today()),m);
     ["nName","nCal","nP","nC","nF","nFb"].forEach(i=>el(i).value=""); refresh(); };
   const del=(i:number)=>{ const m=loadNut(today()); m.meals.splice(i,1); SS(nutKey(today()),m); refresh(); };
@@ -253,8 +258,8 @@ function Nutrition({ sett, refresh, tick }: any) {
     <div className="grid g2" style={{marginTop:16}}>
       <div className="card"><strong>Log a meal</strong>
         <div className="row" style={{marginTop:12}}><input className="in" id="nName" placeholder="Food name" style={{flex:1}}/></div>
-        <div className="row" style={{marginTop:8,flexWrap:"wrap",gap:8}}><input className="in" id="nCal" type="number" placeholder="Calories" style={{width:100}}/><input className="in" id="nP" type="number" placeholder="Protein g" style={{width:100}}/><input className="in" id="nC" type="number" placeholder="Carbs g" style={{width:95}}/><input className="in" id="nF" type="number" placeholder="Fat g" style={{width:85}}/><input className="in" id="nFb" type="number" placeholder="Fiber g" style={{width:90}}/><button className="btn" onClick={add}>Add meal</button></div>
-        <div className="muted" style={{fontSize:11,margin:"6px 0"}}>Leave calories blank to auto-fill from protein/carbs/fat.</div>
+        <div className="row" style={{marginTop:8,flexWrap:"wrap",gap:8}}><input className="in" id="nCal" type="number" placeholder="Calories" style={{width:100}}/><input className="in" id="nP" type="number" placeholder="Protein g" style={{width:100}}/><input className="in" id="nC" type="number" placeholder="Carbs g" style={{width:95}}/><input className="in" id="nF" type="number" placeholder="Fat g" style={{width:85}}/><input className="in" id="nFb" type="number" placeholder="Fiber g" style={{width:90}}/><button className="btn" onClick={add} disabled={busy}>{busy?"🤖 Fetching…":"Add meal"}</button></div>
+        <div className="muted" style={{fontSize:11,margin:"6px 0"}}>Type just the food name and hit Add — Claude auto-fills protein, carbs, fat &amp; fiber. Fill any field yourself to override.</div>
         <ul className="list">{n.meals.length? n.meals.map((m:any,i:number)=><li className="li" key={i}><span className="dot" style={{background:"var(--orange)"}}/><div style={{flex:1}}><div className="between"><strong>{m.name}</strong><span>{m.cal} kcal</span></div><div className="muted" style={{fontSize:12}}>P {m.protein}g · C {m.carbs}g · F {m.fat}g · Fiber {m.fiber}g</div></div><span className="btn ghost sm" onClick={()=>del(i)} style={{cursor:"pointer"}}>✕</span></li>):<li className="muted" style={{padding:"8px 0"}}>No meals logged today.</li>}</ul>
       </div>
       <div className="card"><div className="between"><strong>Hydration</strong><Chip tint="cyan">💧</Chip></div>
