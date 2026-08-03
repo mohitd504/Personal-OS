@@ -9,7 +9,7 @@ const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(
 const PPL: Record<number,string> = {0:"Recovery",1:"Push",2:"Pull",3:"Legs",4:"Push",5:"Pull",6:"Legs"};
 
 type Sett = { name:string; age:number; heightFt:number; heightIn:number; planStart:string; planDays:number; weightGoal:number; calorieGoal:number; proteinGoal:number; waterGoal:number; stepGoal:number; };
-const DEF_SETT: Sett = { name:"Mohit", age:36, heightFt:6, heightIn:1, planStart:today(), planDays:180, weightGoal:85, calorieGoal:2200, proteinGoal:150, waterGoal:3, stepGoal:8000 };
+const DEF_SETT: Sett = { name:"Mohit", age:36, heightFt:6, heightIn:1, planStart:today(), planDays:140, weightGoal:85, calorieGoal:2200, proteinGoal:150, waterGoal:3, stepGoal:8000 };
 
 const NAV = [
   { k:"home", ic:"🏠", t:"Dashboard" }, { k:"health", ic:"❤️", t:"Health" }, { k:"exercise", ic:"🏋️", t:"Exercise" },
@@ -55,7 +55,7 @@ export default function Dashboard({ onSignOut, name }: { onSignOut: ()=>void; na
         <div className="content">
           {view==="home" && <Home sett={sett} tick={tick} />}
           {view==="health" && <Health sett={sett} refresh={refresh} tick={tick} />}
-          {view==="exercise" && <Exercise refresh={refresh} tick={tick} />}
+          {view==="exercise" && <Exercise sett={sett} refresh={refresh} tick={tick} />}
           {view==="nutrition" && <Nutrition sett={sett} refresh={refresh} tick={tick} />}
           {view==="study" && <Study refresh={refresh} tick={tick} />}
           {view==="gmail" && <Gmail />}
@@ -176,7 +176,7 @@ const LIB:Record<string,string[]> = {
   Pull:["Deadlift","Pull-ups","Lat Pulldown","Barbell Row","Seated Cable Row","Barbell Curl","Hammer Curl","Face Pull"],
   Legs:["Back Squat","Leg Press","Romanian Deadlift","Walking Lunges","Leg Curl","Hip Thrust","Standing Calf Raise"],
 };
-function Exercise({ refresh, tick }: any) {
+function Exercise({ sett, refresh, tick }: any) {
   const [type,setType]=useState(PPL[new Date().getDay()]==="Recovery"?"Push":PPL[new Date().getDay()]);
   const [sess,setSess]=useState<any[]>([]);
   const H=LS("pos_health",{}); const setH=(k:string,v:any)=>{SS("pos_health",{...H,[k]:+v||0});refresh();};
@@ -185,8 +185,9 @@ function Exercise({ refresh, tick }: any) {
     const wt=+el("exW").value||0,s=+el("exS").value||0,r=+el("exR").value||0;
     setSess(x=>[...x,{name:ex,weight:wt,sets:s,reps:r,rpe:+el("exRPE").value||0,vol:wt*s*r}]); ["exW","exS","exR","exRPE"].forEach(i=>el(i).value=""); };
   const save=()=>{ if(!sess.length)return; const wk=LS("pos_workouts",[]); wk.unshift({date:today(),type,exercises:sess,volume:sess.reduce((a,x)=>a+x.vol,0)}); SS("pos_workouts",wk); setSess([]); refresh(); };
-  const addRun=()=>{ const el=(id:string)=>(document.getElementById(id) as HTMLInputElement); const dist=+el("rDist").value||0,dur=+el("rDur").value||0; if(!dist&&!dur)return;
-    const r=LS("pos_runs",[]); r.push({date:el("rDate").value||today(),dist,dur}); SS("pos_runs",r); el("rDist").value="";el("rDur").value=""; refresh(); };
+  const addRun=()=>{ const el=(id:string)=>(document.getElementById(id) as HTMLInputElement); const type=(document.getElementById("rType") as HTMLSelectElement)?.value||"Walk"; const dist=+el("rDist").value||0,dur=+el("rDur").value||0; if(!dist&&!dur)return;
+    const r=LS("pos_runs",[]); r.push({date:el("rDate").value||today(),type,dist,dur}); SS("pos_runs",r); el("rDist").value="";el("rDur").value=""; refresh(); };
+  const logWeight=()=>{ const el=document.getElementById("wLog") as HTMLInputElement; const v=+el.value; if(!(v>0))return; const arr=LS("pos_weight",[{date:today(),kg:96}]); const i=arr.findIndex((x:any)=>x.date===today()); if(i>=0)arr[i].kg=v; else arr.push({date:today(),kg:v}); SS("pos_weight",arr); el.value=""; refresh(); };
   const F=(lbl:string,k:string)=> <div><div className="lbl muted" style={{marginBottom:6}}>{lbl}</div><input className="in" type="number" defaultValue={H[k]||0} onBlur={e=>setH(k,e.target.value)} style={{width:"100%"}}/></div>;
   return <>
     <Head t="Exercise" p="Push · Pull · Legs — twice weekly" />
@@ -195,26 +196,41 @@ function Exercise({ refresh, tick }: any) {
     </div>
     <div className="card" style={{marginTop:16}}>
       <div className="between"><strong>Gym Tracker — {type}</strong>
-        <select className="in" value={type} onChange={e=>setType(e.target.value)}><option>Push</option><option>Pull</option><option>Legs</option></select></div>
+        <select className="in" value={type} onChange={e=>setType(e.target.value)} style={{minWidth:230}}>
+          <option value="Push">🟦 Push — Chest · Shoulders · Triceps</option>
+          <option value="Pull">🟪 Pull — Back · Biceps · Rear delts</option>
+          <option value="Legs">🟩 Legs — Quads · Hams · Glutes · Calves</option>
+        </select></div>
       <div className="row" style={{marginTop:12,flexWrap:"wrap",gap:8}}>
-        <select className="in" id="exName" style={{flex:1,minWidth:180}}>{(LIB[type]||[]).map(x=><option key={x}>{x}</option>)}</select>
+        <select className="in" id="exName" style={{flex:1,minWidth:200}}>{(LIB[type]||[]).map(x=><option key={x} value={x}>{(type==="Push"?"🟦":type==="Pull"?"🟪":"🟩")+" "+x}</option>)}</select>
         <input className="in" id="exW" type="number" placeholder="kg" style={{width:80}}/><input className="in" id="exS" type="number" placeholder="sets" style={{width:80}}/>
         <input className="in" id="exR" type="number" placeholder="reps" style={{width:80}}/><input className="in" id="exRPE" type="number" placeholder="RPE" style={{width:80}}/>
         <button className="btn" onClick={add}>Log set</button></div>
-      <ul className="list" style={{marginTop:10}}>{sess.length? sess.map((x,i)=><li className="li" key={i}><span className="dot" style={{background:"var(--purple)"}}/><div style={{flex:1}} className="between"><span>{x.name}</span><span className="muted">{x.weight}kg · {x.sets}×{x.reps} · {x.vol}vol</span></div></li>):<li className="muted" style={{padding:"8px 0"}}>No sets yet.</li>}</ul>
+      <ul className="list" style={{marginTop:10}}>{sess.length? sess.map((x,i)=><li className="li" key={i}><span className="dot" style={{background:"var(--purple)"}}/><div style={{flex:1}} className="between"><span>🏋️ {x.name}</span><span className="muted">{x.weight}kg · {x.sets}×{x.reps} · {x.vol}vol</span></div></li>):<li className="muted" style={{padding:"8px 0"}}>No sets yet.</li>}</ul>
       <div className="between" style={{marginTop:10}}><span className="muted" style={{fontSize:12}}>{sess.reduce((a,x)=>a+x.sets,0)} sets · {sess.reduce((a,x)=>a+x.vol,0)} kg volume</span><button className="btn ghost sm" onClick={save}>Save session</button></div>
     </div>
-    <div className="card" style={{marginTop:16}}><strong>Running / Cardio</strong>
+    <div className="card" style={{marginTop:16}}><strong>🚶 Walk / Run / Cardio</strong>
       <div className="row" style={{marginTop:12,flexWrap:"wrap",gap:8}}>
-        <input className="in" id="rDate" type="date" defaultValue={today()} style={{width:150}}/><input className="in" id="rDist" type="number" placeholder="km" style={{width:110}}/><input className="in" id="rDur" type="number" placeholder="min" style={{width:110}}/><button className="btn sm" onClick={addRun}>Add run</button></div>
-      <ul className="list" style={{marginTop:10}}>{runs.length? runs.slice(-6).reverse().map((r:any,i:number)=><li className="li" key={i}><span className="dot" style={{background:"var(--emerald)"}}/><div style={{flex:1}} className="between"><span>{r.date}</span><span className="muted">{r.dist} km · {r.dur} min</span></div></li>):<li className="muted" style={{padding:"8px 0"}}>No runs yet.</li>}</ul>
+        <select className="in" id="rType" style={{width:120}}><option>Walk</option><option>Run</option><option>Cycle</option><option>Other</option></select>
+        <input className="in" id="rDate" type="date" defaultValue={today()} style={{width:150}}/>
+        <input className="in" id="rDist" type="number" placeholder="Distance km" style={{width:120}}/>
+        <input className="in" id="rDur" type="number" placeholder="Duration min" style={{width:130}}/>
+        <button className="btn sm" onClick={addRun}>Add</button></div>
+      <ul className="list" style={{marginTop:10}}>{runs.length? runs.slice(-8).reverse().map((r:any,i:number)=><li className="li" key={i}><span className="dot" style={{background:"var(--emerald)"}}/><div style={{flex:1}} className="between"><span>{iconFor(r.type)} {r.type||"Walk"} · {r.date}</span><span className="muted">{r.dist} km · {r.dur} min</span></div></li>):<li className="muted" style={{padding:"8px 0"}}>No walks/runs logged yet.</li>}</ul>
+    </div>
+    <div className="card" style={{marginTop:16}}><strong>⚖️ Log today&apos;s weight</strong>
+      <div className="row" style={{marginTop:12,gap:8,flexWrap:"wrap"}}><input className="in" id="wLog" type="number" step="0.1" placeholder="Weight kg" style={{width:150}}/><button className="btn sm" onClick={logWeight}>Log weight</button><span className="muted" style={{fontSize:12}}>Latest: {LS("pos_weight",[{kg:96}]).slice(-1)[0].kg} kg · adds to the trend chart</span></div>
     </div>
     <div className="grid g2" style={{marginTop:16}}>
+      <PieCard title="Volume by day type (kg)" data={[{name:"Push",value:volType("Push")},{name:"Pull",value:volType("Pull")},{name:"Legs",value:volType("Legs")}]}/>
       <BarCard title="Session volume (kg)" color="#3B82F6" data={LS("pos_workouts",[]).slice(0,7).reverse().map((w:any)=>({name:(w.date||"").slice(5),value:w.volume||0}))}/>
-      <BarCard title="Running distance (km)" color="#10B981" data={runs.slice(-7).map((r:any)=>({name:(r.date||"").slice(5),value:r.dist||0}))}/>
     </div>
+    <div style={{marginTop:16}}><LineCard title="Weight trend (kg)" color="#10B981" data={LS("pos_weight",[{date:today(),kg:96}]).map((x:any)=>({name:(x.date||"").slice(5),value:x.kg}))}/></div>
+    <PlanCalendar sett={sett}/>
   </>;
 }
+function iconFor(t:string){ return t==="Run"?"🏃":t==="Cycle"?"🚴":t==="Other"?"🤸":"🚶"; }
+function volType(t:string){ let s=0; LS("pos_workouts",[]).forEach((w:any)=>{ if(w.type===t) s+=w.volume||0; }); return s; }
 
 /* ---------- NUTRITION ---------- */
 function nutKey(d:string){return "pos_nutri_"+d;}
