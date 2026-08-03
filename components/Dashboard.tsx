@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { PieChart, Pie, Cell, BarChart, Bar as RBar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 
 /* ---------- storage helpers ---------- */
 const LS = (k: string, d: any) => { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch { return d; } };
@@ -76,6 +77,40 @@ function Kpi({ lbl, val, unit, ic, tint, sub }: any) {
 function Head({ t, p }: any) { return <div className="head"><h1>{t}</h1><p>{p}</p></div>; }
 function Bar({ v, goal, color }: any) { const p = goal? Math.min(v/goal*100,100):0; return <div className="bar"><span style={{width:p+"%",background:color}} /></div>; }
 
+/* ---------- charts ---------- */
+const PIE_COLORS = ["#3B82F6","#10B981","#F59E0B","#A855F7","#EC4899","#06B6D4"];
+const TT = { background:"#0f172a", border:"1px solid rgba(255,255,255,.12)", borderRadius:8, color:"#E7ECF3" } as any;
+function last7(){ const out:{name:string;ds:string}[]=[]; for(let i=6;i>=0;i--){ const x=new Date(); x.setDate(x.getDate()-i); const ds=`${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,"0")}-${String(x.getDate()).padStart(2,"0")}`; out.push({name:["Su","Mo","Tu","We","Th","Fr","Sa"][x.getDay()],ds}); } return out; }
+function PieCard({ title, data }: { title:string; data:{name:string;value:number}[] }) {
+  const empty = data.every(d=>!d.value);
+  return <div className="card"><strong>{title}</strong>
+    <div style={{height:230,marginTop:6}}>{empty? <div className="muted" style={{textAlign:"center",paddingTop:92}}>No data yet — log some to see the chart</div> :
+      <ResponsiveContainer width="100%" height="100%"><PieChart>
+        <Pie data={data} dataKey="value" nameKey="name" innerRadius={55} outerRadius={85} paddingAngle={3} stroke="none">
+          {data.map((_,i)=><Cell key={i} fill={PIE_COLORS[i%PIE_COLORS.length]} />)}
+        </Pie><Tooltip contentStyle={TT}/></PieChart></ResponsiveContainer>}</div>
+    <div className="row" style={{flexWrap:"wrap",gap:12,marginTop:6}}>{data.map((d,i)=><span key={i} className="muted" style={{fontSize:12}}><span style={{display:"inline-block",width:10,height:10,borderRadius:3,background:PIE_COLORS[i%PIE_COLORS.length],marginRight:6}}/>{d.name}: {d.value}</span>)}</div>
+  </div>;
+}
+function BarCard({ title, data, color }: { title:string; data:{name:string;value:number}[]; color:string }) {
+  return <div className="card"><strong>{title}</strong><div style={{height:230,marginTop:6}}>
+    <ResponsiveContainer width="100%" height="100%"><BarChart data={data}>
+      <XAxis dataKey="name" tick={{fill:"#8A94A6",fontSize:11}} axisLine={false} tickLine={false}/>
+      <YAxis tick={{fill:"#8A94A6",fontSize:11}} axisLine={false} tickLine={false} width={30}/>
+      <Tooltip cursor={{fill:"rgba(255,255,255,.05)"}} contentStyle={TT}/>
+      <RBar dataKey="value" fill={color} radius={[6,6,0,0]}/>
+    </BarChart></ResponsiveContainer></div></div>;
+}
+function LineCard({ title, data, color }: { title:string; data:{name:string;value:number}[]; color:string }) {
+  return <div className="card"><strong>{title}</strong><div style={{height:230,marginTop:6}}>
+    <ResponsiveContainer width="100%" height="100%"><LineChart data={data}>
+      <XAxis dataKey="name" tick={{fill:"#8A94A6",fontSize:11}} axisLine={false} tickLine={false}/>
+      <YAxis domain={["auto","auto"]} tick={{fill:"#8A94A6",fontSize:11}} axisLine={false} tickLine={false} width={34}/>
+      <Tooltip contentStyle={TT}/>
+      <Line type="monotone" dataKey="value" stroke={color} strokeWidth={2.5} dot={{r:3,fill:color}}/>
+    </LineChart></ResponsiveContainer></div></div>;
+}
+
 /* ---------- HOME ---------- */
 function Home({ sett, tick }: any) {
   const w = LS("pos_weight", [{date:today(),kg:96}]); const cur = w[w.length-1].kg;
@@ -94,8 +129,18 @@ function Home({ sett, tick }: any) {
       <Kpi lbl="Protein" ic="🍗" tint="blue" val={nt.protein} unit={`/${sett.proteinGoal}g`} sub="today" />
       <Kpi lbl="Study Today" ic="📚" tint="purple" val={fmt(st)} sub={`streak ${streak()}d`} />
     </div>
+    <div className="grid g3" style={{marginTop:16}}>
+      <PieCard title="Today's Macros" data={[{name:"Protein",value:nt.protein},{name:"Carbs",value:nt.carbs},{name:"Fat",value:nt.fat}]}/>
+      <BarCard title="Study — last 7 days (hrs)" color="#A855F7" data={last7().map(x=>({name:x.name,value:Math.round(studyTotal(x.ds)/60*10)/10}))}/>
+      <LineCard title="Weight trend (kg)" color="#10B981" data={w.map((x:any)=>({name:x.date.slice(5),value:x.kg}))}/>
+    </div>
+    <div className="grid g2" style={{marginTop:16}}>
+      <BarCard title="Calories — last 7 days" color="#F59E0B" data={last7().map(x=>({name:x.name,value:nutTotals(x.ds).cal}))}/>
+      <PieCard title="Study split (today)" data={[{name:"AI",value:studyByK("ai")},{name:"DevOps",value:studyByK("devops")},{name:"System",value:studyByK("system")}]}/>
+    </div>
   </>;
 }
+function studyByK(k:string){ const s=loadStudy(today()); return s[k]||0; }
 
 /* ---------- HEALTH ---------- */
 function Health({ sett, refresh, tick }: any) {
@@ -117,6 +162,10 @@ function Health({ sett, refresh, tick }: any) {
         {F("Weight (kg)",cur,setW)}{F("Recovery %",H.recovery||0,(v)=>set("recovery",v))}{F("Resting HR",H.restingHR||0,(v)=>set("restingHR",v))}{F("Sleep h",H.sleepH||0,(v)=>set("sleepH",v))}
         {F("Sleep m",H.sleepM||0,(v)=>set("sleepM",v))}{F("Water (L)",H.water||0,(v)=>set("water",v))}{F("Cal burned",H.caloriesBurned||0,(v)=>set("caloriesBurned",v))}{F("Steps",H.steps||0,(v)=>set("steps",v))}
       </div>
+    </div>
+    <div className="grid g2" style={{marginTop:16}}>
+      <LineCard title="Weight trend (kg)" color="#10B981" data={w.map((x:any)=>({name:x.date.slice(5),value:x.kg}))}/>
+      <PieCard title="Recovery vs remaining" data={[{name:"Recovery",value:H.recovery||0},{name:"Remaining",value:Math.max(0,100-(H.recovery||0))}]}/>
     </div>
   </>;
 }
@@ -160,6 +209,10 @@ function Exercise({ refresh, tick }: any) {
         <input className="in" id="rDate" type="date" defaultValue={today()} style={{width:150}}/><input className="in" id="rDist" type="number" placeholder="km" style={{width:110}}/><input className="in" id="rDur" type="number" placeholder="min" style={{width:110}}/><button className="btn sm" onClick={addRun}>Add run</button></div>
       <ul className="list" style={{marginTop:10}}>{runs.length? runs.slice(-6).reverse().map((r:any,i:number)=><li className="li" key={i}><span className="dot" style={{background:"var(--emerald)"}}/><div style={{flex:1}} className="between"><span>{r.date}</span><span className="muted">{r.dist} km · {r.dur} min</span></div></li>):<li className="muted" style={{padding:"8px 0"}}>No runs yet.</li>}</ul>
     </div>
+    <div className="grid g2" style={{marginTop:16}}>
+      <BarCard title="Session volume (kg)" color="#3B82F6" data={LS("pos_workouts",[]).slice(0,7).reverse().map((w:any)=>({name:(w.date||"").slice(5),value:w.volume||0}))}/>
+      <BarCard title="Running distance (km)" color="#10B981" data={runs.slice(-7).map((r:any)=>({name:(r.date||"").slice(5),value:r.dist||0}))}/>
+    </div>
   </>;
 }
 
@@ -194,6 +247,10 @@ function Nutrition({ sett, refresh, tick }: any) {
         <div style={{marginTop:14}} className="muted">Fiber {t.fiber}g</div><Bar v={t.fiber} goal={30} color="var(--emerald)"/>
       </div>
     </div>
+    <div className="grid g2" style={{marginTop:16}}>
+      <PieCard title="Macro split (today)" data={[{name:"Protein",value:t.protein},{name:"Carbs",value:t.carbs},{name:"Fat",value:t.fat}]}/>
+      <BarCard title="Calories — last 7 days" color="#F59E0B" data={last7().map(x=>({name:x.name,value:nutTotals(x.ds).cal}))}/>
+    </div>
   </>;
 }
 
@@ -220,6 +277,10 @@ function Study({ refresh, tick }: any) {
         <div className="card" key={su.k}><strong>{su.label}</strong><div className="val" style={{fontSize:22,fontWeight:750,marginTop:8}}>{fmt(m)}</div><Bar v={m} goal={g} color="var(--purple)"/>
           <div className="row" style={{marginTop:10}}><input className="in" id={"st_"+su.k} type="number" placeholder="+min" style={{width:90}}/><button className="btn sm" onClick={()=>{const el=document.getElementById("st_"+su.k) as HTMLInputElement;log(su.k,+el.value);el.value="";}}>Log</button></div>
         </div>);})}
+    </div>
+    <div className="grid g2" style={{marginTop:16}}>
+      <PieCard title="Study split (today)" data={[{name:"AI",value:s.ai||0},{name:"DevOps",value:s.devops||0},{name:"System",value:s.system||0}]}/>
+      <BarCard title="Study — last 7 days (hrs)" color="#A855F7" data={last7().map(x=>({name:x.name,value:Math.round(studyTotal(x.ds)/60*10)/10}))}/>
     </div>
     <Curriculum />
   </>;
