@@ -52,6 +52,8 @@ function byDay(store: string, field: string, n: number) {
   return out;
 }
 function sumRange(store: string, field: string, n: number) { return byDay(store, field, n).reduce((a,x)=>a+x.value,0); }
+function curWeight(){ const wl=LS("pos_weightlog",[]); if(wl.length&&+wl[0].weight) return +wl[0].weight; const w2=LS("pos_weight",[]); if(w2.length&&w2[w2.length-1].kg) return +w2[w2.length-1].kg; try{ const s=LS("pos_settings",{}); if(s&&+s.weightGoal) {} }catch(e){} return 96; }
+async function aiCalories(payload:any){ try{ const r=await fetch("/api/exercise",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)}); const d=await r.json(); return +d.cal||0; }catch(e){ return 0; } }
 
 /* ---------- CSV export ---------- */
 function exportCSV(name: string, rows: any[]) {
@@ -63,17 +65,25 @@ function exportCSV(name: string, rows: any[]) {
 
 /* ---------- generic tracker (walk / weight / cardio) ---------- */
 type Field = { k:string; label:string; type?:string; options?:string[]; optional?:boolean };
-function Tracker({ storeKey, title, icon, fields, charts, refresh }:
-  { storeKey:string; title:string; icon:string; fields:Field[]; charts:{title:string;field:string;kind:string;color:string}[]; refresh:()=>void }) {
+function Tracker({ storeKey, title, icon, fields, charts, refresh, aiCal }:
+  { storeKey:string; title:string; icon:string; fields:Field[]; charts:{title:string;field:string;kind:string;color:string}[]; refresh:()=>void; aiCal?:string }) {
   const rows: any[] = LS(storeKey, []);
   const [form, setForm] = useState<any>({ date: today() });
   const [editId, setEditId] = useState<string|null>(null);
   const [q, setQ] = useState(""); const [from, setFrom] = useState(""); const [to, setTo] = useState("");
-  const save = () => {
+  const [busy, setBusy] = useState(false);
+  const save = async () => {
     if (!form.date) { alert("Pick a date"); return; }
+    const f = { ...form };
+    if (aiCal && !(+f.cal>0) && (f.duration||f.distance||f.steps)) {
+      setBusy(true);
+      const cal = await aiCalories({ kind:aiCal, activity:f.activity, duration:f.duration, distance:f.distance, steps:f.steps, weightKg:curWeight() });
+      if (cal) f.cal = cal;
+      setBusy(false);
+    }
     const all = LS(storeKey, []);
-    if (editId) { const i = all.findIndex((x:any)=>x.id===editId); if(i>=0) all[i] = { ...all[i], ...form }; }
-    else all.push({ id: uid(), ...form });
+    if (editId) { const i = all.findIndex((x:any)=>x.id===editId); if(i>=0) all[i] = { ...all[i], ...f }; }
+    else all.push({ id: uid(), ...f });
     all.sort((a:any,b:any)=> a.date<b.date?1:-1);
     SS(storeKey, all); setForm({ date: today() }); setEditId(null); refresh();
   };
@@ -98,8 +108,9 @@ function Tracker({ storeKey, title, icon, fields, charts, refresh }:
           ? <select key={f.k} className="in" value={form[f.k]||""} onChange={e=>setForm((s:any)=>({...s,[f.k]:e.target.value}))} style={{minWidth:130}}><option value="">{f.label}</option>{(f.options||[]).map(o=><option key={o}>{o}</option>)}</select>
           : <input key={f.k} className="in" type={f.type||"number"} placeholder={f.label+(f.optional?" (opt)":"")} value={form[f.k]??""} onChange={e=>setForm((s:any)=>({...s,[f.k]:f.type==="text"||f.type==="date"?e.target.value:e.target.value}))} style={{width:f.type==="text"?200:f.type==="date"?150:120}}/>
         )}
-        <button className="btn" onClick={save}>{editId?"Update":"Add entry"}</button>
+        <button className="btn" onClick={save} disabled={busy}>{busy?"🤖 Estimating…":(editId?"Update":"Add entry")}</button>
       </div>
+      {aiCal && <div className="muted" style={{fontSize:11,marginTop:8}}>Leave Calories blank and Claude estimates burn from your weight ({curWeight()}kg), duration &amp; distance.</div>}
     </div>
     <div className="card" style={{marginTop:16}}>
       <div className="between" style={{flexWrap:"wrap",gap:8}}><strong>History</strong>
@@ -138,15 +149,19 @@ function WorkoutPage({ type, list, refresh }: { type:string; list:string[]; refr
   const doneCount = list.filter(ex=> (rows[ex]||{}).done).length;
   const pct = Math.round(doneCount/list.length*100);
   const estCal = Math.round((+dur||0) * 6);
-  const saveWorkout = () => {
+  const [saving, setSaving] = useState(false);
+  const saveWorkout = async () => {
     const exercises = list.map(ex=>({ name:ex, ...(rows[ex]||{}) })).filter(e=> e.sets||e.reps||e.weight||e.done);
     if (!exercises.length) { alert("Log at least one exercise."); return; }
+    setSaving(true);
+    let calories = estCal;
+    if ((+dur||0) > 0 || volume > 0) { const ai = await aiCalories({ kind:"strength", duration:+dur||0, volume, weightKg:curWeight() }); if (ai) calories = ai; }
     const all = LS("pos_workouts", []);
-    all.unshift({ id:uid(), date:today(), type, duration:+dur||0, notes, exercises, volume, calories:estCal, completion:pct });
+    all.unshift({ id:uid(), date:today(), type, duration:+dur||0, notes, exercises, volume, calories, completion:pct });
     SS("pos_workouts", all);
     SS(draftKey, {}); SS(draftKey+"_dur",""); SS(draftKey+"_notes","");
-    setRows({}); setDur(""); setNotes(""); refresh();
-    alert(type+" workout saved ✔");
+    setRows({}); setDur(""); setNotes(""); setSaving(false); refresh();
+    alert(type+" workout saved ✔  (~"+calories+" kcal)");
   };
   const color = type==="Push"?"🟦":type==="Pull"?"🟪":"🟩";
   return <>
@@ -172,7 +187,7 @@ function WorkoutPage({ type, list, refresh }: { type:string; list:string[]; refr
     </div>
     <div className="card" style={{marginTop:16}}><strong>Workout notes</strong>
       <textarea className="in" value={notes} onChange={e=>{setNotes(e.target.value);SS(draftKey+"_notes",e.target.value);}} placeholder="How did it feel? PRs?" style={{width:"100%",minHeight:70,marginTop:8}}/>
-      <div style={{marginTop:10}}><button className="btn" onClick={saveWorkout}>Save {type} workout</button></div>
+      <div style={{marginTop:10}}><button className="btn" onClick={saveWorkout} disabled={saving}>{saving?"🤖 Estimating calories…":"Save "+type+" workout"}</button></div>
     </div>
     <div className="card" style={{marginTop:16}}><strong>Recent {type} sessions</strong>
       <ul className="list">{LS("pos_workouts",[]).filter((w:any)=>w.type===type).slice(0,6).map((w:any)=><li className="li" key={w.id}><span className="dot" style={{background:"var(--blue)"}}/><div style={{flex:1}} className="between"><span>{w.date}</span><span className="muted">{w.volume}kg · {w.completion}% · {w.calories}kcal</span></div></li>)}
@@ -265,7 +280,7 @@ export default function Fitness() {
       {TABS.map(t=><button key={t[0]} onClick={()=>setTab(t[0])} className={"btn "+(tab===t[0]?"":"ghost")+" sm"} style={{fontWeight:600}}>{t[2]} {t[1]}</button>)}
     </div>
     {tab==="overview" && <Overview/>}
-    {tab==="walk" && <Tracker refresh={refresh} storeKey="pos_walks" title="Morning Walk Tracker" icon="🚶"
+    {tab==="walk" && <Tracker refresh={refresh} aiCal="walking" storeKey="pos_walks" title="Morning Walk Tracker" icon="🚶"
       fields={[{k:"date",label:"Date",type:"date"},{k:"steps",label:"Steps"},{k:"distance",label:"Distance km"},{k:"cal",label:"Calories (watch)"},{k:"activeMin",label:"Active Min"},{k:"duration",label:"Duration min"},{k:"pace",label:"Avg Pace",type:"text"},{k:"notes",label:"Notes",type:"text"}]}
       charts={[{title:"Daily Steps (7d)",field:"steps",kind:"bar",color:"#10B981"},{title:"Monthly Steps (30d)",field:"steps",kind:"bar",color:"#10B981"},{title:"Calories Burned (7d)",field:"cal",kind:"bar",color:"#F59E0B"},{title:"Active Minutes (7d)",field:"activeMin",kind:"bar",color:"#3B82F6"},{title:"Distance Walked (7d)",field:"distance",kind:"line",color:"#06B6D4"}]}/>}
     {tab==="push" && <WorkoutPage type="Push" list={PUSH} refresh={refresh}/>}
@@ -274,7 +289,7 @@ export default function Fitness() {
     {tab==="weight" && <Tracker refresh={refresh} storeKey="pos_weightlog" title="Weight Tracker" icon="⚖️"
       fields={[{k:"date",label:"Date",type:"date"},{k:"weight",label:"Morning Weight kg"},{k:"bodyfat",label:"Body Fat %",optional:true},{k:"muscle",label:"Muscle %",optional:true},{k:"bmi",label:"BMI",optional:true},{k:"waist",label:"Waist",optional:true},{k:"chest",label:"Chest",optional:true},{k:"arms",label:"Arms",optional:true},{k:"thigh",label:"Thigh",optional:true},{k:"notes",label:"Notes",type:"text"}]}
       charts={[{title:"Daily Weight (30d)",field:"weight",kind:"line",color:"#06B6D4"},{title:"Body Fat % (30d)",field:"bodyfat",kind:"line",color:"#F59E0B"}]}/>}
-    {tab==="cardio" && <Tracker refresh={refresh} storeKey="pos_cardio" title="Cardio Tracker" icon="🏃"
+    {tab==="cardio" && <Tracker refresh={refresh} aiCal="cardio" storeKey="pos_cardio" title="Cardio Tracker" icon="🏃"
       fields={[{k:"date",label:"Date",type:"date"},{k:"activity",label:"Activity",type:"select",options:["Running","Cycling","StairMaster","Rowing","Walking","Swimming","Elliptical","HIIT","Other"]},{k:"duration",label:"Duration min"},{k:"distance",label:"Distance km"},{k:"cal",label:"Calories"},{k:"avgSpeed",label:"Avg Speed",optional:true},{k:"avgHR",label:"Avg HR",optional:true},{k:"maxHR",label:"Max HR",optional:true},{k:"notes",label:"Notes",type:"text"}]}
       charts={[{title:"Weekly Cardio Duration",field:"duration",kind:"bar",color:"#EC4899"},{title:"Monthly Cardio Duration",field:"duration",kind:"bar",color:"#EC4899"},{title:"Calories Burned (7d)",field:"cal",kind:"bar",color:"#F59E0B"},{title:"Distance Covered (7d)",field:"distance",kind:"line",color:"#10B981"}]}/>}
     {tab==="analytics" && <Analytics/>}
