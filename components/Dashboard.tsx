@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { PieChart, Pie, Cell, BarChart, Bar as RBar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
+import Fitness from "@/components/Fitness";
 
 /* ---------- storage helpers ---------- */
 const LS = (k: string, d: any) => { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch { return d; } };
@@ -55,7 +56,7 @@ export default function Dashboard({ onSignOut, name }: { onSignOut: ()=>void; na
         <div className="content">
           {view==="home" && <Home sett={sett} tick={tick} />}
           {view==="health" && <Health sett={sett} refresh={refresh} tick={tick} />}
-          {view==="exercise" && <Exercise sett={sett} refresh={refresh} tick={tick} />}
+          {view==="exercise" && <Fitness />}
           {view==="nutrition" && <Nutrition sett={sett} refresh={refresh} tick={tick} />}
           {view==="study" && <Study refresh={refresh} tick={tick} />}
           {view==="gmail" && <Gmail />}
