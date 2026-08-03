@@ -14,6 +14,8 @@ const DOW = ["Su","Mo","Tu","We","Th","Fr","Sa"];
 const PUSH = ["Bench Press","Incline Dumbbell Press","Machine Chest Press","Cable Fly","Shoulder Press","Lateral Raise","Rear Delt Fly","Tricep Pushdown","Overhead Tricep Extension","Dips","Push-ups","Plank"];
 const PULL = ["Deadlift","Lat Pulldown","Pull-ups","Barbell Row","Seated Cable Row","Single Arm Row","Face Pull","Barbell Curl","Hammer Curl","Preacher Curl","Shrugs","Farmer Walk"];
 const LEGS = ["Squat","Romanian Deadlift","Leg Press","Walking Lunges","Leg Extension","Hamstring Curl","Bulgarian Split Squat","Standing Calf Raise","Seated Calf Raise","Hip Thrust","Glute Bridge","Ab Wheel"];
+const LIBMAP: Record<string,string[]> = { Push:PUSH, Pull:PULL, Legs:LEGS };
+const SCHED: Record<number,string> = { 0:"Recovery", 1:"Push", 2:"Pull", 3:"Legs", 4:"Push", 5:"Pull", 6:"Legs" };
 
 /* ---------- chart helpers ---------- */
 const COLORS = ["#3B82F6","#10B981","#F59E0B","#A855F7","#EC4899","#06B6D4","#8B5CF6"];
@@ -148,16 +150,18 @@ function WorkoutPage({ type, list, refresh }: { type:string; list:string[]; refr
   const volume = list.reduce((a,ex)=>{ const r=rows[ex]||{}; return a + (+r.sets||0)*(+r.reps||0)*(+r.weight||0); },0);
   const doneCount = list.filter(ex=> (rows[ex]||{}).done).length;
   const pct = Math.round(doneCount/list.length*100);
-  const estCal = Math.round((+dur||0) * 6);
+  const totalSets = list.reduce((a,ex)=>a+(+(rows[ex]||{}).sets||0),0);
+  const estDur = (+dur||0)>0 ? (+dur) : totalSets*3;  // ~3 min per set incl. rest
+  const estCal = Math.round(5 * curWeight() * estDur/60);  // MET 5 for weight training
   const [saving, setSaving] = useState(false);
   const saveWorkout = async () => {
     const exercises = list.map(ex=>({ name:ex, ...(rows[ex]||{}) })).filter(e=> e.sets||e.reps||e.weight||e.done);
     if (!exercises.length) { alert("Log at least one exercise."); return; }
     setSaving(true);
     let calories = estCal;
-    if ((+dur||0) > 0 || volume > 0) { const ai = await aiCalories({ kind:"strength", duration:+dur||0, volume, weightKg:curWeight() }); if (ai) calories = ai; }
+    if (estDur > 0 || volume > 0) { const ai = await aiCalories({ kind:"strength", duration:estDur, volume, weightKg:curWeight() }); if (ai) calories = ai; }
     const all = LS("pos_workouts", []);
-    all.unshift({ id:uid(), date:today(), type, duration:+dur||0, notes, exercises, volume, calories, completion:pct });
+    all.unshift({ id:uid(), date:today(), type, duration:estDur, notes, exercises, volume, calories, completion:pct });
     SS("pos_workouts", all);
     SS(draftKey, {}); SS(draftKey+"_dur",""); SS(draftKey+"_notes","");
     setRows({}); setDur(""); setNotes(""); setSaving(false); refresh();
@@ -193,6 +197,26 @@ function WorkoutPage({ type, list, refresh }: { type:string; list:string[]; refr
       <ul className="list">{LS("pos_workouts",[]).filter((w:any)=>w.type===type).slice(0,6).map((w:any)=><li className="li" key={w.id}><span className="dot" style={{background:"var(--blue)"}}/><div style={{flex:1}} className="between"><span>{w.date}</span><span className="muted">{w.volume}kg · {w.completion}% · {w.calories}kcal</span></div></li>)}
       {!LS("pos_workouts",[]).filter((w:any)=>w.type===type).length && <li className="muted" style={{padding:"8px 0"}}>No saved sessions yet.</li>}</ul>
     </div>
+  </>;
+}
+
+/* ---------- today's workout (day chooser) ---------- */
+function TodayWorkout({ refresh }: { refresh:()=>void }) {
+  const suggestion = SCHED[new Date().getDay()];
+  const [type, setType] = useState(suggestion==="Recovery" ? "Push" : suggestion);
+  return <>
+    <div className="card" style={{marginBottom:16}}>
+      <div className="between" style={{flexWrap:"wrap",gap:12}}>
+        <div>
+          <strong>{new Date().toLocaleDateString(undefined,{weekday:"long",day:"numeric",month:"long"})}</strong>
+          <div className="muted" style={{fontSize:12,marginTop:2}}>Scheduled today: <b style={{color:"#E7ECF3"}}>{suggestion}</b>{suggestion==="Recovery"?" (rest / mobility / walk)":""} — choose your session:</div>
+        </div>
+        <div className="row" style={{gap:8}}>
+          {["Push","Pull","Legs"].map(t=><button key={t} className={"btn "+(type===t?"":"ghost")+" sm"} onClick={()=>setType(t)}>{t==="Push"?"🟦":t==="Pull"?"🟪":"🟩"} {t}</button>)}
+        </div>
+      </div>
+    </div>
+    <WorkoutPage key={type} type={type} list={LIBMAP[type]} refresh={refresh}/>
   </>;
 }
 
@@ -272,8 +296,8 @@ export default function Fitness() {
   const [tab, setTab] = useState("overview");
   const [, setT] = useState(0); const refresh = () => setT(x=>x+1);
   const TABS: [string,string,string][] = [
-    ["overview","Overview","📊"],["walk","Morning Walk","🚶"],["push","Push","🟦"],["pull","Pull","🟪"],
-    ["leg","Leg","🟩"],["weight","Weight","⚖️"],["cardio","Cardio","🏃"],["analytics","Analytics","📈"],
+    ["overview","Overview","📊"],["workout","Today's Workout","🏋️"],["walk","Morning Walk","🚶"],
+    ["weight","Weight","⚖️"],["cardio","Cardio","🏃"],["analytics","Analytics","📈"],
   ];
   return <>
     <div className="row" style={{flexWrap:"wrap",gap:8,marginBottom:18}}>
@@ -283,9 +307,7 @@ export default function Fitness() {
     {tab==="walk" && <Tracker refresh={refresh} aiCal="walking" storeKey="pos_walks" title="Morning Walk Tracker" icon="🚶"
       fields={[{k:"date",label:"Date",type:"date"},{k:"steps",label:"Steps"},{k:"distance",label:"Distance km"},{k:"cal",label:"Calories (watch)"},{k:"activeMin",label:"Active Min"},{k:"duration",label:"Duration min"},{k:"pace",label:"Avg Pace",type:"text"},{k:"notes",label:"Notes",type:"text"}]}
       charts={[{title:"Daily Steps (7d)",field:"steps",kind:"bar",color:"#10B981"},{title:"Monthly Steps (30d)",field:"steps",kind:"bar",color:"#10B981"},{title:"Calories Burned (7d)",field:"cal",kind:"bar",color:"#F59E0B"},{title:"Active Minutes (7d)",field:"activeMin",kind:"bar",color:"#3B82F6"},{title:"Distance Walked (7d)",field:"distance",kind:"line",color:"#06B6D4"}]}/>}
-    {tab==="push" && <WorkoutPage type="Push" list={PUSH} refresh={refresh}/>}
-    {tab==="pull" && <WorkoutPage type="Pull" list={PULL} refresh={refresh}/>}
-    {tab==="leg" && <WorkoutPage type="Legs" list={LEGS} refresh={refresh}/>}
+    {tab==="workout" && <TodayWorkout refresh={refresh}/>}
     {tab==="weight" && <Tracker refresh={refresh} storeKey="pos_weightlog" title="Weight Tracker" icon="⚖️"
       fields={[{k:"date",label:"Date",type:"date"},{k:"weight",label:"Morning Weight kg"},{k:"bodyfat",label:"Body Fat %",optional:true},{k:"muscle",label:"Muscle %",optional:true},{k:"bmi",label:"BMI",optional:true},{k:"waist",label:"Waist",optional:true},{k:"chest",label:"Chest",optional:true},{k:"arms",label:"Arms",optional:true},{k:"thigh",label:"Thigh",optional:true},{k:"notes",label:"Notes",type:"text"}]}
       charts={[{title:"Daily Weight (30d)",field:"weight",kind:"line",color:"#06B6D4"},{title:"Body Fat % (30d)",field:"bodyfat",kind:"line",color:"#F59E0B"}]}/>}
