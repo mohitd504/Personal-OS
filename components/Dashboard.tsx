@@ -240,6 +240,12 @@ function nutTotals(d:string){const n=loadNut(d);const t={cal:0,protein:0,carbs:0
 function Nutrition({ sett, refresh, tick }: any) {
   const n=loadNut(today()); const t=nutTotals(today());
   const [busy,setBusy]=useState(false);
+  const [paste,setPaste]=useState("");
+  const importPaste=()=>{ const text=paste; if(!text.trim())return;
+    const num=(re:RegExp)=>{const m=text.match(re);return m?parseFloat(m[1]):0;};
+    const macro={ cal:Math.round(num(/calor\w*[^0-9-]*([\d.]+)/i)), protein:Math.round(num(/protein[^0-9-]*([\d.]+)/i)), carbs:Math.round(num(/carb\w*[^0-9-]*([\d.]+)/i)), fat:Math.round(num(/\bfat[^0-9-]*([\d.]+)/i)), fiber:Math.round(num(/fib\w*[^0-9-]*([\d.]+)/i)) };
+    if(!(macro.cal||macro.protein||macro.carbs||macro.fat||macro.fiber)){ alert("Couldn't find nutrition numbers in the pasted text."); return; }
+    const m=loadNut(today()); m.meals.push({name:"Pasted total", ...macro}); SS(nutKey(today()),m); setPaste(""); refresh(); };
   const add=async()=>{ const el=(id:string)=>(document.getElementById(id) as HTMLInputElement); const name=el("nName").value.trim(); if(!name)return;
     let cal=+el("nCal").value||0; let p=+el("nP").value||0,c=+el("nC").value||0,f=+el("nF").value||0,fb=+el("nFb").value||0;
     if(!(cal||p||c||f||fb)){
@@ -268,6 +274,10 @@ function Nutrition({ sett, refresh, tick }: any) {
         <div className="row" style={{marginTop:12}}><button className="btn ghost sm" onClick={()=>water(-0.25)}>−250ml</button><button className="btn sm" onClick={()=>water(0.25)}>+250ml</button></div>
         <div style={{marginTop:14}} className="muted">Fiber {t.fiber}g</div><Bar v={t.fiber} goal={30} color="var(--emerald)"/>
       </div>
+    </div>
+    <div className="card" style={{marginTop:16}}><div className="between"><strong>📋 Paste &amp; Import</strong><span className="muted" style={{fontSize:12}}>paste a totals table or log</span></div>
+      <textarea className="in" value={paste} onChange={e=>setPaste(e.target.value)} placeholder={"Paste like:\nCalories ~837 kcal\nProtein ~55.6 g\nCarbohydrates ~134.3 g\nFat ~10.4 g\nFiber ~21.5 g"} style={{width:"100%",minHeight:120,marginTop:8}}/>
+      <div style={{marginTop:8}}><button className="btn" onClick={importPaste}>Read &amp; add to today</button></div>
     </div>
     <div className="grid g2" style={{marginTop:16}}>
       <PieCard title="Macro split (today)" data={[{name:"Protein",value:t.protein},{name:"Carbs",value:t.carbs},{name:"Fat",value:t.fat}]}/>
