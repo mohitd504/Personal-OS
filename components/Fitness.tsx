@@ -54,7 +54,7 @@ function byDay(store: string, field: string, n: number) {
   return out;
 }
 function sumRange(store: string, field: string, n: number) { return byDay(store, field, n).reduce((a,x)=>a+x.value,0); }
-function curWeight(){ const wl=LS("pos_weightlog",[]); if(wl.length&&+wl[0].weight) return +wl[0].weight; const w2=LS("pos_weight",[]); if(w2.length&&w2[w2.length-1].kg) return +w2[w2.length-1].kg; try{ const s=LS("pos_settings",{}); if(s&&+s.weightGoal) {} }catch(e){} return 96; }
+function curWeight(){ const wl=LS("pos_weightlog",[]); if(wl.length&&+wl[0].weight) return +wl[0].weight; const w2=LS("pos_weight",[]); if(w2.length&&w2[w2.length-1].kg) return +w2[w2.length-1].kg; return 97; }
 async function aiCalories(payload:any){ try{ const r=await fetch("/api/exercise",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)}); const d=await r.json(); return +d.cal||0; }catch(e){ return 0; } }
 
 /* ---------- CSV export ---------- */
