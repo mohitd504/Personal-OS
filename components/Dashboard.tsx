@@ -23,7 +23,9 @@ export default function Dashboard({ onSignOut, name }: { onSignOut: ()=>void; na
   const [clock, setClock] = useState("");
   const [sett, setSett] = useState<Sett>(DEF_SETT);
   const [tick, setTick] = useState(0);
+  const [selDate, setSelDate] = useState(today());
   const refresh = () => setTick(t => t + 1);
+  const shiftDate = (n:number) => { const d=new Date(selDate); d.setDate(d.getDate()+n); const nd=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; if(nd<=today()) setSelDate(nd); };
 
   useEffect(() => { setSett({ ...DEF_SETT, ...LS("pos_settings", {}), name }); }, [name]);
   useEffect(() => {
@@ -49,16 +51,22 @@ export default function Dashboard({ onSignOut, name }: { onSignOut: ()=>void; na
       <div className="main">
         <div className="topbar">
           <strong style={{ textTransform:"capitalize" }}>{view === "home" ? "Dashboard" : view}</strong>
-          <div className="row">
+          <div className="row" style={{gap:6,flexWrap:"wrap"}}>
+            {["home","nutrition","study"].includes(view) && <>
+              <button className="btn ghost sm" onClick={()=>shiftDate(-1)}>‹</button>
+              <input className="in" type="date" value={selDate} max={today()} onChange={e=>setSelDate(e.target.value)} style={{width:150}}/>
+              <button className="btn ghost sm" onClick={()=>shiftDate(1)} disabled={selDate>=today()}>›</button>
+              <button className="btn ghost sm" onClick={()=>setSelDate(today())}>Today</button>
+            </>}
             <span className="in" style={{ padding:"6px 12px" }}>{clock}</span>
           </div>
         </div>
         <div className="content">
-          {view==="home" && <Home sett={sett} tick={tick} />}
+          {view==="home" && <Home sett={sett} tick={tick} date={selDate} />}
           {view==="health" && <Health sett={sett} refresh={refresh} tick={tick} />}
           {view==="exercise" && <Fitness />}
-          {view==="nutrition" && <Nutrition sett={sett} refresh={refresh} tick={tick} />}
-          {view==="study" && <Study refresh={refresh} tick={tick} />}
+          {view==="nutrition" && <Nutrition sett={sett} refresh={refresh} tick={tick} date={selDate} />}
+          {view==="study" && <Study refresh={refresh} tick={tick} date={selDate} />}
           {view==="gmail" && <Gmail />}
           {view==="calendar" && <Calendar sett={sett} tick={tick} />}
           {view==="goals" && <Goals sett={sett} tick={tick} />}
@@ -113,13 +121,15 @@ function LineCard({ title, data, color }: { title:string; data:{name:string;valu
 }
 
 /* ---------- HOME ---------- */
-function Home({ sett, tick }: any) {
+function Home({ sett, tick, date }: any) {
+  const D = date || today(); const viewing = D !== today();
   const w = LS("pos_weight", [{date:today(),kg:96}]); const cur = w[w.length-1].kg;
-  const nt = nutTotals(today()); const st = studyTotal(today());
-  const start = new Date(sett.planStart); const dayNo = Math.max(1, Math.floor((Date.now()-start.getTime())/86400000)+1);
+  const nt = nutTotals(D); const st = studyTotal(D);
+  const start = new Date(sett.planStart); const dayNo = Math.max(1, Math.floor((new Date(D).getTime()-start.getTime())/86400000)+1);
   const h = new Date().getHours(); const greet = h<12?"Good morning":h<18?"Good afternoon":"Good evening";
+  const pretty = new Date(D).toLocaleDateString(undefined,{weekday:"long",month:"long",day:"numeric"});
   return <>
-    <Head t={`${greet}, ${sett.name}`} p={`${new Date().toLocaleDateString(undefined,{weekday:"long",month:"long",day:"numeric"})} · Day ${dayNo} of your ${sett.planDays}-day plan`} />
+    <Head t={viewing? `Dashboard — ${pretty}` : `${greet}, ${sett.name}`} p={viewing? `📅 Viewing a past day · Day ${dayNo} of your ${sett.planDays}-day plan` : `${pretty} · Day ${dayNo} of your ${sett.planDays}-day plan`} />
     <div className="card" style={{marginBottom:16,background:"linear-gradient(120deg,rgba(99,102,241,.18),rgba(16,185,129,.10))"}}>
       <div className="between"><div className="row"><span style={{fontSize:20}}>🚀</span><strong>Today&apos;s Mission</strong></div><span className="in" style={{padding:"4px 10px"}}>{PPL[new Date().getDay()]} Day</span></div>
       <p style={{marginBottom:0,lineHeight:1.55}}>Train {PPL[new Date().getDay()]} (~55 min), hit {sett.proteinGoal}g protein (now {nt.protein}g), study across AI/DevOps/System Design, and clear your inbox before deep work.</p>
@@ -137,7 +147,7 @@ function Home({ sett, tick }: any) {
     </div>
     <div className="grid g2" style={{marginTop:16}}>
       <BarCard title="Calories — last 7 days" color="#F59E0B" data={last7().map(x=>({name:x.name,value:nutTotals(x.ds).cal}))}/>
-      <PieCard title="Study split (today)" data={[{name:"AI",value:studyByK("ai")},{name:"DevOps",value:studyByK("devops")},{name:"System",value:studyByK("system")}]}/>
+      <PieCard title="Study split" data={[{name:"AI",value:loadStudy(D).ai||0},{name:"DevOps",value:loadStudy(D).devops||0},{name:"System",value:loadStudy(D).system||0}]}/>
     </div>
   </>;
 }
@@ -237,15 +247,15 @@ function volType(t:string){ let s=0; LS("pos_workouts",[]).forEach((w:any)=>{ if
 function nutKey(d:string){return "pos_nutri_"+d;}
 function loadNut(d:string){return LS(nutKey(d),{meals:[],water:0});}
 function nutTotals(d:string){const n=loadNut(d);const t={cal:0,protein:0,carbs:0,fat:0,fiber:0};n.meals.forEach((m:any)=>{t.cal+=m.cal||0;t.protein+=m.protein||0;t.carbs+=m.carbs||0;t.fat+=m.fat||0;t.fiber+=m.fiber||0;});return t;}
-function Nutrition({ sett, refresh, tick }: any) {
-  const n=loadNut(today()); const t=nutTotals(today());
+function Nutrition({ sett, refresh, tick, date }: any) {
+  const D=date||today(); const n=loadNut(D); const t=nutTotals(D);
   const [busy,setBusy]=useState(false);
   const [paste,setPaste]=useState("");
   const importPaste=()=>{ const text=paste; if(!text.trim())return;
     const num=(re:RegExp)=>{const m=text.match(re);return m?parseFloat(m[1]):0;};
     const macro={ cal:Math.round(num(/calor\w*[^0-9-]*([\d.]+)/i)), protein:Math.round(num(/protein[^0-9-]*([\d.]+)/i)), carbs:Math.round(num(/carb\w*[^0-9-]*([\d.]+)/i)), fat:Math.round(num(/\bfat[^0-9-]*([\d.]+)/i)), fiber:Math.round(num(/fib\w*[^0-9-]*([\d.]+)/i)) };
     if(!(macro.cal||macro.protein||macro.carbs||macro.fat||macro.fiber)){ alert("Couldn't find nutrition numbers in the pasted text."); return; }
-    const m=loadNut(today()); m.meals.push({name:"Pasted total", ...macro}); SS(nutKey(today()),m); setPaste(""); refresh(); };
+    const m=loadNut(D); m.meals.push({name:"Pasted total", ...macro}); SS(nutKey(D),m); setPaste(""); refresh(); };
   const add=async()=>{ const el=(id:string)=>(document.getElementById(id) as HTMLInputElement); const name=el("nName").value.trim(); if(!name)return;
     let cal=+el("nCal").value||0; let p=+el("nP").value||0,c=+el("nC").value||0,f=+el("nF").value||0,fb=+el("nFb").value||0;
     if(!(cal||p||c||f||fb)){
@@ -253,10 +263,10 @@ function Nutrition({ sett, refresh, tick }: any) {
       try{ const r=await fetch("/api/nutrition",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({food:name})}); const d=await r.json(); cal=d.cal||0;p=d.protein||0;c=d.carbs||0;f=d.fat||0;fb=d.fiber||0; }catch(e){}
       setBusy(false);
     } else if(!cal){ cal=Math.round(p*4+c*4+f*9); }
-    const m=loadNut(today()); m.meals.push({name,cal,protein:p,carbs:c,fat:f,fiber:fb}); SS(nutKey(today()),m);
+    const m=loadNut(D); m.meals.push({name,cal,protein:p,carbs:c,fat:f,fiber:fb}); SS(nutKey(D),m);
     ["nName","nCal","nP","nC","nF","nFb"].forEach(i=>el(i).value=""); refresh(); };
-  const del=(i:number)=>{ const m=loadNut(today()); m.meals.splice(i,1); SS(nutKey(today()),m); refresh(); };
-  const water=(d:number)=>{ const m=loadNut(today()); m.water=Math.max(0,Math.round((m.water+d)*100)/100); SS(nutKey(today()),m); refresh(); };
+  const del=(i:number)=>{ const m=loadNut(D); m.meals.splice(i,1); SS(nutKey(D),m); refresh(); };
+  const water=(d:number)=>{ const m=loadNut(D); m.water=Math.max(0,Math.round((m.water+d)*100)/100); SS(nutKey(D),m); refresh(); };
   const R=(lbl:string,v:number,g:number,color:string,u:string)=><div className="card"><div className="between"><div className="lbl muted">{lbl}</div></div><div className="val" style={{fontSize:24,fontWeight:760,marginTop:6}}>{v}<small className="muted"> /{g}{u}</small></div><Bar v={v} goal={g} color={color}/></div>;
   return <>
     <Head t="Nutrition" p="Log every macro yourself" />
@@ -293,14 +303,14 @@ function studyTotal(d:string){const s=loadStudy(d);return Object.keys(s).reduce(
 function fmt(m:number){m=Math.round(m||0);return Math.floor(m/60)+"h "+(m%60)+"m";}
 function streak(){let n=0;const d=new Date();for(;;){const ds=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;if(studyTotal(ds)>0){n++;d.setDate(d.getDate()-1);}else break;if(n>400)break;}return n;}
 const SUBJ=[{k:"ai",label:"Artificial Intelligence"},{k:"devops",label:"DevOps"},{k:"system",label:"System Design"}];
-function Study({ refresh, tick }: any) {
-  const s=loadStudy(today()); const weekend=[0,6].includes(new Date().getDay()); const goal=weekend?300:240;
-  const log=(k:string,v:number)=>{ if(!(v>0))return; const d=loadStudy(today()); d[k]=(d[k]||0)+v; SS(studyKey(today()),d); refresh(); };
+function Study({ refresh, tick, date }: any) {
+  const D=date||today(); const s=loadStudy(D); const weekend=[0,6].includes(new Date(D).getDay()); const goal=weekend?300:240;
+  const log=(k:string,v:number)=>{ if(!(v>0))return; const d=loadStudy(D); d[k]=(d[k]||0)+v; SS(studyKey(D),d); refresh(); };
   const cur=LS("pos_curriculum",seedCurr()); if(!LS("pos_curriculum",null)) SS("pos_curriculum",cur);
   return <>
     <Head t="Study" p="AI · DevOps · System Design" />
     <div className="grid g3">
-      <Kpi lbl="Study Today" ic="⏱️" tint="purple" val={fmt(studyTotal(today()))} sub={`Goal ${goal}m`} />
+      <Kpi lbl="Study" ic="⏱️" tint="purple" val={fmt(studyTotal(D))} sub={`Goal ${goal}m`} />
       <Kpi lbl="Streak" ic="🔥" tint="orange" val={streak()} unit="days" />
       <Kpi lbl="This Week" ic="📅" tint="blue" val={fmt(weekStudy())} sub={weekend?"~34h target":"~28h target"} />
     </div>
