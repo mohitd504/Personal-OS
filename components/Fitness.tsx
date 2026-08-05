@@ -186,66 +186,93 @@ function Tracker({ storeKey, title, icon, fields, charts, refresh, aiCal }:
 }
 
 /* ---------- workout page (Push / Pull / Leg) ---------- */
-function lastWeight(type:string, ex:string){ const hist=LS("pos_workouts",[]).filter((w:any)=>w.type===type); for(const w of hist){ const e=(w.exercises||[]).find((x:any)=>x.name===ex); if(e&&e.weight) return e.weight; } return null; }
+function lastWeight(type:string, ex:string){ const hist=LS("pos_workouts",[]).filter((w:any)=>w.type===type); for(const w of hist){ const e=(w.exercises||[]).find((x:any)=>x.name===ex); if(e){ if(e.topWeight) return e.topWeight; if(e.sets&&e.sets.length){ const m=Math.max(0,...e.sets.map((s:any)=>+s.w||0)); if(m) return m; } if(e.weight) return e.weight; } } return null; }
 function WorkoutPage({ type, list, refresh }: { type:string; list:string[]; refresh:()=>void }) {
   const draftKey = "pos_wdraft_"+type;
   const [rows, setRows] = useState<any>(LS(draftKey, {}));
   const [openEx, setOpenEx] = useState<string|null>(null);
   const [dur, setDur] = useState<any>(LS(draftKey+"_dur", ""));
   const [notes, setNotes] = useState<any>(LS(draftKey+"_notes", ""));
-  const upd = (ex:string, f:string, v:any) => { const n = { ...rows, [ex]: { ...(rows[ex]||{}), [f]: v } }; setRows(n); SS(draftKey, n); };
-  const volume = list.reduce((a,ex)=>{ const r=rows[ex]||{}; return a + (+r.sets||0)*(+r.reps||0)*(+r.weight||0); },0);
-  const doneCount = list.filter(ex=> (rows[ex]||{}).done).length;
-  const pct = Math.round(doneCount/list.length*100);
-  const totalSets = list.reduce((a,ex)=>a+(+(rows[ex]||{}).sets||0),0);
-  const estDur = (+dur||0)>0 ? (+dur) : totalSets*3;  // ~3 min per set incl. rest
-  const estCal = Math.round(5 * curWeight() * estDur/60);  // MET 5 for weight training
   const [saving, setSaving] = useState(false);
-  const saveWorkout = async () => {
-    const exercises = list.map(ex=>({ name:ex, ...(rows[ex]||{}) })).filter(e=> e.sets||e.reps||e.weight||e.done);
-    if (!exercises.length) { alert("Log at least one exercise."); return; }
-    setSaving(true);
-    let calories = estCal;
-    if (estDur > 0 || volume > 0) { const ai = await aiCalories({ kind:"strength", duration:estDur, volume, weightKg:curWeight() }); if (ai) calories = ai; }
+  const getEx = (ex:string) => rows[ex] || { sets:[{w:"",r:""}], rpe:"", rest:"", notes:"", done:false };
+  const saveRows = (n:any) => { setRows(n); SS(draftKey, n); };
+  const setEx = (ex:string, patch:any) => saveRows({ ...rows, [ex]: { ...getEx(ex), ...patch } });
+  const addSet = (ex:string) => { const e=getEx(ex); setEx(ex, { sets:[...(e.sets||[]), {w:"",r:""}] }); };
+  const updSet = (ex:string,i:number,f:string,v:any) => { const e=getEx(ex); const sets=(e.sets||[]).slice(); sets[i]={...sets[i],[f]:v}; setEx(ex,{sets}); };
+  const delSet = (ex:string,i:number) => { const e=getEx(ex); const sets=(e.sets||[]).slice(); sets.splice(i,1); if(!sets.length) sets.push({w:"",r:""}); setEx(ex,{sets}); };
+  const exSets = (ex:string) => (getEx(ex).sets||[]).filter((s:any)=>s.w||s.r);
+  const exVolume = (ex:string) => (getEx(ex).sets||[]).reduce((a:number,s:any)=>a+(+s.w||0)*(+s.r||0),0);
+  const totalVolume = list.reduce((a,ex)=>a+exVolume(ex),0);
+  const totalSets = list.reduce((a,ex)=>a+exSets(ex).length,0);
+  const pct = Math.round(list.filter(ex=>getEx(ex).done).length/list.length*100);
+  const estDur = (+dur||0)>0 ? (+dur) : totalSets*3;
+  const estCal = Math.round(5 * curWeight() * estDur/60);
+
+  const commit = async (finish:boolean) => {
+    const draft = LS(draftKey, {});
+    const exercises = list.filter(ex=>{ const e=draft[ex]||{}; return e.done || (e.sets||[]).some((s:any)=>s.w||s.r); }).map(ex=>{ const e=draft[ex]||{}; const sets=(e.sets||[]).filter((s:any)=>s.w||s.r); return { name:ex, sets, setCount:sets.length, reps:sets.reduce((a:number,s:any)=>a+(+s.r||0),0), topWeight:sets.length?Math.max(0,...sets.map((s:any)=>+s.w||0)):0, rpe:e.rpe||"", rest:e.rest||"", notes:e.notes||"", done:!!e.done, volume:sets.reduce((a:number,s:any)=>a+(+s.w||0)*(+s.r||0),0) }; });
+    if (!exercises.length) { if(finish) alert("Log at least one set first."); return; }
+    const vol = exercises.reduce((a:number,e:any)=>a+(e.volume||0),0);
+    const setsN = exercises.reduce((a:number,e:any)=>a+e.setCount,0);
+    const completion = Math.round(exercises.filter((e:any)=>e.done).length/list.length*100);
+    const eDur = (+dur||0)>0?(+dur):setsN*3;
+    let calories = Math.round(5*curWeight()*eDur/60);
+    if (finish) { setSaving(true); const ai=await aiCalories({kind:"strength",duration:eDur,volume:vol,weightKg:curWeight()}); if(ai) calories=ai; setSaving(false); }
     const all = LS("pos_workouts", []);
-    all.unshift({ id:uid(), date:today(), type, duration:estDur, notes, exercises, volume, calories, completion:pct });
-    SS("pos_workouts", all);
-    SS(draftKey, {}); SS(draftKey+"_dur",""); SS(draftKey+"_notes","");
-    setRows({}); setDur(""); setNotes(""); setSaving(false); refresh();
-    alert(type+" workout saved ✔  (~"+calories+" kcal)");
+    const idx = all.findIndex((w:any)=>w.date===today()&&w.type===type);
+    const rec = { id: idx>=0?all[idx].id:uid(), date:today(), type, duration:eDur, notes, exercises, volume:vol, calories, completion };
+    if (idx>=0) all[idx]=rec; else all.unshift(rec);
+    SS("pos_workouts", all); refresh();
+    if (finish) alert(type+" workout saved ✔  (~"+calories+" kcal)");
   };
+  const submitEx = (ex:string) => { const e=getEx(ex); const n={ ...rows, [ex]: { ...e, done: !e.done } }; setRows(n); SS(draftKey, n); commit(false); };
+
   const color = type==="Push"?"🟦":type==="Pull"?"🟪":"🟩";
   return <>
-    <div className="head"><h1>{color} {type} Day</h1><p>Log sets, reps, weight, RPE — saved so you can track progressive overload.</p></div>
-    <div className="card"><div style={{overflowX:"auto"}}><table style={{width:"100%",borderCollapse:"collapse",minWidth:860}}>
-      <thead><tr>{["Exercise","Sets","Reps","Weight","RPE","Rest s","Done","Notes"].map(h=><th key={h} style={{textAlign:"left",fontSize:11,textTransform:"uppercase",color:"#5b6577",padding:"10px 8px",borderBottom:"1px solid rgba(255,255,255,.09)"}}>{h}</th>)}</tr></thead>
-      <tbody>{list.map(ex=>{ const r=rows[ex]||{}; const lw=lastWeight(type,ex); const done=!!r.done; return <Fragment key={ex}><tr style={{borderBottom:"1px solid rgba(255,255,255,.06)",background:done?"rgba(16,185,129,.06)":"transparent"}}>
-        <td style={{padding:"12px 8px"}}>
+    <div className="head"><h1>{color} {type} Day</h1><p>Log the weight &amp; reps for every set, then submit each exercise as you finish it.</p></div>
+    {list.map(ex=>{ const e=getEx(ex); const sets=(e.sets&&e.sets.length)?e.sets:[{w:"",r:""}]; const lw=lastWeight(type,ex); return (
+      <div className="card" key={ex} style={{marginBottom:14, borderColor: e.done?"rgba(16,185,129,.45)":undefined}}>
+        <div className="between" style={{flexWrap:"wrap",gap:10}}>
           <div style={{display:"flex",alignItems:"center",gap:12}}>
             <div style={{width:46,height:46,borderRadius:12,flex:"0 0 46px",display:"flex",alignItems:"center",justifyContent:"center",fontSize:24,background:"linear-gradient(135deg,rgba(59,130,246,.22),rgba(168,85,247,.18))",border:"1px solid rgba(255,255,255,.1)"}}>{exEmoji(ex)}</div>
-            <div><div style={{fontSize:15,fontWeight:600}}>{ex}</div>
+            <div><div style={{fontSize:16,fontWeight:650}}>{ex}</div>
               <div className="row" style={{gap:10,marginTop:3}}>{lw?<span className="muted" style={{fontSize:11}}>last {lw}kg</span>:null}<a href={demoLink(ex)} target="_blank" rel="noopener" style={{fontSize:11,color:"#7dd3fc",textDecoration:"none"}}>📺 Demo</a><span onClick={()=>setOpenEx(openEx===ex?null:ex)} style={{fontSize:11,color:"#a5b4fc",cursor:"pointer"}}>ⓘ How to</span></div>
             </div>
           </div>
-        </td>
-        <td style={{padding:"10px 8px"}}><input className="in" type="number" value={r.sets??""} onChange={e=>upd(ex,"sets",e.target.value)} style={{width:66,fontSize:14}}/></td>
-        <td style={{padding:"10px 8px"}}><input className="in" type="number" value={r.reps??""} onChange={e=>upd(ex,"reps",e.target.value)} style={{width:66,fontSize:14}}/></td>
-        <td style={{padding:"10px 8px"}}><input className="in" type="number" value={r.weight??""} onChange={e=>upd(ex,"weight",e.target.value)} style={{width:78,fontSize:14}}/></td>
-        <td style={{padding:"10px 8px"}}><input className="in" type="number" value={r.rpe??""} onChange={e=>upd(ex,"rpe",e.target.value)} style={{width:60,fontSize:14}}/></td>
-        <td style={{padding:"10px 8px"}}><input className="in" type="number" value={r.rest??""} onChange={e=>upd(ex,"rest",e.target.value)} style={{width:70,fontSize:14}}/></td>
-        <td style={{textAlign:"center",padding:"10px 8px"}}><input type="checkbox" checked={done} onChange={e=>upd(ex,"done",e.target.checked)} style={{width:20,height:20}}/></td>
-        <td style={{padding:"10px 8px"}}><input className="in" value={r.notes??""} onChange={e=>upd(ex,"notes",e.target.value)} style={{width:130}}/></td>
-      </tr>{openEx===ex && <tr><td colSpan={8} style={{padding:"0 8px 14px 66px",background:"rgba(255,255,255,.02)"}}><div className="muted" style={{fontSize:13,lineHeight:1.6}}><b style={{color:"#E7ECF3"}}>How to: </b>{HOWTO[ex]||"Perform with controlled form and a full range of motion."} <a href={demoLink(ex)} target="_blank" rel="noopener" style={{color:"#7dd3fc"}}>watch demo ›</a></div></td></tr>}</Fragment>; })}</tbody>
-    </table></div></div>
-    <div className="grid g4" style={{marginTop:16}}>
-      <div className="card kpi"><div className="lbl">Total Volume</div><div className="val">{volume}<small> kg</small></div></div>
+          {e.done && <span className="in" style={{padding:"4px 10px",color:"#6ee7b7",borderColor:"rgba(16,185,129,.4)"}}>✓ Done</span>}
+        </div>
+        {openEx===ex && <div className="muted" style={{fontSize:13,lineHeight:1.6,margin:"10px 0 0"}}><b style={{color:"#E7ECF3"}}>How to: </b>{HOWTO[ex]||"Perform with controlled form and a full range of motion."}</div>}
+        <table style={{width:"100%",borderCollapse:"collapse",marginTop:12}}>
+          <thead><tr>{["Set","Weight (kg)","Reps",""].map(h=><th key={h} style={{textAlign:"left",fontSize:10,textTransform:"uppercase",color:"#5b6577",padding:"6px"}}>{h}</th>)}</tr></thead>
+          <tbody>{sets.map((s:any,i:number)=><tr key={i}>
+            <td style={{padding:"6px",fontWeight:700,width:40,color:"#8A94A6"}}>{i+1}</td>
+            <td style={{padding:"6px"}}><input className="in" type="number" inputMode="decimal" value={s.w??""} onChange={ev=>updSet(ex,i,"w",ev.target.value)} style={{width:110,fontSize:15}}/></td>
+            <td style={{padding:"6px"}}><input className="in" type="number" inputMode="numeric" value={s.r??""} onChange={ev=>updSet(ex,i,"r",ev.target.value)} style={{width:110,fontSize:15}}/></td>
+            <td style={{padding:"6px"}}>{sets.length>1 && <span className="btn ghost sm" style={{cursor:"pointer"}} onClick={()=>delSet(ex,i)}>✕</span>}</td>
+          </tr>)}</tbody>
+        </table>
+        <div className="row" style={{gap:8,marginTop:10,flexWrap:"wrap"}}>
+          <button className="btn ghost sm" onClick={()=>addSet(ex)}>+ Add set</button>
+          <input className="in" type="number" placeholder="RPE" value={e.rpe??""} onChange={ev=>setEx(ex,{rpe:ev.target.value})} style={{width:78}}/>
+          <input className="in" type="number" placeholder="Rest s" value={e.rest??""} onChange={ev=>setEx(ex,{rest:ev.target.value})} style={{width:90}}/>
+          <input className="in" placeholder="Notes" value={e.notes??""} onChange={ev=>setEx(ex,{notes:ev.target.value})} style={{flex:1,minWidth:120}}/>
+        </div>
+        <div className="between" style={{marginTop:12,flexWrap:"wrap",gap:8}}>
+          <span className="muted" style={{fontSize:12}}>{exSets(ex).length} sets · {exVolume(ex)} kg volume</span>
+          <button className={"btn "+(e.done?"ghost ":"")+"sm"} onClick={()=>submitEx(ex)}>{e.done?"↺ Unmark":"✓ Submit exercise"}</button>
+        </div>
+      </div>
+    ); })}
+    <div className="grid g4" style={{marginTop:4}}>
+      <div className="card kpi"><div className="lbl">Total Volume</div><div className="val">{totalVolume}<small> kg</small></div></div>
       <div className="card kpi"><div className="lbl">Completion</div><div className="val">{pct}<small>%</small></div></div>
       <div className="card kpi"><div className="lbl">Est. Calories</div><div className="val">{estCal}<small> kcal</small></div></div>
       <div className="card kpi"><div className="lbl">Duration</div><input className="in" type="number" placeholder="min" value={dur} onChange={e=>{setDur(e.target.value);SS(draftKey+"_dur",e.target.value);}} style={{width:90,marginTop:6}}/></div>
     </div>
     <div className="card" style={{marginTop:16}}><strong>Workout notes</strong>
       <textarea className="in" value={notes} onChange={e=>{setNotes(e.target.value);SS(draftKey+"_notes",e.target.value);}} placeholder="How did it feel? PRs?" style={{width:"100%",minHeight:70,marginTop:8}}/>
-      <div style={{marginTop:10}}><button className="btn" onClick={saveWorkout} disabled={saving}>{saving?"🤖 Estimating calories…":"Save "+type+" workout"}</button></div>
+      <div style={{marginTop:10}}><button className="btn" onClick={()=>commit(true)} disabled={saving}>{saving?"🤖 Estimating calories…":"Finish & save "+type+" workout"}</button></div>
+      <div className="muted" style={{fontSize:11,marginTop:8}}>Each exercise you submit is saved to today&apos;s session automatically — &quot;Finish&quot; just refines the calorie estimate.</div>
     </div>
     <div className="card" style={{marginTop:16}}><strong>Recent {type} sessions</strong>
       <ul className="list">{LS("pos_workouts",[]).filter((w:any)=>w.type===type).slice(0,6).map((w:any)=><li className="li" key={w.id}><span className="dot" style={{background:"var(--blue)"}}/><div style={{flex:1}} className="between"><span>{w.date}</span><span className="muted">{w.volume}kg · {w.completion}% · {w.calories}kcal</span></div></li>)}
