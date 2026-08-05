@@ -1,5 +1,20 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, Component } from "react";
+
+class Boundary extends Component<{ children: any }, { err: any }> {
+  constructor(p: any) { super(p); this.state = { err: null }; }
+  static getDerivedStateFromError(err: any) { return { err }; }
+  render() {
+    if (this.state.err) return (
+      <div className="card" style={{ margin: 4 }}>
+        <strong>⚠️ This screen hit an error</strong>
+        <pre style={{ whiteSpace: "pre-wrap", fontSize: 12, color: "#f9a8d4", marginTop: 8 }}>{String(this.state.err?.message || this.state.err)}</pre>
+        <button className="btn ghost sm" onClick={() => this.setState({ err: null })}>Dismiss</button>
+      </div>
+    );
+    return this.props.children;
+  }
+}
 import { PieChart, Pie, Cell, BarChart, Bar as RBar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import Fitness from "@/components/Fitness";
 import SyncManager from "@/components/SyncManager";
@@ -61,10 +76,10 @@ export default function Dashboard({ onSignOut, name }: { onSignOut: ()=>void; na
               <button className="btn ghost sm" onClick={()=>setSelDate(today())}>Today</button>
             </>}
             <span className="in" style={{ padding:"6px 12px" }}>{clock}</span>
-            <span style={{ fontSize:10, color:"var(--mut2)" }} title="build marker — bump this to verify a deploy went live">build&nbsp;3</span>
+            <span style={{ fontSize:10, color:"var(--mut2)" }} title="build marker — bump this to verify a deploy went live">build&nbsp;4</span>
           </div>
         </div>
-        <div className="content">
+        <div className="content"><Boundary key={view}>
           {view==="home" && <Home sett={sett} tick={tick} date={selDate} />}
           {view==="health" && <Health sett={sett} refresh={refresh} tick={tick} />}
           {view==="exercise" && <Fitness />}
@@ -74,7 +89,7 @@ export default function Dashboard({ onSignOut, name }: { onSignOut: ()=>void; na
           {view==="calendar" && <Calendar sett={sett} tick={tick} />}
           {view==="goals" && <Goals sett={sett} tick={tick} />}
           {view==="settings" && <Settings sett={sett} save={saveSett} />}
-        </div>
+        </Boundary></div>
       </div>
     </div>
   );
