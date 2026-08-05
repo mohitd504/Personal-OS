@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, Fragment } from "react";
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 
 /* ---------- storage ---------- */
@@ -16,6 +16,52 @@ const PULL = ["Deadlift","Lat Pulldown","Pull-ups","Barbell Row","Seated Cable R
 const LEGS = ["Squat","Romanian Deadlift","Leg Press","Walking Lunges","Leg Extension","Hamstring Curl","Bulgarian Split Squat","Standing Calf Raise","Seated Calf Raise","Hip Thrust","Glute Bridge","Ab Wheel"];
 const LIBMAP: Record<string,string[]> = { Push:PUSH, Pull:PULL, Legs:LEGS };
 const SCHED: Record<number,string> = { 0:"Recovery", 1:"Push", 2:"Pull", 3:"Legs", 4:"Push", 5:"Pull", 6:"Legs" };
+function exEmoji(name:string){ const n=name.toLowerCase();
+  if(/(squat|lunge|leg press|leg extension|hip thrust|glute|calf|split squat)/.test(n)) return "🦵";
+  if(/curl/.test(n)) return "💪";
+  if(/(plank|ab wheel|crunch)/.test(n)) return "🧘";
+  if(/(pull-?up|chin|pulldown|lat)/.test(n)) return "🧗";
+  if(/(deadlift|row|shrug|farmer)/.test(n)) return "🏋️";
+  return "🏋️"; }
+function demoLink(name:string){ return "https://www.youtube.com/results?search_query="+encodeURIComponent(name+" proper form"); }
+const HOWTO: Record<string,string> = {
+  "Bench Press":"Lie flat, grip the bar slightly wider than shoulders. Unrack, lower the bar to mid-chest with elbows about 45°, then press up until arms lock. Keep shoulder blades pinched and feet planted.",
+  "Incline Dumbbell Press":"Set the bench to 30–45°. Start with dumbbells at shoulder level, press up and slightly together until arms extend, then lower slowly to feel the upper-chest stretch.",
+  "Machine Chest Press":"Sit with back flat and handles at chest height. Push forward until arms are straight, squeeze the chest, and return under control without letting the stack slam.",
+  "Cable Fly":"Set pulleys high, step forward with a slight lean and soft elbows. Bring the handles together in front of your chest in a hugging arc, squeeze, then control the stretch back.",
+  "Shoulder Press":"Seated or standing, start at shoulder height and press overhead without flaring the ribs. Lower back to ear level under control.",
+  "Lateral Raise":"Slight bend in the elbows, raise the dumbbells out to the sides to shoulder height leading with the elbows, then lower slowly. No swinging.",
+  "Rear Delt Fly":"Hinge at the hips, arms hanging. Raise the dumbbells out to the sides squeezing the rear delts, keep the neck neutral and elbows soft.",
+  "Tricep Pushdown":"Elbows pinned to your sides, push the bar/rope down until arms lock and squeeze the triceps, then return to 90° without letting elbows drift.",
+  "Overhead Tricep Extension":"Hold a weight overhead, keep elbows narrow, lower behind your head by bending the elbows, then extend back up.",
+  "Dips":"Support on parallel bars, lean slightly forward, lower until elbows reach ~90°, then press back up to lockout.",
+  "Push-ups":"Hands under shoulders, body in a straight line. Lower the chest toward the floor with elbows ~45°, then push back up bracing the core.",
+  "Plank":"Forearms under shoulders, body dead straight. Brace the core and glutes and hold — don't let the hips sag or pike.",
+  "Deadlift":"Bar over mid-foot, hinge and grip just outside the knees. Flat back, chest up — drive through the floor and stand tall locking the hips, then lower with control.",
+  "Lat Pulldown":"Grip wide, lean back slightly. Pull the bar to your upper chest driving the elbows down and squeezing the lats; control the bar back up.",
+  "Pull-ups":"Hang with a full stretch, pull your chest toward the bar by driving the elbows down and back, then lower all the way under control.",
+  "Barbell Row":"Hinge to ~45° with a flat back. Row the bar to your lower ribs squeezing the back, then lower controlled. Avoid jerking with the lower back.",
+  "Seated Cable Row":"Sit tall, pull the handle to your torso squeezing the shoulder blades together, then extend the arms without rounding the back.",
+  "Single Arm Row":"One knee and hand on the bench, back flat. Row the dumbbell to your hip squeezing the lat, then lower slowly for a full stretch.",
+  "Face Pull":"Set the rope at face height. Pull toward your face flaring the elbows out and squeezing the rear delts/upper back; control the return.",
+  "Barbell Curl":"Elbows at your sides, curl the bar up squeezing the biceps, then lower slowly. Keep the torso still — no swinging.",
+  "Hammer Curl":"Neutral grip (palms facing each other), curl the dumbbells up and lower under control. Great for biceps and forearms.",
+  "Preacher Curl":"Arms resting on the pad, curl the weight up fully, then lower slowly and control the stretch at the bottom.",
+  "Shrugs":"Hold the weights at your sides, elevate the shoulders straight up toward your ears, squeeze the traps, then lower fully.",
+  "Farmer Walk":"Hold heavy dumbbells at your sides, brace the core, stand tall and walk with controlled steps.",
+  "Squat":"Bar on upper back, feet shoulder-width. Sit down and back until thighs reach about parallel, then drive up through mid-foot keeping the chest up.",
+  "Romanian Deadlift":"Soft knees, push the hips back lowering the bar along your legs until you feel a hamstring stretch, then drive the hips forward to stand.",
+  "Leg Press":"Feet shoulder-width on the platform. Lower until knees reach ~90°, then press back without harshly locking the knees.",
+  "Walking Lunges":"Step forward and lower the back knee toward the floor, then push through the front heel to rise and step through. Keep the torso upright.",
+  "Leg Extension":"Extend your knees to straighten the legs and squeeze the quads at the top, then lower under control.",
+  "Hamstring Curl":"Curl the pad toward your glutes squeezing the hamstrings, then control the return without letting it drop.",
+  "Bulgarian Split Squat":"Rear foot on a bench, lower into the front leg until the thigh is about parallel, then drive up through the front heel.",
+  "Standing Calf Raise":"Rise onto your toes as high as possible squeezing the calves, then lower for a deep stretch. Full range each rep.",
+  "Seated Calf Raise":"Knees bent under the pad, raise the heels and squeeze the calves, then lower slowly for the stretch.",
+  "Hip Thrust":"Upper back on a bench, bar over the hips. Drive the hips up until the body is level, squeeze the glutes hard, then lower.",
+  "Glute Bridge":"Lie on the floor, feet flat. Drive the hips up squeezing the glutes, hold briefly, then lower under control.",
+  "Ab Wheel":"Kneel holding the wheel, brace the core and roll forward as far as you can control, then pull back — never let the lower back arch.",
+};
 
 /* ---------- chart helpers ---------- */
 const COLORS = ["#3B82F6","#10B981","#F59E0B","#A855F7","#EC4899","#06B6D4","#8B5CF6"];
@@ -144,6 +190,7 @@ function lastWeight(type:string, ex:string){ const hist=LS("pos_workouts",[]).fi
 function WorkoutPage({ type, list, refresh }: { type:string; list:string[]; refresh:()=>void }) {
   const draftKey = "pos_wdraft_"+type;
   const [rows, setRows] = useState<any>(LS(draftKey, {}));
+  const [openEx, setOpenEx] = useState<string|null>(null);
   const [dur, setDur] = useState<any>(LS(draftKey+"_dur", ""));
   const [notes, setNotes] = useState<any>(LS(draftKey+"_notes", ""));
   const upd = (ex:string, f:string, v:any) => { const n = { ...rows, [ex]: { ...(rows[ex]||{}), [f]: v } }; setRows(n); SS(draftKey, n); };
@@ -170,18 +217,25 @@ function WorkoutPage({ type, list, refresh }: { type:string; list:string[]; refr
   const color = type==="Push"?"🟦":type==="Pull"?"🟪":"🟩";
   return <>
     <div className="head"><h1>{color} {type} Day</h1><p>Log sets, reps, weight, RPE — saved so you can track progressive overload.</p></div>
-    <div className="card"><div style={{overflowX:"auto"}}><table style={{width:"100%",borderCollapse:"collapse",minWidth:760}}>
-      <thead><tr>{["Exercise","Sets","Reps","Weight","RPE","Rest s","Done","Notes"].map(h=><th key={h} style={{textAlign:"left",fontSize:10,textTransform:"uppercase",color:"#5b6577",padding:"8px 6px",borderBottom:"1px solid rgba(255,255,255,.09)"}}>{h}</th>)}</tr></thead>
-      <tbody>{list.map(ex=>{ const r=rows[ex]||{}; const lw=lastWeight(type,ex); return <tr key={ex} style={{borderBottom:"1px solid rgba(255,255,255,.05)"}}>
-        <td style={{padding:"7px 6px",fontSize:13}}>🏋️ {ex}{lw?<div className="muted" style={{fontSize:10}}>last: {lw}kg</div>:null}</td>
-        <td><input className="in" type="number" value={r.sets??""} onChange={e=>upd(ex,"sets",e.target.value)} style={{width:60}}/></td>
-        <td><input className="in" type="number" value={r.reps??""} onChange={e=>upd(ex,"reps",e.target.value)} style={{width:60}}/></td>
-        <td><input className="in" type="number" value={r.weight??""} onChange={e=>upd(ex,"weight",e.target.value)} style={{width:70}}/></td>
-        <td><input className="in" type="number" value={r.rpe??""} onChange={e=>upd(ex,"rpe",e.target.value)} style={{width:56}}/></td>
-        <td><input className="in" type="number" value={r.rest??""} onChange={e=>upd(ex,"rest",e.target.value)} style={{width:64}}/></td>
-        <td style={{textAlign:"center"}}><input type="checkbox" checked={!!r.done} onChange={e=>upd(ex,"done",e.target.checked)}/></td>
-        <td><input className="in" value={r.notes??""} onChange={e=>upd(ex,"notes",e.target.value)} style={{width:120}}/></td>
-      </tr>; })}</tbody>
+    <div className="card"><div style={{overflowX:"auto"}}><table style={{width:"100%",borderCollapse:"collapse",minWidth:860}}>
+      <thead><tr>{["Exercise","Sets","Reps","Weight","RPE","Rest s","Done","Notes"].map(h=><th key={h} style={{textAlign:"left",fontSize:11,textTransform:"uppercase",color:"#5b6577",padding:"10px 8px",borderBottom:"1px solid rgba(255,255,255,.09)"}}>{h}</th>)}</tr></thead>
+      <tbody>{list.map(ex=>{ const r=rows[ex]||{}; const lw=lastWeight(type,ex); const done=!!r.done; return <Fragment key={ex}><tr style={{borderBottom:"1px solid rgba(255,255,255,.06)",background:done?"rgba(16,185,129,.06)":"transparent"}}>
+        <td style={{padding:"12px 8px"}}>
+          <div style={{display:"flex",alignItems:"center",gap:12}}>
+            <div style={{width:46,height:46,borderRadius:12,flex:"0 0 46px",display:"flex",alignItems:"center",justifyContent:"center",fontSize:24,background:"linear-gradient(135deg,rgba(59,130,246,.22),rgba(168,85,247,.18))",border:"1px solid rgba(255,255,255,.1)"}}>{exEmoji(ex)}</div>
+            <div><div style={{fontSize:15,fontWeight:600}}>{ex}</div>
+              <div className="row" style={{gap:10,marginTop:3}}>{lw?<span className="muted" style={{fontSize:11}}>last {lw}kg</span>:null}<a href={demoLink(ex)} target="_blank" rel="noopener" style={{fontSize:11,color:"#7dd3fc",textDecoration:"none"}}>📺 Demo</a><span onClick={()=>setOpenEx(openEx===ex?null:ex)} style={{fontSize:11,color:"#a5b4fc",cursor:"pointer"}}>ⓘ How to</span></div>
+            </div>
+          </div>
+        </td>
+        <td style={{padding:"10px 8px"}}><input className="in" type="number" value={r.sets??""} onChange={e=>upd(ex,"sets",e.target.value)} style={{width:66,fontSize:14}}/></td>
+        <td style={{padding:"10px 8px"}}><input className="in" type="number" value={r.reps??""} onChange={e=>upd(ex,"reps",e.target.value)} style={{width:66,fontSize:14}}/></td>
+        <td style={{padding:"10px 8px"}}><input className="in" type="number" value={r.weight??""} onChange={e=>upd(ex,"weight",e.target.value)} style={{width:78,fontSize:14}}/></td>
+        <td style={{padding:"10px 8px"}}><input className="in" type="number" value={r.rpe??""} onChange={e=>upd(ex,"rpe",e.target.value)} style={{width:60,fontSize:14}}/></td>
+        <td style={{padding:"10px 8px"}}><input className="in" type="number" value={r.rest??""} onChange={e=>upd(ex,"rest",e.target.value)} style={{width:70,fontSize:14}}/></td>
+        <td style={{textAlign:"center",padding:"10px 8px"}}><input type="checkbox" checked={done} onChange={e=>upd(ex,"done",e.target.checked)} style={{width:20,height:20}}/></td>
+        <td style={{padding:"10px 8px"}}><input className="in" value={r.notes??""} onChange={e=>upd(ex,"notes",e.target.value)} style={{width:130}}/></td>
+      </tr>{openEx===ex && <tr><td colSpan={8} style={{padding:"0 8px 14px 66px",background:"rgba(255,255,255,.02)"}}><div className="muted" style={{fontSize:13,lineHeight:1.6}}><b style={{color:"#E7ECF3"}}>How to: </b>{HOWTO[ex]||"Perform with controlled form and a full range of motion."} <a href={demoLink(ex)} target="_blank" rel="noopener" style={{color:"#7dd3fc"}}>watch demo ›</a></div></td></tr>}</Fragment>; })}</tbody>
     </table></div></div>
     <div className="grid g4" style={{marginTop:16}}>
       <div className="card kpi"><div className="lbl">Total Volume</div><div className="val">{volume}<small> kg</small></div></div>
