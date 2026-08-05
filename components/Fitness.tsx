@@ -186,7 +186,7 @@ function Tracker({ storeKey, title, icon, fields, charts, refresh, aiCal }:
 }
 
 /* ---------- workout page (Push / Pull / Leg) ---------- */
-function lastWeight(type:string, ex:string){ const hist=LS("pos_workouts",[]).filter((w:any)=>w.type===type); for(const w of hist){ const e=(w.exercises||[]).find((x:any)=>x.name===ex); if(e){ if(e.topWeight) return e.topWeight; if(e.sets&&e.sets.length){ const m=Math.max(0,...e.sets.map((s:any)=>+s.w||0)); if(m) return m; } if(e.weight) return e.weight; } } return null; }
+function lastWeight(type:string, ex:string){ const hist=LS("pos_workouts",[]).filter((w:any)=>w.type===type); for(const w of hist){ const e=(w.exercises||[]).find((x:any)=>x.name===ex); if(e){ if(e.topWeight) return e.topWeight; if(Array.isArray(e.sets)&&e.sets.length){ const m=Math.max(0,...e.sets.map((s:any)=>+s.w||0)); if(m) return m; } if(e.weight) return e.weight; } } return null; }
 function WorkoutPage({ type, list, refresh }: { type:string; list:string[]; refresh:()=>void }) {
   const draftKey = "pos_wdraft_"+type;
   const [rows, setRows] = useState<any>(LS(draftKey, {}));
