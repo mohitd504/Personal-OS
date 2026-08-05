@@ -194,7 +194,7 @@ function WorkoutPage({ type, list, refresh }: { type:string; list:string[]; refr
   const [dur, setDur] = useState<any>(LS(draftKey+"_dur", ""));
   const [notes, setNotes] = useState<any>(LS(draftKey+"_notes", ""));
   const [saving, setSaving] = useState(false);
-  const getEx = (ex:string) => rows[ex] || { sets:[{w:"",r:""}], rpe:"", rest:"", notes:"", done:false };
+  const getEx = (ex:string) => { const e = rows[ex] || {}; return { ...e, sets: Array.isArray(e.sets) ? e.sets : [{w:"",r:""}], rpe: e.rpe??"", rest: e.rest??"", notes: e.notes??"", done: !!e.done }; };
   const saveRows = (n:any) => { setRows(n); SS(draftKey, n); };
   const setEx = (ex:string, patch:any) => saveRows({ ...rows, [ex]: { ...getEx(ex), ...patch } });
   const addSet = (ex:string) => { const e=getEx(ex); setEx(ex, { sets:[...(e.sets||[]), {w:"",r:""}] }); };
@@ -210,7 +210,7 @@ function WorkoutPage({ type, list, refresh }: { type:string; list:string[]; refr
 
   const commit = async (finish:boolean) => {
     const draft = LS(draftKey, {});
-    const exercises = list.filter(ex=>{ const e=draft[ex]||{}; return e.done || (e.sets||[]).some((s:any)=>s.w||s.r); }).map(ex=>{ const e=draft[ex]||{}; const sets=(e.sets||[]).filter((s:any)=>s.w||s.r); return { name:ex, sets, setCount:sets.length, reps:sets.reduce((a:number,s:any)=>a+(+s.r||0),0), topWeight:sets.length?Math.max(0,...sets.map((s:any)=>+s.w||0)):0, rpe:e.rpe||"", rest:e.rest||"", notes:e.notes||"", done:!!e.done, volume:sets.reduce((a:number,s:any)=>a+(+s.w||0)*(+s.r||0),0) }; });
+    const exercises = list.filter(ex=>{ const e=draft[ex]||{}; const arr=Array.isArray(e.sets)?e.sets:[]; return e.done || arr.some((s:any)=>s.w||s.r); }).map(ex=>{ const e=draft[ex]||{}; const arr=Array.isArray(e.sets)?e.sets:[]; const sets=arr.filter((s:any)=>s.w||s.r); return { name:ex, sets, setCount:sets.length, reps:sets.reduce((a:number,s:any)=>a+(+s.r||0),0), topWeight:sets.length?Math.max(0,...sets.map((s:any)=>+s.w||0)):0, rpe:e.rpe||"", rest:e.rest||"", notes:e.notes||"", done:!!e.done, volume:sets.reduce((a:number,s:any)=>a+(+s.w||0)*(+s.r||0),0) }; });
     if (!exercises.length) { if(finish) alert("Log at least one set first."); return; }
     const vol = exercises.reduce((a:number,e:any)=>a+(e.volume||0),0);
     const setsN = exercises.reduce((a:number,e:any)=>a+e.setCount,0);
