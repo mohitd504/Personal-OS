@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { PieChart, Pie, Cell, BarChart, Bar as RBar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import Fitness from "@/components/Fitness";
+import SyncManager from "@/components/SyncManager";
 
 /* ---------- storage helpers ---------- */
 const LS = (k: string, d: any) => { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch { return d; } };
@@ -37,6 +38,7 @@ export default function Dashboard({ onSignOut, name }: { onSignOut: ()=>void; na
 
   return (
     <div className="app">
+      <SyncManager onSync={refresh} />
       <nav className="sidebar">
         <div className="brand"><span className="mark" /><span className="bt">Personal OS<small>Command Center</small></span></div>
         {NAV.map(n => (

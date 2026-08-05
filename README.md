@@ -53,3 +53,23 @@ Done — open the URL on any device, sign in, and Gmail/Calendar sync live.
 - **Cross-device data**: trackers use localStorage (per browser). To sync logs across devices, add a database
   (Vercel Postgres / Supabase) and swap the `LS/SS` helpers in `components/Dashboard.tsx` for API calls — ask and I can add this.
 - **Replies**: the Gmail tab saves replies as **drafts** in your Gmail (safe); open Gmail to send.
+
+## Cross-device data sync (optional, Supabase)
+
+By default your logs are saved per-browser. To sync them across every device you sign into:
+
+1. Create a free project at https://supabase.com  → **New project**.
+2. In the project, open **SQL Editor** and run:
+   ```sql
+   create table if not exists user_data (
+     email text primary key,
+     data jsonb,
+     updated_at timestamptz default now()
+   );
+   ```
+3. Go to **Project Settings → API** and copy:
+   - **Project URL**  → env var `SUPABASE_URL`
+   - **service_role** secret key  → env var `SUPABASE_SERVICE_ROLE_KEY`  (keep this secret; server-only)
+4. In **Vercel → Settings → Environment Variables**, add both, then **Redeploy**.
+
+Now signing in with the same Google account on any device pulls your data and pushes changes automatically.
