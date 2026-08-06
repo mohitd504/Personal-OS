@@ -32,7 +32,7 @@ function apply(a: any): boolean {
     const pw = LS("pos_weight", []); pw.push({ date: t, kg: +a.weight||0 }); SS("pos_weight", pw); return true;
   } else if (a.kind === "workout") {
     const type = a.type || "Push";
-    const exercises = (a.exercises || []).map((e: any) => { const n = +e.sets||1; const sets = Array.from({length:n}).map(()=>({ w: e.weight??"", r: e.reps??"" })); return { name: e.name, sets, setCount: n, reps: (+e.reps||0)*n, topWeight: +e.weight||0, done: true, volume: (+e.weight||0)*(+e.reps||0)*n }; });
+    const exercises = (a.exercises || []).map((e: any) => { const nn = +e.sets||1; const sets = Array.from({length:nn}).map(()=>({ w: e.weight??"", r: e.reps??"" })); return { name: e.name, sets, setCount: nn, reps: (+e.reps||0)*nn, topWeight: +e.weight||0, done: true, volume: (+e.weight||0)*(+e.reps||0)*nn }; });
     const vol = exercises.reduce((x: number, e: any) => x + e.volume, 0);
     const all = LS("pos_workouts", []); const idx = all.findIndex((w: any) => w.date===t && w.type===type);
     const rec = { id: idx>=0?all[idx].id:uid(), date: t, type, duration: 0, notes: "", exercises, volume: vol, calories: 0, completion: 100 };
@@ -40,42 +40,62 @@ function apply(a: any): boolean {
   }
   return false;
 }
+function label(a: any){ if(!a||!a.kind) return ""; if(a.kind==="meal") return `Meal: ${a.name||"—"} · ${+a.cal||0} kcal · P${+a.protein||0} C${+a.carbs||0} F${+a.fat||0} Fib${+a.fiber||0}`;
+  if(a.kind==="walk") return `Walk: ${+a.distance||0}km · ${+a.duration||0}min · ${+a.steps||0} steps · ${+a.cal||0} kcal`;
+  if(a.kind==="cardio") return `Cardio: ${a.activity||""} · ${+a.duration||0}min · ${+a.distance||0}km · ${+a.cal||0} kcal`;
+  if(a.kind==="weight") return `Weight: ${+a.weight||0} kg`;
+  if(a.kind==="workout") return `${a.type||"Workout"}: ${(a.exercises||[]).map((e:any)=>`${e.name} ${e.weight||"?"}kg ${e.sets||"?"}x${e.reps||"?"}`).join(", ")}`;
+  return a.kind; }
 
 export default function Assistant({ onApplied }: { onApplied: () => void }) {
   const [open, setOpen] = useState(false);
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [log, setLog] = useState<{ who: string; msg: string }[]>([]);
+  const [pending, setPending] = useState<any>(null);
+
+  const commit = (a: any) => { if (a && apply(a)) { onApplied(); setPending(null); setLog(l => [...l, { who: "ai", msg: "✓ Added to tracker: " + label(a) }]); return true; } return false; };
+
   const send = async () => {
     const t = text.trim(); if (!t) return;
     setLog(l => [...l, { who: "you", msg: t }]); setText(""); setBusy(true);
     try {
-      const r = await fetch("/api/assistant", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: t, context: buildContext() }) });
+      const r = await fetch("/api/assistant", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: t, context: buildContext(), pending }) });
       const a = await r.json();
-      if (a && a.kind === "reply") { setLog(l => [...l, { who: "ai", msg: a.summary || "…" }]); }
-      else if (a && a.kind && apply(a)) { onApplied(); setLog(l => [...l, { who: "ai", msg: (a.summary || ("Logged " + a.kind)) + " ✓" }]); }
-      else if (a && a.error === "no-key") { setLog(l => [...l, { who: "ai", msg: "No AI key set. Add OPENAI_API_KEY in Vercel → Settings → Environment Variables, then redeploy." }]); }
-      else if (a && a.error === "unauthorized") { setLog(l => [...l, { who: "ai", msg: "Please sign in first." }]); }
-      else if (a && a.raw) { setLog(l => [...l, { who: "ai", msg: String(a.raw).slice(0, 500) }]); }
-      else { setLog(l => [...l, { who: "ai", msg: "I couldn't read that — try e.g. \"ate 2 eggs and toast\" or \"how many calories left?\"" }]); }
+      if (a && a.mode === "answer") setLog(l => [...l, { who: "ai", msg: a.summary || "…" }]);
+      else if (a && a.mode === "draft" && a.action) { setPending(a.action); setLog(l => [...l, { who: "ai", msg: (a.summary || label(a.action)) }]); }
+      else if (a && a.mode === "commit") { const act = a.action || pending; if (!commit(act)) setLog(l => [...l, { who: "ai", msg: "Nothing to add yet — describe it first." }]); }
+      else if (a && a.error === "no-key") setLog(l => [...l, { who: "ai", msg: "No AI key set. Add OPENAI_API_KEY in Vercel → Settings → Environment Variables, then redeploy." }]);
+      else if (a && a.error === "unauthorized") setLog(l => [...l, { who: "ai", msg: "Please sign in first." }]);
+      else if (a && a.raw) setLog(l => [...l, { who: "ai", msg: String(a.raw).slice(0, 500) }]);
+      else setLog(l => [...l, { who: "ai", msg: "I couldn't read that — try describing it, or ask a question." }]);
     } catch (e) { setLog(l => [...l, { who: "ai", msg: "Couldn't reach the assistant." }]); }
     setBusy(false);
   };
+
   return <>
     <button onClick={() => setOpen(o=>!o)} title="AI assistant"
       style={{ position:"fixed", right:18, bottom:"calc(90px + env(safe-area-inset-bottom))", zIndex:70, width:56, height:56, borderRadius:"50%", border:"none", cursor:"pointer", color:"#fff", fontSize:22, background:"linear-gradient(135deg,#7c3aed,#2b8bf2)", boxShadow:"0 10px 30px rgba(99,102,241,.5)" }}>{open ? "✕" : "✨"}</button>
-    {open && <div style={{ position:"fixed", right:18, bottom:"calc(154px + env(safe-area-inset-bottom))", zIndex:70, width:"min(370px,92vw)", height:"60vh", maxHeight:520, display:"flex", flexDirection:"column", background:"rgba(15,23,42,.98)", border:"1px solid rgba(255,255,255,.12)", borderRadius:16, boxShadow:"0 20px 50px rgba(0,0,0,.5)", backdropFilter:"blur(14px)" }}>
+    {open && <div style={{ position:"fixed", right:18, bottom:"calc(154px + env(safe-area-inset-bottom))", zIndex:70, width:"min(380px,92vw)", height:"64vh", maxHeight:560, display:"flex", flexDirection:"column", background:"rgba(15,23,42,.98)", border:"1px solid rgba(255,255,255,.12)", borderRadius:16, boxShadow:"0 20px 50px rgba(0,0,0,.5)", backdropFilter:"blur(14px)" }}>
       <div style={{ padding:"12px 14px", borderBottom:"1px solid rgba(255,255,255,.1)", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
         <div style={{ fontWeight:700 }}>✨ AI Assistant</div>
-        <button onClick={()=>setLog([])} style={{ background:"rgba(255,255,255,.06)", border:"1px solid rgba(255,255,255,.12)", color:"#8A94A6", borderRadius:8, padding:"4px 10px", fontSize:12, cursor:"pointer" }}>Clear</button>
+        <button onClick={()=>{ setLog([]); setPending(null); }} style={{ background:"rgba(255,255,255,.06)", border:"1px solid rgba(255,255,255,.12)", color:"#8A94A6", borderRadius:8, padding:"4px 10px", fontSize:12, cursor:"pointer" }}>Clear</button>
       </div>
       <div style={{ flex:1, overflowY:"auto", padding:12, display:"flex", flexDirection:"column", gap:8 }}>
-        {!log.length && <div style={{ fontSize:12, color:"#8A94A6", lineHeight:1.6 }}>Log or ask — I use your today&apos;s numbers:<br/>• &quot;ate 2 rotis and dal&quot;<br/>• &quot;walked 6000 steps, 4 km, 40 min&quot;<br/>• &quot;did push day: bench 60kg 3x8&quot;<br/>• &quot;how many calories / protein left today?&quot;</div>}
+        {!log.length && <div style={{ fontSize:12, color:"#8A94A6", lineHeight:1.6 }}>Describe it → I show you a draft → tweak it → say <b>&quot;add&quot;</b> to save.<br/>• &quot;ate 2 rotis and dal&quot; then &quot;make protein 25&quot; then &quot;add&quot;<br/>• &quot;walked 6000 steps, 4 km&quot;<br/>• &quot;how many calories left today?&quot;</div>}
         {log.map((m,i)=><div key={i} style={{ alignSelf: m.who==="you"?"flex-end":"flex-start", maxWidth:"85%", padding:"8px 11px", borderRadius:12, fontSize:13, whiteSpace:"pre-wrap", background: m.who==="you"?"linear-gradient(100deg,#3B82F6,#6366F1)":"rgba(255,255,255,.06)", color:"#E7ECF3" }}>{m.msg}</div>)}
         {busy && <div style={{ fontSize:12, color:"#8A94A6" }}>🤖 thinking…</div>}
       </div>
+      {pending && <div style={{ padding:"10px 12px", borderTop:"1px solid rgba(255,255,255,.1)", background:"rgba(139,92,246,.10)" }}>
+        <div style={{ fontSize:12, color:"#c4b5fd", marginBottom:6 }}>Draft ready — review, tweak, or add:</div>
+        <div style={{ fontSize:12, marginBottom:8 }}>{label(pending)}</div>
+        <div style={{ display:"flex", gap:8 }}>
+          <button onClick={()=>commit(pending)} style={{ border:"none", borderRadius:9, padding:"7px 12px", fontWeight:700, cursor:"pointer", color:"#fff", background:"linear-gradient(100deg,#10B981,#06B6D4)" }}>✓ Add to tracker</button>
+          <button onClick={()=>setPending(null)} style={{ background:"rgba(255,255,255,.06)", border:"1px solid rgba(255,255,255,.12)", color:"#8A94A6", borderRadius:9, padding:"7px 12px", cursor:"pointer" }}>Discard</button>
+        </div>
+      </div>}
       <div style={{ padding:10, borderTop:"1px solid rgba(255,255,255,.1)", display:"flex", gap:8 }}>
-        <input value={text} onChange={e=>setText(e.target.value)} onKeyDown={e=>{ if(e.key==="Enter") send(); }} placeholder="Log something or ask a question…" style={{ flex:1, background:"rgba(255,255,255,.05)", border:"1px solid rgba(255,255,255,.12)", borderRadius:10, padding:"9px 11px", color:"#E7ECF3", outline:"none", fontSize:13 }}/>
+        <input value={text} onChange={e=>setText(e.target.value)} onKeyDown={e=>{ if(e.key==="Enter") send(); }} placeholder={pending ? "Tweak it, or type 'add'…" : "Describe it or ask a question…"} style={{ flex:1, background:"rgba(255,255,255,.05)", border:"1px solid rgba(255,255,255,.12)", borderRadius:10, padding:"9px 11px", color:"#E7ECF3", outline:"none", fontSize:13 }}/>
         <button onClick={send} disabled={busy} style={{ border:"none", borderRadius:10, padding:"9px 14px", fontWeight:700, cursor:"pointer", color:"#fff", background:"linear-gradient(100deg,#7c3aed,#2b8bf2)" }}>Send</button>
       </div>
     </div>}
