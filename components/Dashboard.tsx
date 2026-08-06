@@ -18,6 +18,7 @@ class Boundary extends Component<{ children: any }, { err: any }> {
 import { PieChart, Pie, Cell, BarChart, Bar as RBar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import Fitness from "@/components/Fitness";
 import SyncManager from "@/components/SyncManager";
+import Assistant from "@/components/Assistant";
 
 /* ---------- storage helpers ---------- */
 const LS = (k: string, d: any) => { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch { return d; } };
@@ -54,6 +55,7 @@ export default function Dashboard({ onSignOut, name }: { onSignOut: ()=>void; na
   return (
     <div className="app">
       <SyncManager onSync={refresh} />
+      <Assistant onApplied={refresh} />
       <nav className="sidebar">
         <div className="brand"><span className="mark" /><span className="bt">Personal OS<small>Command Center</small></span></div>
         {NAV.map(n => (
@@ -76,7 +78,7 @@ export default function Dashboard({ onSignOut, name }: { onSignOut: ()=>void; na
               <button className="btn ghost sm" onClick={()=>setSelDate(today())}>Today</button>
             </>}
             <span className="in" style={{ padding:"6px 12px" }}>{clock}</span>
-            <span style={{ fontSize:10, color:"var(--mut2)" }} title="build marker — bump this to verify a deploy went live">build&nbsp;6</span>
+            <span style={{ fontSize:10, color:"var(--mut2)" }} title="build marker — bump this to verify a deploy went live">build&nbsp;7</span>
           </div>
         </div>
         <div className="content"><Boundary key={view}>
