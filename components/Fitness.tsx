@@ -16,6 +16,20 @@ const PULL = ["Deadlift","Lat Pulldown","Pull-ups","Barbell Row","Seated Cable R
 const LEGS = ["Squat","Romanian Deadlift","Leg Press","Walking Lunges","Leg Extension","Hamstring Curl","Bulgarian Split Squat","Standing Calf Raise","Seated Calf Raise","Hip Thrust","Glute Bridge","Ab Wheel"];
 const LIBMAP: Record<string,string[]> = { Push:PUSH, Pull:PULL, Legs:LEGS };
 const SCHED: Record<number,string> = { 0:"Recovery", 1:"Push", 2:"Pull", 3:"Legs", 4:"Push", 5:"Pull", 6:"Legs" };
+const FOCUS: Record<string, {key:string;label:string;list:string[]}[]> = {
+  Push: [
+    { key:"chest", label:"Chest focus (4 chest · 2 shoulder · 3 triceps)", list:["Bench Press","Incline Dumbbell Press","Machine Chest Press","Cable Fly","Shoulder Press","Lateral Raise","Tricep Pushdown","Overhead Tricep Extension","Dips"] },
+    { key:"shoulder", label:"Shoulder focus (4 shoulder · 2 chest · 3 triceps)", list:["Shoulder Press","Arnold Press","Lateral Raise","Rear Delt Fly","Bench Press","Incline Dumbbell Press","Tricep Pushdown","Overhead Tricep Extension","Dips"] },
+  ],
+  Pull: [
+    { key:"back", label:"Back focus", list:["Deadlift","Lat Pulldown","Pull-ups","Barbell Row","Seated Cable Row","Single Arm Row","Face Pull","Barbell Curl","Hammer Curl"] },
+    { key:"biceps", label:"Biceps focus", list:["Barbell Curl","Preacher Curl","Hammer Curl","Lat Pulldown","Seated Cable Row","Barbell Row","Face Pull","Shrugs","Pull-ups"] },
+  ],
+  Legs: [
+    { key:"quad", label:"Quad focus", list:["Squat","Leg Press","Walking Lunges","Leg Extension","Bulgarian Split Squat","Romanian Deadlift","Hamstring Curl","Standing Calf Raise","Seated Calf Raise"] },
+    { key:"glute", label:"Glute / Ham focus", list:["Romanian Deadlift","Hip Thrust","Glute Bridge","Hamstring Curl","Bulgarian Split Squat","Squat","Leg Press","Standing Calf Raise","Ab Wheel"] },
+  ],
+};
 function exEmoji(name:string){ const n=name.toLowerCase();
   if(/(squat|lunge|leg press|leg extension|hip thrust|glute|calf|split squat)/.test(n)) return "🦵";
   if(/curl/.test(n)) return "💪";
@@ -32,6 +46,7 @@ const HOWTO: Record<string,string> = {
   "Shoulder Press":"Seated or standing, start at shoulder height and press overhead without flaring the ribs. Lower back to ear level under control.",
   "Lateral Raise":"Slight bend in the elbows, raise the dumbbells out to the sides to shoulder height leading with the elbows, then lower slowly. No swinging.",
   "Rear Delt Fly":"Hinge at the hips, arms hanging. Raise the dumbbells out to the sides squeezing the rear delts, keep the neck neutral and elbows soft.",
+  "Arnold Press":"Start with dumbbells at shoulder height, palms facing you. Press overhead while rotating your palms to face forward, then reverse the rotation on the way down. Hits all three delt heads.",
   "Tricep Pushdown":"Elbows pinned to your sides, push the bar/rope down until arms lock and squeeze the triceps, then return to 90° without letting elbows drift.",
   "Overhead Tricep Extension":"Hold a weight overhead, keep elbows narrow, lower behind your head by bending the elbows, then extend back up.",
   "Dips":"Support on parallel bars, lean slightly forward, lower until elbows reach ~90°, then press back up to lockout.",
@@ -113,13 +128,23 @@ function exportCSV(name: string, rows: any[]) {
 
 /* ---------- generic tracker (walk / weight / cardio) ---------- */
 type Field = { k:string; label:string; type?:string; options?:string[]; optional?:boolean };
-function Tracker({ storeKey, title, icon, fields, charts, refresh, aiCal }:
-  { storeKey:string; title:string; icon:string; fields:Field[]; charts:{title:string;field:string;kind:string;color:string}[]; refresh:()=>void; aiCal?:string }) {
+function Tracker({ storeKey, title, icon, fields, charts, refresh, aiCal, aiParse }:
+  { storeKey:string; title:string; icon:string; fields:Field[]; charts:{title:string;field:string;kind:string;color:string}[]; refresh:()=>void; aiCal?:string; aiParse?:string }) {
   const rows: any[] = LS(storeKey, []);
   const [form, setForm] = useState<any>({ date: today() });
   const [editId, setEditId] = useState<string|null>(null);
   const [q, setQ] = useState(""); const [from, setFrom] = useState(""); const [to, setTo] = useState("");
   const [busy, setBusy] = useState(false);
+  const [ptext, setPtext] = useState(""); const [pbusy, setPbusy] = useState(false);
+  const parseAI = async () => {
+    if (!ptext.trim()) return; setPbusy(true);
+    try {
+      const r = await fetch("/api/parse-activity", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ text: ptext, kind: aiParse, fields: fields.map(f=>f.k) }) });
+      const d = await r.json();
+      if (d && typeof d === "object") setForm((s:any)=>({ date: today(), ...s, ...d }));
+    } catch (e) {}
+    setPbusy(false);
+  };
   const save = async () => {
     if (!form.date) { alert("Pick a date"); return; }
     const f = { ...form };
@@ -151,6 +176,11 @@ function Tracker({ storeKey, title, icon, fields, charts, refresh, aiCal }:
     </div>
     <div className="card" style={{marginTop:16}}>
       <div className="between"><strong>{editId?"Edit entry":"Add entry"}</strong>{editId && <button className="btn ghost sm" onClick={()=>{setForm({date:today()});setEditId(null);}}>Cancel edit</button>}</div>
+      {aiParse && <div style={{marginTop:12,padding:12,borderRadius:12,background:"rgba(139,92,246,.08)",border:"1px solid rgba(139,92,246,.25)"}}>
+        <div className="row" style={{gap:8}}><span>✨</span><strong style={{fontSize:13}}>Describe it — Claude fills the fields</strong></div>
+        <textarea className="in" value={ptext} onChange={e=>setPtext(e.target.value)} placeholder={aiParse==="cardio" ? "e.g. 30 min cycling, 12 km, felt easy, avg HR 135" : "e.g. walked 5.2 km in 48 min, about 320 kcal, 6800 steps"} style={{width:"100%",minHeight:56,marginTop:8}}/>
+        <div style={{marginTop:6}}><button className="btn ghost sm" onClick={parseAI} disabled={pbusy}>{pbusy?"🤖 Reading…":"✨ Read with AI"}</button> <span className="muted" style={{fontSize:11}}>then review below and hit Add</span></div>
+      </div>}
       <div className="row" style={{marginTop:12,flexWrap:"wrap",gap:8}}>
         {fields.map(f=> f.type==="select"
           ? <select key={f.k} className="in" value={form[f.k]||""} onChange={e=>setForm((s:any)=>({...s,[f.k]:e.target.value}))} style={{minWidth:130}}><option value="">{f.label}</option>{(f.options||[]).map(o=><option key={o}>{o}</option>)}</select>
@@ -285,19 +315,29 @@ function WorkoutPage({ type, list, refresh }: { type:string; list:string[]; refr
 function TodayWorkout({ refresh }: { refresh:()=>void }) {
   const suggestion = SCHED[new Date().getDay()];
   const [type, setType] = useState(suggestion==="Recovery" ? "Push" : suggestion);
+  const [focusKey, setFocusKey] = useState((FOCUS[type]||[])[0]?.key || "all");
+  const focuses = FOCUS[type] || [{ key:"all", label:"Standard", list:LIBMAP[type] }];
+  const focus = focuses.find(f=>f.key===focusKey) || focuses[0];
+  const chooseType = (t:string) => { setType(t); setFocusKey((FOCUS[t]||[])[0]?.key || "all"); };
   return <>
     <div className="card" style={{marginBottom:16}}>
       <div className="between" style={{flexWrap:"wrap",gap:12}}>
         <div>
           <strong>{new Date().toLocaleDateString(undefined,{weekday:"long",day:"numeric",month:"long"})}</strong>
-          <div className="muted" style={{fontSize:12,marginTop:2}}>Scheduled today: <b style={{color:"#E7ECF3"}}>{suggestion}</b>{suggestion==="Recovery"?" (rest / mobility / walk)":""} — choose your session:</div>
+          <div className="muted" style={{fontSize:12,marginTop:2}}>Scheduled today: <b style={{color:"#E7ECF3"}}>{suggestion}</b>{suggestion==="Recovery"?" (rest / mobility / walk)":""} — pick any session, your order:</div>
         </div>
         <div className="row" style={{gap:8}}>
-          {["Push","Pull","Legs"].map(t=><button key={t} className={"btn "+(type===t?"":"ghost")+" sm"} onClick={()=>setType(t)}>{t==="Push"?"🟦":t==="Pull"?"🟪":"🟩"} {t}</button>)}
+          {["Push","Pull","Legs"].map(t=><button key={t} className={"btn "+(type===t?"":"ghost")+" sm"} onClick={()=>chooseType(t)}>{t==="Push"?"🟦":t==="Pull"?"🟪":"🟩"} {t}</button>)}
         </div>
       </div>
+      <div className="row" style={{marginTop:12,gap:10,flexWrap:"wrap"}}>
+        <span className="muted" style={{fontSize:12}}>Focus:</span>
+        <select className="in" value={focusKey} onChange={e=>setFocusKey(e.target.value)} style={{minWidth:240}}>
+          {focuses.map(f=><option key={f.key} value={f.key}>{f.label}</option>)}
+        </select>
+      </div>
     </div>
-    <WorkoutPage key={type} type={type} list={LIBMAP[type]} refresh={refresh}/>
+    <WorkoutPage key={type+"_"+focusKey} type={type} list={focus.list} refresh={refresh}/>
   </>;
 }
 
@@ -377,7 +417,7 @@ export default function Fitness() {
   const [tab, setTab] = useState("overview");
   const [, setT] = useState(0); const refresh = () => setT(x=>x+1);
   const TABS: [string,string,string][] = [
-    ["overview","Overview","📊"],["workout","Today's Workout","🏋️"],["walk","Morning Walk","🚶"],
+    ["overview","Overview","📊"],["workout","Today's Workout","🏋️"],["walk","Daily Walk","🚶"],
     ["weight","Weight","⚖️"],["cardio","Cardio","🏃"],["analytics","Analytics","📈"],
   ];
   return <>
@@ -385,14 +425,14 @@ export default function Fitness() {
       {TABS.map(t=><button key={t[0]} onClick={()=>setTab(t[0])} className={"btn "+(tab===t[0]?"":"ghost")+" sm"} style={{fontWeight:600}}>{t[2]} {t[1]}</button>)}
     </div>
     {tab==="overview" && <Overview/>}
-    {tab==="walk" && <Tracker refresh={refresh} aiCal="walking" storeKey="pos_walks" title="Morning Walk Tracker" icon="🚶"
+    {tab==="walk" && <Tracker refresh={refresh} aiCal="walking" aiParse="walk" storeKey="pos_walks" title="Daily Walk Tracker" icon="🚶"
       fields={[{k:"date",label:"Date",type:"date"},{k:"steps",label:"Steps"},{k:"distance",label:"Distance km"},{k:"cal",label:"Calories (watch)"},{k:"activeMin",label:"Active Min"},{k:"duration",label:"Duration min"},{k:"pace",label:"Avg Pace",type:"text"},{k:"notes",label:"Notes",type:"text"}]}
       charts={[{title:"Daily Steps (7d)",field:"steps",kind:"bar",color:"#10B981"},{title:"Monthly Steps (30d)",field:"steps",kind:"bar",color:"#10B981"},{title:"Calories Burned (7d)",field:"cal",kind:"bar",color:"#F59E0B"},{title:"Active Minutes (7d)",field:"activeMin",kind:"bar",color:"#3B82F6"},{title:"Distance Walked (7d)",field:"distance",kind:"line",color:"#06B6D4"}]}/>}
     {tab==="workout" && <TodayWorkout refresh={refresh}/>}
     {tab==="weight" && <Tracker refresh={refresh} storeKey="pos_weightlog" title="Weight Tracker" icon="⚖️"
       fields={[{k:"date",label:"Date",type:"date"},{k:"weight",label:"Morning Weight kg"},{k:"bodyfat",label:"Body Fat %",optional:true},{k:"muscle",label:"Muscle %",optional:true},{k:"bmi",label:"BMI",optional:true},{k:"waist",label:"Waist",optional:true},{k:"chest",label:"Chest",optional:true},{k:"arms",label:"Arms",optional:true},{k:"thigh",label:"Thigh",optional:true},{k:"notes",label:"Notes",type:"text"}]}
       charts={[{title:"Daily Weight (30d)",field:"weight",kind:"line",color:"#06B6D4"},{title:"Body Fat % (30d)",field:"bodyfat",kind:"line",color:"#F59E0B"}]}/>}
-    {tab==="cardio" && <Tracker refresh={refresh} aiCal="cardio" storeKey="pos_cardio" title="Cardio Tracker" icon="🏃"
+    {tab==="cardio" && <Tracker refresh={refresh} aiCal="cardio" aiParse="cardio" storeKey="pos_cardio" title="Cardio Tracker" icon="🏃"
       fields={[{k:"date",label:"Date",type:"date"},{k:"activity",label:"Activity",type:"select",options:["Running","Cycling","StairMaster","Rowing","Walking","Swimming","Elliptical","HIIT","Other"]},{k:"duration",label:"Duration min"},{k:"distance",label:"Distance km"},{k:"cal",label:"Calories"},{k:"avgSpeed",label:"Avg Speed",optional:true},{k:"avgHR",label:"Avg HR",optional:true},{k:"maxHR",label:"Max HR",optional:true},{k:"notes",label:"Notes",type:"text"}]}
       charts={[{title:"Weekly Cardio Duration",field:"duration",kind:"bar",color:"#EC4899"},{title:"Monthly Cardio Duration",field:"duration",kind:"bar",color:"#EC4899"},{title:"Calories Burned (7d)",field:"cal",kind:"bar",color:"#F59E0B"},{title:"Distance Covered (7d)",field:"distance",kind:"line",color:"#10B981"}]}/>}
     {tab==="analytics" && <Analytics/>}
