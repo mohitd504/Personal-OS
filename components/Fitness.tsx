@@ -342,11 +342,22 @@ function TodayWorkout({ refresh }: { refresh:()=>void }) {
 }
 
 /* ---------- Strava sync (kept SEPARATE from manual/watch data) ---------- */
+const STRENGTH_RE = /(weight|workout|crossfit|strength)/i;
 function importStrava(acts: any[]) {
   const store = LS("pos_strava", []); const seen = new Set(store.map((x: any) => x.id)); let added = 0;
-  acts.forEach((a: any) => { if (seen.has(a.id)) return; store.push(a); seen.add(a.id); added++; });
+  const woIds = LS("pos_strava_wo", []); const wo = LS("pos_workouts", []);
+  acts.forEach((a: any) => {
+    if (!seen.has(a.id)) { store.push(a); seen.add(a.id); added++; }
+    // Count Strava strength sessions toward the workout streak / calendar (no set detail available from Strava)
+    if (STRENGTH_RE.test(a.type || "") && !woIds.includes(a.id)) {
+      woIds.push(a.id);
+      const type = /pull/i.test(a.name) ? "Pull" : /leg/i.test(a.name) ? "Legs" : /push/i.test(a.name) ? "Push" : "Strength";
+      wo.unshift({ id: uid(), date: a.date, type, duration: a.duration || 0, notes: "From Strava: " + (a.name || a.type), exercises: [], volume: 0, calories: a.cal || 0, completion: 100, source: "strava" });
+    }
+  });
   store.sort((x: any, y: any) => (x.date < y.date ? 1 : -1));
-  SS("pos_strava", store); return added;
+  SS("pos_strava", store); SS("pos_strava_wo", woIds); SS("pos_workouts", wo);
+  return added;
 }
 function StravaCard({ refresh }: { refresh: () => void }) {
   const [msg, setMsg] = useState(""); const [busy, setBusy] = useState(false);
@@ -467,8 +478,56 @@ function StravaView({ refresh }: { refresh: () => void }) {
   </>;
 }
 
+/* ---------- Fitbit via Google Health API (steps) ---------- */
+function GoogleHealthCard({ refresh }: { refresh: () => void }) {
+  const [msg, setMsg] = useState(""); const [busy, setBusy] = useState(false);
+  const sync = async () => { setBusy(true); setMsg("");
+    try {
+      const r = await fetch("/api/ghealth/steps"); const d = await r.json();
+      if (d.ok) { const h = LS("pos_health", {}); h.steps = d.steps; SS("pos_health", h); refresh(); setMsg(`Synced ✓ ${d.steps} steps today (Fitbit via Google Health).`); }
+      else if (/scope|permission|insufficient|403|PERMISSION|unauthor/i.test(JSON.stringify(d))) setMsg("Google Health permission needed — sign out and sign in again to grant access, then Sync.");
+      else setMsg("Couldn't fetch steps: " + (d.error || "unknown") + ". Make sure the Health API is enabled and you re-signed in.");
+    } catch (e) { setMsg("Sync failed."); } setBusy(false); };
+  return <div className="card" style={{ marginBottom: 16 }}>
+    <div className="between" style={{ flexWrap: "wrap", gap: 10 }}>
+      <div className="row" style={{ gap: 8 }}><span>⌚</span><strong>Fitbit · Google Health</strong><span className="muted" style={{ fontSize: 11 }}>steps from your watch, via your Google account</span></div>
+      <button className="btn sm" onClick={sync} disabled={busy}>{busy ? "Syncing…" : "Sync steps"}</button>
+    </div>
+    <div className="muted" style={{ fontSize: 12, marginTop: 8 }}>{msg || "Tap Sync to pull today's steps. First time: if it asks for permission, sign out & back in once to grant Google Health access."}</div>
+  </div>;
+}
+
+/* ---------- Fitbit Web API (legacy, unused) ---------- */
+function FitbitCard({ refresh }: { refresh: () => void }) {
+  const [msg, setMsg] = useState(""); const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    const p = new URLSearchParams(window.location.search).get("fitbit");
+    if (p === "connected") setMsg("✓ Fitbit connected — click 'Sync steps'.");
+    else if (p === "noconfig") setMsg("Fitbit keys not set in Vercel (FITBIT_CLIENT_ID / FITBIT_CLIENT_SECRET).");
+    else if (p === "error") setMsg("Fitbit authorization failed — check the Redirect URL in your Fitbit app.");
+    else if (p === "signin") setMsg("Please sign in first.");
+  }, []);
+  const sync = async () => { setBusy(true); setMsg("");
+    try {
+      const r = await fetch("/api/fitbit/sync"); const d = await r.json();
+      if (!d.connected) setMsg("Not connected — click Connect Fitbit.");
+      else { const h = LS("pos_health", {}); h.steps = d.steps; h.distance = d.distance; h.azm = d.activeMin; h.caloriesBurned = d.cal; if (d.restingHR) h.restingHR = d.restingHR; SS("pos_health", h); refresh();
+        setMsg(`Synced ✓ ${d.steps} steps · ${d.distance} km · ${d.activeMin} active min${d.restingHR ? ` · RHR ${d.restingHR}` : ""}`); }
+    } catch (e) { setMsg("Sync failed."); } setBusy(false); };
+  return <div className="card" style={{ marginBottom: 16 }}>
+    <div className="between" style={{ flexWrap: "wrap", gap: 10 }}>
+      <div className="row" style={{ gap: 8 }}><span>⌚</span><strong>Fitbit</strong><span className="muted" style={{ fontSize: 11 }}>steps &amp; daily activity, straight from your watch</span></div>
+      <div className="row" style={{ gap: 8 }}>
+        <a className="btn ghost sm" href="/api/fitbit/connect">Connect Fitbit</a>
+        <button className="btn sm" onClick={sync} disabled={busy}>{busy ? "Syncing…" : "Sync steps"}</button>
+      </div>
+    </div>
+    <div className="muted" style={{ fontSize: 12, marginTop: 8 }}>{msg || "Connect once, then Sync to auto-fill today's steps, distance, active minutes, calories & resting HR."}</div>
+  </div>;
+}
+
 /* ---------- overview ---------- */
-function Overview() {
+function Overview({ refresh }: { refresh: () => void }) {
   const walkToday = LS("pos_walks",[]).filter((x:any)=>x.date===today());
   const cardioToday = LS("pos_cardio",[]).filter((x:any)=>x.date===today());
   const woToday = LS("pos_workouts",[]).filter((x:any)=>x.date===today());
@@ -481,6 +540,7 @@ function Overview() {
   const woFreq=()=>{ const out=[]; for(let i=6;i>=0;i--){const d=new Date();d.setDate(d.getDate()-i);const ds=dstr(d);out.push({name:DOW[d.getDay()],value:LS("pos_workouts",[]).filter((w:any)=>w.date===ds).length});}return out; };
   return <>
     <div className="head"><h1>📊 Fitness Overview</h1><p>Today&apos;s summary · {new Date().toLocaleDateString(undefined,{weekday:"long",month:"long",day:"numeric"})}</p></div>
+    <GoogleHealthCard refresh={refresh}/>
     <div className="grid g4">
       {kpi("Steps",steps,"","👟","emerald")}
       {kpi("Calories Burned",calBurn,"kcal","🔥","orange")}
@@ -550,7 +610,7 @@ export default function Fitness() {
     <div className="row" style={{flexWrap:"wrap",gap:8,marginBottom:18}}>
       {TABS.map(t=><button key={t[0]} onClick={()=>setTab(t[0])} className={"btn "+(tab===t[0]?"":"ghost")+" sm"} style={{fontWeight:600}}>{t[2]} {t[1]}</button>)}
     </div>
-    {tab==="overview" && <Overview/>}
+    {tab==="overview" && <Overview refresh={refresh}/>}
     {tab==="walk" && <Tracker refresh={refresh} aiCal="walking" aiParse="walk" storeKey="pos_walks" title="Daily Walk Tracker" icon="🚶"
       fields={[{k:"date",label:"Date",type:"date"},{k:"steps",label:"Steps"},{k:"distance",label:"Distance km"},{k:"cal",label:"Calories (watch)"},{k:"activeMin",label:"Active Min"},{k:"duration",label:"Duration min"},{k:"pace",label:"Avg Pace",type:"text"},{k:"notes",label:"Notes",type:"text"}]}
       charts={[{title:"Daily Steps (7d)",field:"steps",kind:"bar",color:"#10B981"},{title:"Monthly Steps (30d)",field:"steps",kind:"bar",color:"#10B981"},{title:"Calories Burned (7d)",field:"cal",kind:"bar",color:"#F59E0B"},{title:"Active Minutes (7d)",field:"activeMin",kind:"bar",color:"#3B82F6"},{title:"Distance Walked (7d)",field:"distance",kind:"line",color:"#06B6D4"}]}/>}

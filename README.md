@@ -81,3 +81,9 @@ Now signing in with the same Google account on any device pulls your data and pu
 3. In Supabase SQL editor run:
    create table if not exists strava_tokens (email text primary key, access_token text, refresh_token text, expires_at bigint);
 4. Redeploy. In the app: Exercise -> Cardio -> Connect Strava, then Sync now.
+
+## Fitbit integration (steps & daily activity)
+1. Create a Personal app at https://dev.fitbit.com (OAuth type: Personal; Redirect URL: https://YOUR-DOMAIN/api/fitbit/callback).
+2. Add FITBIT_CLIENT_ID & FITBIT_CLIENT_SECRET in Vercel.
+3. Supabase SQL: create table if not exists fitbit_tokens (email text primary key, access_token text, refresh_token text, expires_at bigint);
+4. Redeploy. Exercise -> Overview -> Connect Fitbit -> Sync steps.
