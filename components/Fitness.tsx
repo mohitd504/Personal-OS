@@ -1,5 +1,5 @@
 "use client";
-import { useState, Fragment } from "react";
+import { useState, useEffect, Fragment } from "react";
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 
 /* ---------- storage ---------- */
@@ -341,36 +341,54 @@ function TodayWorkout({ refresh }: { refresh:()=>void }) {
   </>;
 }
 
-/* ---------- Strava sync ---------- */
+/* ---------- Strava sync (kept SEPARATE from manual/watch data) ---------- */
 function importStrava(acts: any[]) {
-  const seen = LS("pos_strava_ids", []); const cardio = LS("pos_cardio", []); const walks = LS("pos_walks", []); let added = 0;
-  acts.forEach((a: any) => {
-    if (seen.includes(a.id)) return; seen.push(a.id); added++;
-    if (/walk|hike/i.test(a.type)) walks.unshift({ id: uid(), date: a.date, steps: 0, distance: a.distance, cal: a.cal, activeMin: a.duration, duration: a.duration, pace: "", notes: "Strava: " + (a.name||a.type) });
-    else cardio.unshift({ id: uid(), date: a.date, activity: a.type, duration: a.duration, distance: a.distance, cal: a.cal, avgHR: a.avgHR, maxHR: a.maxHR, notes: "Strava: " + (a.name||a.type) });
-  });
-  SS("pos_cardio", cardio); SS("pos_walks", walks); SS("pos_strava_ids", seen); return added;
+  const store = LS("pos_strava", []); const seen = new Set(store.map((x: any) => x.id)); let added = 0;
+  acts.forEach((a: any) => { if (seen.has(a.id)) return; store.push(a); seen.add(a.id); added++; });
+  store.sort((x: any, y: any) => (x.date < y.date ? 1 : -1));
+  SS("pos_strava", store); return added;
 }
 function StravaCard({ refresh }: { refresh: () => void }) {
   const [msg, setMsg] = useState(""); const [busy, setBusy] = useState(false);
+  const acts = LS("pos_strava", []);
+  useEffect(() => {
+    const p = new URLSearchParams(window.location.search).get("strava");
+    if (p === "connected") setMsg("✓ Strava connected — now click 'Sync now'.");
+    else if (p === "noconfig") setMsg("Strava keys not set. Add STRAVA_CLIENT_ID & STRAVA_CLIENT_SECRET in Vercel → Environment Variables, then redeploy.");
+    else if (p === "signin") setMsg("Please sign in first, then try Connect Strava again.");
+    else if (p === "error") setMsg("Authorization failed — check the Authorization Callback Domain in your Strava API app matches your site domain.");
+  }, []);
   const sync = async () => {
     setBusy(true); setMsg("");
     try {
       const r = await fetch("/api/strava/sync"); const d = await r.json();
       if (!d.connected) setMsg("Not connected yet — click Connect Strava, authorize, then Sync.");
-      else { const n = importStrava(d.activities || []); refresh(); setMsg(n ? `Imported ${n} new activit${n===1?"y":"ies"} ✓` : "Up to date — no new activities."); }
+      else { const n = importStrava(d.activities || []); refresh(); setMsg(n ? `Imported ${n} new Strava activit${n===1?"y":"ies"} ✓` : "Up to date — no new Strava activities."); }
     } catch (e) { setMsg("Sync failed — check your Strava setup."); }
     setBusy(false);
   };
+  const del = (id: any) => { SS("pos_strava", LS("pos_strava", []).filter((x: any) => x.id !== id)); refresh(); };
   return <div className="card" style={{ marginBottom: 16 }}>
     <div className="between" style={{ flexWrap: "wrap", gap: 10 }}>
-      <div className="row" style={{ gap: 8 }}><span>🔗</span><strong>Strava</strong></div>
+      <div className="row" style={{ gap: 8 }}><span>🔗</span><strong>Strava (auto)</strong><span className="muted" style={{ fontSize: 11 }}>watch data via Strava — kept separate from your manual logs</span></div>
       <div className="row" style={{ gap: 8 }}>
         <a className="btn ghost sm" href="/api/strava/connect">Connect Strava</a>
         <button className="btn sm" onClick={sync} disabled={busy}>{busy ? "Syncing…" : "Sync now"}</button>
       </div>
     </div>
-    <div className="muted" style={{ fontSize: 12, marginTop: 8 }}>{msg || "Connect once, then Sync to import your runs, rides and walks from the last 60 days into Cardio & Daily Walk."}</div>
+    <div className="muted" style={{ fontSize: 12, marginTop: 8 }}>{msg || "Connect once, then Sync to pull your last 60 days of Strava activities here (separate from the manual Cardio/Walk trackers below)."}</div>
+    {!!acts.length && <div style={{ overflowX: "auto", marginTop: 10 }}><table style={{ width: "100%", borderCollapse: "collapse", minWidth: 560 }}>
+      <thead><tr>{["Date","Activity","Distance","Duration","Cal","Avg HR",""].map(h=><th key={h} style={{ textAlign:"left", fontSize:10, textTransform:"uppercase", color:"#5b6577", padding:"6px", borderBottom:"1px solid rgba(255,255,255,.09)" }}>{h}</th>)}</tr></thead>
+      <tbody>{acts.slice(0,20).map((a: any)=><tr key={a.id} style={{ borderBottom:"1px solid rgba(255,255,255,.05)" }}>
+        <td style={{ padding:"6px", fontSize:12 }}>{a.date}</td>
+        <td style={{ padding:"6px", fontSize:12 }}>{a.type}{a.name?` · ${a.name}`:""}</td>
+        <td style={{ padding:"6px", fontSize:12 }}>{a.distance||0} km</td>
+        <td style={{ padding:"6px", fontSize:12 }}>{a.duration||0} min</td>
+        <td style={{ padding:"6px", fontSize:12 }}>{a.cal||0}</td>
+        <td style={{ padding:"6px", fontSize:12 }}>{a.avgHR||"—"}</td>
+        <td style={{ padding:"6px" }}><span className="btn ghost sm" style={{ cursor:"pointer" }} onClick={()=>del(a.id)}>✕</span></td>
+      </tr>)}</tbody>
+    </table></div>}
   </div>;
 }
 
