@@ -391,6 +391,7 @@ function StravaCard({ refresh }: { refresh: () => void }) {
       <div className="row" style={{ gap: 8 }}><span>🔗</span><strong>Strava (auto)</strong><span className="muted" style={{ fontSize: 11 }}>split by source — kept separate from your manual logs</span></div>
       <div className="row" style={{ gap: 8 }}>
         <a className="btn ghost sm" href="/api/strava/connect">Connect Strava</a>
+        <button className="btn ghost sm" onClick={()=>{ SS("pos_strava", []); refresh(); setMsg("Cleared. Click 'Sync now' to re-import with the watch/app split."); }}>Clear</button>
         <button className="btn sm" onClick={sync} disabled={busy}>{busy ? "Syncing…" : "Sync now"}</button>
       </div>
     </div>
