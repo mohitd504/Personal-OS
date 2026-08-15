@@ -73,3 +73,11 @@ By default your logs are saved per-browser. To sync them across every device you
 4. In **Vercel → Settings → Environment Variables**, add both, then **Redeploy**.
 
 Now signing in with the same Google account on any device pulls your data and pushes changes automatically.
+
+## Strava integration (optional)
+1. Create a free API app at https://www.strava.com/settings/api
+   - Authorization Callback Domain: your Vercel domain (e.g. personal-os-teal-alpha.vercel.app)
+2. Copy the Client ID and Client Secret into Vercel env: STRAVA_CLIENT_ID, STRAVA_CLIENT_SECRET.
+3. In Supabase SQL editor run:
+   create table if not exists strava_tokens (email text primary key, access_token text, refresh_token text, expires_at bigint);
+4. Redeploy. In the app: Exercise -> Cardio -> Connect Strava, then Sync now.

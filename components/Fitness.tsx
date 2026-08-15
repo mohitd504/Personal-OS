@@ -341,6 +341,39 @@ function TodayWorkout({ refresh }: { refresh:()=>void }) {
   </>;
 }
 
+/* ---------- Strava sync ---------- */
+function importStrava(acts: any[]) {
+  const seen = LS("pos_strava_ids", []); const cardio = LS("pos_cardio", []); const walks = LS("pos_walks", []); let added = 0;
+  acts.forEach((a: any) => {
+    if (seen.includes(a.id)) return; seen.push(a.id); added++;
+    if (/walk|hike/i.test(a.type)) walks.unshift({ id: uid(), date: a.date, steps: 0, distance: a.distance, cal: a.cal, activeMin: a.duration, duration: a.duration, pace: "", notes: "Strava: " + (a.name||a.type) });
+    else cardio.unshift({ id: uid(), date: a.date, activity: a.type, duration: a.duration, distance: a.distance, cal: a.cal, avgHR: a.avgHR, maxHR: a.maxHR, notes: "Strava: " + (a.name||a.type) });
+  });
+  SS("pos_cardio", cardio); SS("pos_walks", walks); SS("pos_strava_ids", seen); return added;
+}
+function StravaCard({ refresh }: { refresh: () => void }) {
+  const [msg, setMsg] = useState(""); const [busy, setBusy] = useState(false);
+  const sync = async () => {
+    setBusy(true); setMsg("");
+    try {
+      const r = await fetch("/api/strava/sync"); const d = await r.json();
+      if (!d.connected) setMsg("Not connected yet — click Connect Strava, authorize, then Sync.");
+      else { const n = importStrava(d.activities || []); refresh(); setMsg(n ? `Imported ${n} new activit${n===1?"y":"ies"} ✓` : "Up to date — no new activities."); }
+    } catch (e) { setMsg("Sync failed — check your Strava setup."); }
+    setBusy(false);
+  };
+  return <div className="card" style={{ marginBottom: 16 }}>
+    <div className="between" style={{ flexWrap: "wrap", gap: 10 }}>
+      <div className="row" style={{ gap: 8 }}><span>🔗</span><strong>Strava</strong></div>
+      <div className="row" style={{ gap: 8 }}>
+        <a className="btn ghost sm" href="/api/strava/connect">Connect Strava</a>
+        <button className="btn sm" onClick={sync} disabled={busy}>{busy ? "Syncing…" : "Sync now"}</button>
+      </div>
+    </div>
+    <div className="muted" style={{ fontSize: 12, marginTop: 8 }}>{msg || "Connect once, then Sync to import your runs, rides and walks from the last 60 days into Cardio & Daily Walk."}</div>
+  </div>;
+}
+
 /* ---------- overview ---------- */
 function Overview() {
   const walkToday = LS("pos_walks",[]).filter((x:any)=>x.date===today());
@@ -432,6 +465,7 @@ export default function Fitness() {
     {tab==="weight" && <Tracker refresh={refresh} storeKey="pos_weightlog" title="Weight Tracker" icon="⚖️"
       fields={[{k:"date",label:"Date",type:"date"},{k:"weight",label:"Morning Weight kg"},{k:"bodyfat",label:"Body Fat %",optional:true},{k:"muscle",label:"Muscle %",optional:true},{k:"bmi",label:"BMI",optional:true},{k:"waist",label:"Waist",optional:true},{k:"chest",label:"Chest",optional:true},{k:"arms",label:"Arms",optional:true},{k:"thigh",label:"Thigh",optional:true},{k:"notes",label:"Notes",type:"text"}]}
       charts={[{title:"Daily Weight (30d)",field:"weight",kind:"line",color:"#06B6D4"},{title:"Body Fat % (30d)",field:"bodyfat",kind:"line",color:"#F59E0B"}]}/>}
+    {tab==="cardio" && <StravaCard refresh={refresh}/>}
     {tab==="cardio" && <Tracker refresh={refresh} aiCal="cardio" aiParse="cardio" storeKey="pos_cardio" title="Cardio Tracker" icon="🏃"
       fields={[{k:"date",label:"Date",type:"date"},{k:"activity",label:"Activity",type:"select",options:["Running","Cycling","StairMaster","Rowing","Walking","Swimming","Elliptical","HIIT","Other"]},{k:"duration",label:"Duration min"},{k:"distance",label:"Distance km"},{k:"cal",label:"Calories"},{k:"avgSpeed",label:"Avg Speed",optional:true},{k:"avgHR",label:"Avg HR",optional:true},{k:"maxHR",label:"Max HR",optional:true},{k:"notes",label:"Notes",type:"text"}]}
       charts={[{title:"Weekly Cardio Duration",field:"duration",kind:"bar",color:"#EC4899"},{title:"Monthly Cardio Duration",field:"duration",kind:"bar",color:"#EC4899"},{title:"Calories Burned (7d)",field:"cal",kind:"bar",color:"#F59E0B"},{title:"Distance Covered (7d)",field:"distance",kind:"line",color:"#10B981"}]}/>}
