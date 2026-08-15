@@ -485,8 +485,7 @@ function GoogleHealthCard({ refresh }: { refresh: () => void }) {
     try {
       const r = await fetch("/api/ghealth/steps"); const d = await r.json();
       if (d.ok) { const h = LS("pos_health", {}); h.steps = d.steps; SS("pos_health", h); refresh(); setMsg(`Synced ✓ ${d.steps} steps today (Fitbit via Google Health).`); }
-      else if (/scope|permission|insufficient|403|PERMISSION|unauthor/i.test(JSON.stringify(d))) setMsg("Google Health permission needed — sign out and sign in again to grant access, then Sync.");
-      else setMsg("Couldn't fetch steps: " + (d.error || "unknown") + ". Make sure the Health API is enabled and you re-signed in.");
+      else setMsg("Google Health error" + (d.code ? ` [${d.code}]` : "") + ": " + (d.error || JSON.stringify(d)));
     } catch (e) { setMsg("Sync failed."); } setBusy(false); };
   return <div className="card" style={{ marginBottom: 16 }}>
     <div className="between" style={{ flexWrap: "wrap", gap: 10 }}>
