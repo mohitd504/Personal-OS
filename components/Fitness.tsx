@@ -481,18 +481,29 @@ function StravaView({ refresh }: { refresh: () => void }) {
 /* ---------- Fitbit via Google Health API (steps) ---------- */
 function GoogleHealthCard({ refresh }: { refresh: () => void }) {
   const [msg, setMsg] = useState(""); const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    const p = new URLSearchParams(window.location.search).get("ghealth");
+    if (p === "connected") setMsg("✓ Google Health connected — click 'Sync steps'.");
+    else if (p === "noconfig") setMsg("Google Health keys not set in Vercel (GHEALTH_CLIENT_ID / GHEALTH_CLIENT_SECRET).");
+    else if (p === "error") setMsg("Google Health authorization failed — check the callback URL in that project's OAuth client.");
+    else if (p === "signin") setMsg("Please sign in first.");
+  }, []);
   const sync = async () => { setBusy(true); setMsg("");
     try {
       const r = await fetch("/api/ghealth/steps"); const d = await r.json();
       if (d.ok) { const h = LS("pos_health", {}); h.steps = d.steps; SS("pos_health", h); refresh(); setMsg(`Synced ✓ ${d.steps} steps today (Fitbit via Google Health).`); }
+      else if (d.connected === false) setMsg("Not connected — click 'Connect Google Health' first.");
       else setMsg("Google Health error" + (d.code ? ` [${d.code}]` : "") + ": " + (d.error || JSON.stringify(d)));
     } catch (e) { setMsg("Sync failed."); } setBusy(false); };
   return <div className="card" style={{ marginBottom: 16 }}>
     <div className="between" style={{ flexWrap: "wrap", gap: 10 }}>
-      <div className="row" style={{ gap: 8 }}><span>⌚</span><strong>Fitbit · Google Health</strong><span className="muted" style={{ fontSize: 11 }}>steps from your watch, via your Google account</span></div>
-      <button className="btn sm" onClick={sync} disabled={busy}>{busy ? "Syncing…" : "Sync steps"}</button>
+      <div className="row" style={{ gap: 8 }}><span>⌚</span><strong>Fitbit · Google Health</strong><span className="muted" style={{ fontSize: 11 }}>steps from your watch — separate Google login</span></div>
+      <div className="row" style={{ gap: 8 }}>
+        <a className="btn ghost sm" href="/api/ghealth/connect">Connect Google Health</a>
+        <button className="btn sm" onClick={sync} disabled={busy}>{busy ? "Syncing…" : "Sync steps"}</button>
+      </div>
     </div>
-    <div className="muted" style={{ fontSize: 12, marginTop: 8 }}>{msg || "Tap Sync to pull today's steps. First time: if it asks for permission, sign out & back in once to grant Google Health access."}</div>
+    <div className="muted" style={{ fontSize: 12, marginTop: 8 }}>{msg || "Connect once (separate from your Gmail login), then Sync to pull today's steps. Fitbit must be linked to that Google account."}</div>
   </div>;
 }
 
