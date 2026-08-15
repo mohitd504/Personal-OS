@@ -536,7 +536,357 @@ function FitbitCard({ refresh }: { refresh: () => void }) {
   </div>;
 }
 
-/* ---------- overview ---------- */
+/* ================= EXECUTIVE HEALTH DASHBOARD ================= */
+const clamp = (v:number,a=0,b=100)=>Math.max(a,Math.min(b,isFinite(v)?v:0));
+const r0 = (v:number)=>Math.round(v||0);
+const r1 = (v:number)=>Math.round((v||0)*10)/10;
+const pctOf = (a:number,b:number)=> b>0 ? clamp(Math.round(a/b*100)) : 0;
+const withinDays = (ds:string,n:number)=>{ if(!ds) return false; const diff=(Date.now()-new Date(ds).getTime())/86400000; return diff>=-1 && diff<n; };
+function settOf(){ return { name:"Mohit", age:36, heightFt:6, heightIn:1, weightGoal:87, calorieGoal:2350, proteinGoal:180, carbGoal:250, fatGoal:70, fiberGoal:35, waterGoal:3.5, stepGoal:9000, ...LS("pos_settings",{}) }; }
+function heightCm(s:any){ return Math.round(((+s.heightFt||0)*12+(+s.heightIn||0))*2.54); }
+function bmrOf(s:any,kg:number){ const cm=heightCm(s); return Math.round(10*kg+6.25*cm-5*(+s.age||30)+5); }
+function nutOf(d:string){ const n=LS("pos_nutri_"+d,{meals:[],water:0}); const t={cal:0,protein:0,carbs:0,fat:0,fiber:0,water:+n.water||0}; (n.meals||[]).forEach((m:any)=>{t.cal+=+m.cal||0;t.protein+=+m.protein||0;t.carbs+=+m.carbs||0;t.fat+=+m.fat||0;t.fiber+=+m.fiber||0;}); return t; }
+function weightSeries(){ return LS("pos_weightlog",[]).filter((x:any)=>+x.weight).map((x:any)=>({date:x.date,w:+x.weight,bf:+x.bodyfat||0,mu:+x.muscle||0,waist:+x.waist||0})).sort((a:any,b:any)=>a.date<b.date?-1:1); }
+function dayExCal(d:string){ const w=LS("pos_walks",[]).filter((x:any)=>x.date===d).reduce((a:number,x:any)=>a+(+x.cal||0),0); const c=LS("pos_cardio",[]).filter((x:any)=>x.date===d).reduce((a:number,x:any)=>a+(+x.cal||0),0); const g=LS("pos_workouts",[]).filter((x:any)=>x.date===d).reduce((a:number,x:any)=>a+(+x.calories||0),0); return w+c+g; }
+
+function Gauge({ value, label, color, size=150, suffix="" }: any){
+  const v=clamp(value); const r=(size-18)/2; const c=2*Math.PI*r; const off=c*(1-v/100); const cx=size/2;
+  return <div style={{textAlign:"center"}}><svg width={size} height={size}>
+    <circle cx={cx} cy={cx} r={r} stroke="rgba(255,255,255,.08)" strokeWidth={13} fill="none"/>
+    <circle cx={cx} cy={cx} r={r} stroke={color} strokeWidth={13} fill="none" strokeLinecap="round" strokeDasharray={c} strokeDashoffset={off} transform={`rotate(-90 ${cx} ${cx})`}/>
+    <text x="50%" y="47%" textAnchor="middle" fontSize={size*0.27} fontWeight="800" fill="#E7ECF3">{Math.round(v)}{suffix}</text>
+    <text x="50%" y="65%" textAnchor="middle" fontSize="11" fill="#8A94A6">{label}</text>
+  </svg></div>;
+}
+function Stat({ label, value, unit, sub, tint="blue" }: any){
+  return <div className="card kpi"><div className="between"><div className="lbl">{label}</div>{tint&&<div className={"ic-chip tint-"+tint} style={{width:26,height:26,fontSize:11}} />}</div>
+    <div className="val" style={{fontSize:23}}>{value}{unit&&<small> {unit}</small>}</div>{sub&&<div className="muted" style={{fontSize:11,marginTop:4}}>{sub}</div>}</div>;
+}
+function Sec({ t, s }: any){ return <div style={{margin:"26px 0 12px"}}><h2 style={{fontSize:17,fontWeight:720,margin:0}}>{t}</h2>{s&&<div className="muted" style={{fontSize:12,marginTop:3}}>{s}</div>}</div>; }
+function ProgRow({ label, pct, color }: any){ return <div style={{marginBottom:12}}><div className="between" style={{fontSize:12,marginBottom:5}}><span className="muted">{label}</span><b>{pct}%</b></div>
+  <div style={{height:8,borderRadius:6,background:"rgba(255,255,255,.08)",overflow:"hidden"}}><div style={{height:"100%",width:clamp(pct)+"%",background:color,borderRadius:6}}/></div></div>; }
+
+function SleepQuickAdd({ refresh }: { refresh:()=>void }){
+  const [f,setF]=useState<any>({date:today()});
+  const save=()=>{ if(!(+f.total)){ alert("Enter total sleep hours"); return; } const all=LS("pos_sleep",[]); const i=all.findIndex((x:any)=>x.date===f.date);
+    const rec={date:f.date,total:+f.total||0,deep:+f.deep||0,rem:+f.rem||0,light:+f.light||0,awake:+f.awake||0,efficiency:+f.efficiency||0,bedtime:f.bedtime||"",wake:f.wake||""};
+    if(i>=0) all[i]=rec; else all.push(rec); all.sort((a:any,b:any)=>a.date<b.date?1:-1); SS("pos_sleep",all); setF({date:today()}); refresh(); };
+  return <div className="card" style={{marginTop:12}}><div className="row" style={{gap:8,flexWrap:"wrap"}}>
+    <input className="in" type="date" value={f.date} onChange={e=>setF((s:any)=>({...s,date:e.target.value}))} style={{width:150}}/>
+    <input className="in" type="number" placeholder="Total h" value={f.total??""} onChange={e=>setF((s:any)=>({...s,total:e.target.value}))} style={{width:90}}/>
+    <input className="in" type="number" placeholder="Deep h" value={f.deep??""} onChange={e=>setF((s:any)=>({...s,deep:e.target.value}))} style={{width:90}}/>
+    <input className="in" type="number" placeholder="REM h" value={f.rem??""} onChange={e=>setF((s:any)=>({...s,rem:e.target.value}))} style={{width:90}}/>
+    <input className="in" type="number" placeholder="Light h" value={f.light??""} onChange={e=>setF((s:any)=>({...s,light:e.target.value}))} style={{width:90}}/>
+    <input className="in" type="number" placeholder="Efficiency %" value={f.efficiency??""} onChange={e=>setF((s:any)=>({...s,efficiency:e.target.value}))} style={{width:120}}/>
+    <button className="btn sm" onClick={save}>Log sleep</button>
+  </div></div>;
+}
+
+function ExecDash({ refresh }: { refresh: () => void }){
+  const s=settOf();
+  const H=LS("pos_health",{});
+  const wl=weightSeries();
+  const curW = wl.length? wl[wl.length-1].w : curWeight();
+  const startW = wl.length? wl[0].w : curW;
+  const goalW = +s.weightGoal||87;
+  const lost = r1(startW-curW);
+  const remain = r1(curW-goalW);
+  const totalToLose = Math.max(0.1, startW-goalW);
+  let weeklyRate=0;
+  if(wl.length>=2){ const days=Math.max(1,(new Date(wl[wl.length-1].date).getTime()-new Date(wl[0].date).getTime())/86400000); weeklyRate=r1((startW-curW)/days*7); }
+  const monthlyRate=r1(weeklyRate*4.345);
+  const weeksToGoal = weeklyRate>0.05 && remain>0 ? remain/weeklyRate : null;
+  const goalDate = weeksToGoal? new Date(Date.now()+weeksToGoal*7*86400000) : null;
+  const projW=(wk:number)=> weeklyRate>0 ? r1(Math.max(goalW,curW-weeklyRate*wk)) : curW;
+
+  // activity
+  const walksToday=LS("pos_walks",[]).filter((x:any)=>x.date===today());
+  const cardioToday=LS("pos_cardio",[]).filter((x:any)=>x.date===today());
+  const woToday=LS("pos_workouts",[]).filter((x:any)=>x.date===today());
+  const stepsToday=Math.max(walksToday.reduce((a:number,x:any)=>a+(+x.steps||0),0), +H.steps||0);
+  const wkAvgSteps=r0(sumRange("pos_walks","steps",7)/7);
+  const moAvgSteps=r0(sumRange("pos_walks","steps",30)/30);
+  const distToday=r1(Math.max(walksToday.reduce((a:number,x:any)=>a+(+x.distance||0),0), +H.distance||0));
+  const activeMin=r0(walksToday.reduce((a:number,x:any)=>a+(+x.activeMin||0),0)+cardioToday.reduce((a:number,x:any)=>a+(+x.duration||0),0)+(+H.azm||0));
+  const floors=+H.floors||0;
+  const calBurn=r0(dayExCal(today())+(+H.caloriesBurned||0));
+
+  // exercise
+  const allWo=LS("pos_workouts",[]); const allCardio=LS("pos_cardio",[]); const allStrava=LS("pos_strava",[]);
+  const totalWorkouts=allWo.length;
+  const woWk=allWo.filter((w:any)=>withinDays(w.date,7));
+  const woThisWeek=woWk.length;
+  const woDurWk=r0(woWk.reduce((a:number,w:any)=>a+(+w.duration||0),0));
+  const woCalWk=r0(woWk.reduce((a:number,w:any)=>a+(+w.calories||0),0));
+  const gymSessions30=allWo.filter((w:any)=>withinDays(w.date,30)).length;
+  const typeMap:Record<string,number>={};
+  allWo.forEach((w:any)=>{ const k=w.type||"Gym"; typeMap[k]=(typeMap[k]||0)+1; });
+  allCardio.forEach((c:any)=>{ const k=c.activity||"Cardio"; typeMap[k]=(typeMap[k]||0)+1; });
+  allStrava.forEach((a:any)=>{ const k=a.type||"Activity"; typeMap[k]=(typeMap[k]||0)+1; });
+  const typeBreak=Object.keys(typeMap).map(k=>({name:k,value:typeMap[k]}));
+  const consistency=pctOf(woThisWeek,5);
+
+  // heart
+  const hrPool=[...allCardio,...allStrava].filter((a:any)=>+a.avgHR);
+  const avgHR=hrPool.length? r0(hrPool.reduce((a:number,x:any)=>a+(+x.avgHR||0),0)/hrPool.length):0;
+  const maxHR=Math.max(0,...[...allCardio,...allStrava].map((a:any)=>+a.maxHR||0));
+  const rhr=+H.restingHR||0;
+  const vo2=(rhr&&maxHR)? r1(15.3*(maxHR/rhr)) : (+H.vo2||0);
+  const cardioScore=vo2? clamp(r0((vo2-20)/40*100)) : 0;
+
+  // sleep
+  const sleep=LS("pos_sleep",[]).slice().sort((a:any,b:any)=>a.date<b.date?-1:1);
+  const slLast=sleep[sleep.length-1]||{};
+  const slAvg=sleep.length? r1(sleep.slice(-7).reduce((a:number,x:any)=>a+(+x.total||0),0)/Math.min(7,sleep.length)):0;
+  const slEff=+slLast.efficiency||0;
+
+  // body comp
+  const last=wl[wl.length-1]||{}; const bmi=curW? r1(curW/Math.pow(heightCm(s)/100,2)):0;
+  const bodyFat=+last.bf||0; const muscle=+last.mu||0; const waist=+last.waist||0;
+  const leanMass=bodyFat? r1(curW*(1-bodyFat/100)):0;
+
+  // nutrition today
+  const nt=nutOf(today());
+  const tdee=r0(bmrOf(s,curW)*1.2+calBurn);
+  const deficit=r0(tdee-nt.cal);
+
+  // performance %
+  const stepPct=pctOf(stepsToday,s.stepGoal);
+  const proteinPct=pctOf(nt.protein,s.proteinGoal);
+  const waterPct=pctOf(nt.water,s.waterGoal);
+  const sleepPct=pctOf(+slLast.total||slAvg,8);
+  const workoutWkPct=pctOf(woThisWeek,5);
+  const weightProgPct=pctOf(lost,totalToLose);
+  let daysActive=0; for(let i=0;i<30;i++){ const d=new Date(); d.setDate(d.getDate()-i); const ds=dstr(d); if(allWo.some((w:any)=>w.date===ds)||LS("pos_walks",[]).some((x:any)=>x.date===ds)||allCardio.some((x:any)=>x.date===ds)) daysActive++; }
+  const monthlyConsistency=pctOf(daysActive,30);
+  const gymPct=pctOf(gymSessions30,20);
+
+  // scores
+  const scoreParts=[{v:stepPct,w:1},{v:workoutWkPct,w:1.2},{v:proteinPct,w:1},{v:waterPct,w:.8},{v:weightProgPct,w:1},...(sleep.length?[{v:sleepPct,w:1}]:[])];
+  const healthScore=r0(scoreParts.reduce((a,x)=>a+x.v*x.w,0)/scoreParts.reduce((a,x)=>a+x.w,0));
+  const dailyGoal=r0((stepPct+proteinPct+waterPct+(woToday.length?100:0))/4);
+  const wellness = healthScore>=85?"Excellent":healthScore>=70?"Good":healthScore>=50?"Fair":"Poor";
+  const wellTint = healthScore>=85?"emerald":healthScore>=70?"blue":healthScore>=50?"orange":"pink";
+
+  // charts
+  const stepChart=byDay("pos_walks","steps",7);
+  const weightChart=wl.slice(-30).map((x:any)=>({name:(x.date||"").slice(5),value:x.w}));
+  const sleepChart=sleep.slice(-14).map((x:any)=>({name:(x.date||"").slice(5),value:+x.total||0}));
+  const hrChart=hrPool.slice(-12).map((a:any)=>({name:(a.date||"").slice(5),value:+a.avgHR}));
+  const woFreq=(()=>{ const o:any[]=[]; for(let i=6;i>=0;i--){ const d=new Date(); d.setDate(d.getDate()-i); const ds=dstr(d); o.push({name:DOW[d.getDay()],value:allWo.filter((w:any)=>w.date===ds).length+allCardio.filter((c:any)=>c.date===ds).length}); } return o; })();
+  const proteinChart=(()=>{ const o:any[]=[]; for(let i=6;i>=0;i--){ const d=new Date(); d.setDate(d.getDate()-i); const ds=dstr(d); o.push({name:DOW[d.getDay()],value:nutOf(ds).protein}); } return o; })();
+  const deficitChart=(()=>{ const o:any[]=[]; for(let i=6;i>=0;i--){ const d=new Date(); d.setDate(d.getDate()-i); const ds=dstr(d); const consumed=nutOf(ds).cal; const td=bmrOf(s,curW)*1.2+dayExCal(ds); o.push({name:DOW[d.getDay()],value: consumed? r0(td-consumed):0}); } return o; })();
+  const macro=[{name:"Protein",value:nt.protein},{name:"Carbs",value:nt.carbs},{name:"Fat",value:nt.fat}];
+
+  // insights
+  type Ins={t:string;k:"good"|"warn"|"risk"};
+  const ins:Ins[]=[];
+  if(stepPct>=100) ins.push({t:`Step goal smashed — ${stepsToday.toLocaleString()} steps today.`,k:"good"});
+  else ins.push({t:`Walk ${Math.max(0,s.stepGoal-stepsToday).toLocaleString()} more steps to hit your ${(+s.stepGoal).toLocaleString()} goal.`,k:"warn"});
+  if(woThisWeek>=4) ins.push({t:`Excellent training consistency — ${woThisWeek} sessions this week.`,k:"good"});
+  else if(woThisWeek<=1) ins.push({t:`Only ${woThisWeek} workout this week — aim for 4–5 to stay on plan.`,k:"warn"});
+  if(nt.protein && nt.protein < s.proteinGoal*0.8) ins.push({t:`Protein is ${nt.protein}g today — add ~${Math.round(s.proteinGoal-nt.protein)}g to reach ${s.proteinGoal}g.`,k:"warn"});
+  if(nt.water && nt.water < s.waterGoal) ins.push({t:`Hydration ${nt.water}L — drink ${Math.round((s.waterGoal-nt.water)*1000)}ml more.`,k:"warn"});
+  if(sleep.length && (+slLast.total||slAvg) < 7) ins.push({t:`Sleep ${(+slLast.total||slAvg)}h is below the 7–8h target — protect recovery.`,k:"warn"});
+  if(weeklyRate>0.9) ins.push({t:`Weight loss is fast at ${weeklyRate}kg/week — ease toward a sustainable ~0.7kg/wk to keep muscle.`,k:"risk"});
+  else if(weeklyRate>0.1) ins.push({t:`Weight trending down ${weeklyRate}kg/week — right on schedule.`,k:"good"});
+  if(goalDate) ins.push({t:`At this pace you'll reach ${goalW}kg around ${goalDate.toLocaleDateString(undefined,{month:"short",day:"numeric",year:"numeric"})}.`,k:"good"});
+  if(rhr && rhr>75) ins.push({t:`Resting HR ${rhr}bpm is a little high — prioritise sleep, hydration and easy cardio.`,k:"risk"});
+  const topIns=ins.slice(0,6);
+
+  const risks:string[]=[];
+  if(sleep.length && (+slLast.total||slAvg)<6.5) risks.push("Chronic short sleep (<6.5h)");
+  if(rhr>78) risks.push("Elevated resting heart rate");
+  if(deficit>1100) risks.push("Very aggressive calorie deficit");
+  if(nt.protein && nt.protein<s.proteinGoal*0.6) risks.push("Persistently low protein");
+  if(bmi>=30) risks.push("BMI in obese range");
+
+  const iconFor=(k:string)=> k==="good"?"✅":k==="risk"?"⚠️":"🔸";
+  const tintFor=(k:string)=> k==="good"?"emerald":k==="risk"?"pink":"orange";
+
+  return <>
+    <div className="head"><h1>🩺 Executive Health Dashboard</h1><p>Complete view of activity, fitness, nutrition, sleep &amp; weight-loss · {new Date().toLocaleDateString(undefined,{weekday:"long",month:"long",day:"numeric"})}</p></div>
+    <GoogleHealthCard refresh={refresh}/>
+
+    {/* executive summary */}
+    <div className="card" style={{marginBottom:16}}>
+      <div className="grid g3" style={{alignItems:"center"}}>
+        <div className="row" style={{justifyContent:"center",gap:18,flexWrap:"wrap"}}>
+          <Gauge value={healthScore} label="Health Score" color="#10B981"/>
+          <div><div className="lbl muted" style={{fontSize:12}}>Wellness Status</div>
+            <div className="val" style={{fontSize:26}}><span className={"ic-chip tint-"+wellTint} style={{display:"inline-flex",width:14,height:14,marginRight:8,verticalAlign:"middle"}}/>{wellness}</div>
+            <div className="muted" style={{fontSize:12,marginTop:8}}>Daily goals {dailyGoal}% complete</div>
+          </div>
+        </div>
+        <div style={{textAlign:"center"}}><Gauge value={weightProgPct} label="Weight Goal" color="#06B6D4" suffix="%"/>
+          <div className="muted" style={{fontSize:12,marginTop:4}}>{curW}→{goalW}kg · {remain>0?remain+"kg to go":"goal reached 🎉"}</div></div>
+        <div style={{textAlign:"center"}}><Gauge value={dailyGoal} label="Today's Goals" color="#A855F7" suffix="%"/>
+          <div className="muted" style={{fontSize:12,marginTop:4}}>{stepsToday.toLocaleString()} steps · {calBurn} kcal · {activeMin} min</div></div>
+      </div>
+    </div>
+
+    {/* top AI insights + risks */}
+    <div className="grid g2">
+      <div className="card"><strong>✨ Top AI Insights</strong>
+        <ul className="list" style={{marginTop:6}}>{topIns.map((x,i)=><li className="li" key={i} style={{alignItems:"flex-start"}}><span>{iconFor(x.k)}</span><span style={{flex:1,fontSize:13,lineHeight:1.5}}>{x.t}</span></li>)}</ul>
+      </div>
+      <div className="card"><strong>⚠️ Key Risk Indicators</strong>
+        {risks.length? <ul className="list" style={{marginTop:6}}>{risks.map((r,i)=><li className="li" key={i}><span className="dot" style={{background:"#f9a8d4"}}/><span style={{fontSize:13}}>{r}</span></li>)}</ul>
+          : <div className="muted" style={{fontSize:13,marginTop:10}}>No red flags detected — recovery, heart rate, protein and deficit all within healthy ranges. Keep it up. 💪</div>}
+        <div style={{marginTop:14,paddingTop:12,borderTop:"1px solid rgba(255,255,255,.07)"}}><div className="muted" style={{fontSize:11,marginBottom:8}}>Improvement opportunities</div>
+          <div className="row" style={{flexWrap:"wrap",gap:8}}>
+            {stepPct<100&&<span className="in" style={{fontSize:11,padding:"4px 9px"}}>+{Math.max(0,s.stepGoal-stepsToday).toLocaleString()} steps</span>}
+            {proteinPct<100&&<span className="in" style={{fontSize:11,padding:"4px 9px"}}>+{Math.max(0,Math.round(s.proteinGoal-nt.protein))}g protein</span>}
+            {waterPct<100&&<span className="in" style={{fontSize:11,padding:"4px 9px"}}>+{Math.max(0,Math.round((s.waterGoal-nt.water)*1000))}ml water</span>}
+            {workoutWkPct<100&&<span className="in" style={{fontSize:11,padding:"4px 9px"}}>+{Math.max(0,5-woThisWeek)} workouts</span>}
+            {sleep.length>0&&sleepPct<100&&<span className="in" style={{fontSize:11,padding:"4px 9px"}}>+{r1(Math.max(0,8-(+slLast.total||slAvg)))}h sleep</span>}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {/* activity */}
+    <Sec t="🏃 Activity Analytics" s="Steps, distance, active minutes and burn — today vs your averages"/>
+    <div className="grid g4">
+      <Stat label="Daily Steps" value={stepsToday.toLocaleString()} sub={`Goal ${(+s.stepGoal).toLocaleString()} · ${stepPct}%`} tint="emerald"/>
+      <Stat label="Weekly Avg Steps" value={wkAvgSteps.toLocaleString()} tint="emerald"/>
+      <Stat label="Monthly Avg Steps" value={moAvgSteps.toLocaleString()} tint="emerald"/>
+      <Stat label="Distance" value={distToday} unit="km" tint="cyan"/>
+      <Stat label="Active Minutes" value={activeMin} unit="min" tint="blue"/>
+      <Stat label="Move Minutes" value={activeMin} unit="min" tint="blue"/>
+      <Stat label="Floors Climbed" value={floors||"—"} tint="orange"/>
+      <Stat label="Calories Burned" value={calBurn.toLocaleString()} unit="kcal" tint="orange"/>
+    </div>
+    <div className="grid g3" style={{marginTop:16}}>
+      <BarC title="Daily Steps (7d)" color="#10B981" data={stepChart}/>
+      <BarC title="Calories Burned (7d)" color="#F59E0B" data={byDay("pos_walks","cal",7)}/>
+      <BarC title="Active Minutes (7d)" color="#3B82F6" data={byDay("pos_walks","activeMin",7)}/>
+    </div>
+
+    {/* exercise */}
+    <Sec t="🏋️ Exercise Analytics" s="Training volume, frequency and type mix"/>
+    <div className="grid g4">
+      <Stat label="Total Workouts" value={totalWorkouts} tint="purple"/>
+      <Stat label="This Week" value={woThisWeek} unit="sessions" tint="purple"/>
+      <Stat label="Duration (7d)" value={woDurWk} unit="min" tint="indigo"/>
+      <Stat label="Workout Cal (7d)" value={woCalWk.toLocaleString()} unit="kcal" tint="orange"/>
+      <Stat label="Gym Attendance" value={gymPct} unit="%" sub={`${gymSessions30}/20 in 30d`} tint="violet"/>
+      <Stat label="Consistency Score" value={consistency} unit="%" tint="emerald"/>
+      <Stat label="Monthly Consistency" value={monthlyConsistency} unit="%" sub={`${daysActive}/30 active days`} tint="blue"/>
+      <Stat label="Weekly Frequency" value={woThisWeek} unit="/wk" tint="pink"/>
+    </div>
+    <div className="grid g2" style={{marginTop:16}}>
+      <BarC title="Workout Frequency (7d)" color="#A855F7" data={woFreq}/>
+      <PieC title="Exercise Type Breakdown" data={typeBreak.length?typeBreak:[{name:"No sessions",value:0}]}/>
+    </div>
+
+    {/* heart */}
+    <Sec t="❤️ Heart & Cardio Health" s="Resting/working heart rate and cardio fitness"/>
+    <div className="grid g4">
+      <Stat label="Resting HR" value={rhr||"—"} unit="bpm" tint="pink"/>
+      <Stat label="Average HR" value={avgHR||"—"} unit="bpm" tint="pink"/>
+      <Stat label="Max HR" value={maxHR||"—"} unit="bpm" tint="pink"/>
+      <Stat label="VO₂ Max (est)" value={vo2||"—"} tint="emerald"/>
+      <Stat label="Cardio Fitness" value={cardioScore||"—"} unit="/100" tint="emerald"/>
+      <Stat label="Workout HR" value={avgHR||"—"} unit="bpm" tint="orange"/>
+      <Stat label="Min HR" value={rhr||"—"} unit="bpm" tint="blue"/>
+      <Stat label="HR Recovery" value={"—"} sub="needs watch data" tint="blue"/>
+    </div>
+    <div className="grid g2" style={{marginTop:16}}>
+      <LineC title="Heart Rate Trend (recent)" color="#EC4899" data={hrChart.length?hrChart:[{name:"—",value:0}]}/>
+      <div className="card"><strong>Cardio fitness note</strong><div className="muted" style={{fontSize:13,marginTop:10,lineHeight:1.6}}>VO₂ max estimated from your max &amp; resting HR{rhr&&maxHR?"":" — log resting HR (Health tab) and a workout with max HR to activate this"}. Higher VO₂ max and lower resting HR both signal improving cardiovascular fitness.</div></div>
+    </div>
+
+    {/* sleep */}
+    <Sec t="😴 Sleep Analytics" s="Duration, stages and quality"/>
+    <div className="grid g4">
+      <Stat label="Last Night" value={+slLast.total||"—"} unit="h" tint="indigo"/>
+      <Stat label="7-day Avg" value={slAvg||"—"} unit="h" tint="indigo"/>
+      <Stat label="Deep Sleep" value={+slLast.deep||"—"} unit="h" tint="violet"/>
+      <Stat label="REM Sleep" value={+slLast.rem||"—"} unit="h" tint="violet"/>
+      <Stat label="Light Sleep" value={+slLast.light||"—"} unit="h" tint="blue"/>
+      <Stat label="Efficiency" value={slEff||"—"} unit="%" tint="emerald"/>
+      <Stat label="Sleep Goal" value={sleepPct} unit="%" sub="target 8h" tint="cyan"/>
+      <Stat label="Quality Score" value={slEff? clamp(r0(slEff*0.6+sleepPct*0.4)) : (sleepPct||"—")} unit="/100" tint="emerald"/>
+    </div>
+    <div className="grid g2" style={{marginTop:16}}>
+      <LineC title="Sleep Duration (14d)" color="#8B5CF6" data={sleepChart.length?sleepChart:[{name:"—",value:0}]}/>
+      <div className="card"><strong>Log last night's sleep</strong><div className="muted" style={{fontSize:12,marginTop:6}}>Enter from your watch or estimate — powers the charts &amp; score above.</div><SleepQuickAdd refresh={refresh}/></div>
+    </div>
+
+    {/* body comp */}
+    <Sec t="🧬 Body Composition" s="Weight, BMI and body metrics"/>
+    <div className="grid g4">
+      <Stat label="Current Weight" value={curW} unit="kg" tint="cyan"/>
+      <Stat label="BMI" value={bmi||"—"} sub={bmi?(bmi<18.5?"underweight":bmi<25?"healthy":bmi<30?"overweight":"obese"):""} tint="blue"/>
+      <Stat label="Body Fat" value={bodyFat||"—"} unit="%" tint="orange"/>
+      <Stat label="Muscle" value={muscle||"—"} unit="%" tint="emerald"/>
+      <Stat label="Lean Body Mass" value={leanMass||"—"} unit="kg" tint="emerald"/>
+      <Stat label="Waist" value={waist||"—"} unit="cm" tint="purple"/>
+      <Stat label="Weight Lost" value={lost} unit="kg" tint="emerald"/>
+      <Stat label="To Goal" value={remain>0?remain:0} unit="kg" tint="pink"/>
+    </div>
+    <div className="grid g2" style={{marginTop:16}}>
+      <LineC title="Weight Trend (30 entries)" color="#06B6D4" data={weightChart.length?weightChart:[{name:"—",value:curW}]}/>
+      <LineC title="Body Fat % Trend" color="#F59E0B" data={wl.filter((x:any)=>x.bf).slice(-30).map((x:any)=>({name:(x.date||"").slice(5),value:x.bf}))}/>
+    </div>
+
+    {/* nutrition */}
+    <Sec t="🍎 Nutrition Analytics" s="Today's intake vs goals and energy balance"/>
+    <div className="grid g4">
+      <Stat label="Calories Consumed" value={nt.cal.toLocaleString()} unit="kcal" sub={`Goal ${(+s.calorieGoal).toLocaleString()}`} tint="orange"/>
+      <Stat label="Calories Burned" value={calBurn.toLocaleString()} unit="kcal" tint="orange"/>
+      <Stat label={deficit>=0?"Daily Deficit":"Daily Surplus"} value={Math.abs(deficit).toLocaleString()} unit="kcal" sub={deficit>=0?"on track to lose":"over maintenance"} tint={deficit>=0?"emerald":"pink"}/>
+      <Stat label="Protein" value={nt.protein} unit="g" sub={`${proteinPct}% of ${s.proteinGoal}g`} tint="emerald"/>
+      <Stat label="Carbs" value={nt.carbs} unit="g" tint="blue"/>
+      <Stat label="Fat" value={nt.fat} unit="g" tint="pink"/>
+      <Stat label="Fiber" value={nt.fiber} unit="g" sub={`goal ${s.fiberGoal}g`} tint="emerald"/>
+      <Stat label="Water" value={nt.water} unit="L" sub={`${waterPct}% of ${s.waterGoal}L`} tint="cyan"/>
+    </div>
+    <div className="grid g3" style={{marginTop:16}}>
+      <PieC title="Macro Distribution (g)" data={macro.every(m=>!m.value)?[{name:"No log",value:0}]:macro}/>
+      <BarC title="Protein Intake (7d)" color="#10B981" data={proteinChart}/>
+      <BarC title="Calorie Deficit (7d)" color="#3B82F6" data={deficitChart}/>
+    </div>
+
+    {/* weight loss / projections */}
+    <Sec t="🎯 Weight-Loss & Predictive Analytics" s="Rate, projections and goal ETA"/>
+    <div className="grid g4">
+      <Stat label="Weekly Loss Rate" value={weeklyRate} unit="kg/wk" tint="emerald"/>
+      <Stat label="Monthly Loss Rate" value={monthlyRate} unit="kg" tint="emerald"/>
+      <Stat label="Goal ETA" value={goalDate? goalDate.toLocaleDateString(undefined,{month:"short",day:"numeric"}) : "—"} sub={goalDate? goalDate.getFullYear().toString():"log 2+ weigh-ins"} tint="cyan"/>
+      <Stat label="Progress" value={weightProgPct} unit="%" sub={`${lost} of ${r1(totalToLose)}kg`} tint="blue"/>
+      <Stat label="Predicted · 30d" value={projW(4.29)} unit="kg" tint="cyan"/>
+      <Stat label="Predicted · 60d" value={projW(8.57)} unit="kg" tint="cyan"/>
+      <Stat label="Predicted · 90d" value={projW(12.86)} unit="kg" tint="cyan"/>
+      <Stat label="Avg Daily Deficit" value={(()=>{const arr=deficitChart.filter(x=>x.value);return arr.length? r0(arr.reduce((a,x)=>a+x.value,0)/arr.length):0;})()} unit="kcal" tint="emerald"/>
+    </div>
+    <div className="grid g2" style={{marginTop:16}}>
+      <LineC title="Weight vs Goal projection" color="#06B6D4" data={[...weightChart,{name:"+30d",value:projW(4.29)},{name:"+60d",value:projW(8.57)},{name:"+90d",value:projW(12.86)}]}/>
+      <BarC title="Calorie Deficit Trend (7d)" color="#10B981" data={deficitChart}/>
+    </div>
+
+    {/* performance scoreboard */}
+    <Sec t="📊 Performance Scoreboard" s="Goal completion across every pillar"/>
+    <div className="grid g2">
+      <div className="card">
+        <ProgRow label="Daily Step Goal" pct={stepPct} color="#10B981"/>
+        <ProgRow label="Weekly Workout Completion" pct={workoutWkPct} color="#A855F7"/>
+        <ProgRow label="Monthly Consistency" pct={monthlyConsistency} color="#3B82F6"/>
+        <ProgRow label="Gym Attendance" pct={gymPct} color="#8B5CF6"/>
+      </div>
+      <div className="card">
+        <ProgRow label="Protein Goal" pct={proteinPct} color="#10B981"/>
+        <ProgRow label="Sleep Goal" pct={sleepPct} color="#6366F1"/>
+        <ProgRow label="Water Goal" pct={waterPct} color="#06B6D4"/>
+        <ProgRow label="Weight-Loss Progress" pct={weightProgPct} color="#EC4899"/>
+      </div>
+    </div>
+    <div className="muted" style={{fontSize:11,marginTop:14}}>Estimates use the Mifflin-St Jeor BMR ({bmrOf(s,curW).toLocaleString()} kcal) at 1.2× baseline plus logged activity. Projections assume your current trend continues; real results vary. Sleep &amp; heart metrics need watch or manual entries to populate.</div>
+  </>;
+}
+
+/* ---------- overview (legacy, kept) ---------- */
 function Overview({ refresh }: { refresh: () => void }) {
   const walkToday = LS("pos_walks",[]).filter((x:any)=>x.date===today());
   const cardioToday = LS("pos_cardio",[]).filter((x:any)=>x.date===today());
@@ -610,16 +960,17 @@ function Analytics() {
 
 /* ---------- root ---------- */
 export default function Fitness() {
-  const [tab, setTab] = useState("overview");
+  const [tab, setTab] = useState("exec");
   const [, setT] = useState(0); const refresh = () => setT(x=>x+1);
   const TABS: [string,string,string][] = [
-    ["overview","Overview","📊"],["workout","Today's Workout","🏋️"],["walk","Daily Walk","🚶"],
+    ["exec","Dashboard","🩺"],["overview","Overview","📊"],["workout","Today's Workout","🏋️"],["walk","Daily Walk","🚶"],
     ["weight","Weight","⚖️"],["cardio","Cardio","🏃"],["strava","Strava","🔗"],["analytics","Analytics","📈"],
   ];
   return <>
     <div className="row" style={{flexWrap:"wrap",gap:8,marginBottom:18}}>
       {TABS.map(t=><button key={t[0]} onClick={()=>setTab(t[0])} className={"btn "+(tab===t[0]?"":"ghost")+" sm"} style={{fontWeight:600}}>{t[2]} {t[1]}</button>)}
     </div>
+    {tab==="exec" && <ExecDash refresh={refresh}/>}
     {tab==="overview" && <Overview refresh={refresh}/>}
     {tab==="walk" && <Tracker refresh={refresh} aiCal="walking" aiParse="walk" storeKey="pos_walks" title="Daily Walk Tracker" icon="🚶"
       fields={[{k:"date",label:"Date",type:"date"},{k:"steps",label:"Steps"},{k:"distance",label:"Distance km"},{k:"cal",label:"Calories (watch)"},{k:"activeMin",label:"Active Min"},{k:"duration",label:"Duration min"},{k:"pace",label:"Avg Pace",type:"text"},{k:"notes",label:"Notes",type:"text"}]}
