@@ -368,27 +368,35 @@ function StravaCard({ refresh }: { refresh: () => void }) {
     setBusy(false);
   };
   const del = (id: any) => { SS("pos_strava", LS("pos_strava", []).filter((x: any) => x.id !== id)); refresh(); };
-  return <div className="card" style={{ marginBottom: 16 }}>
-    <div className="between" style={{ flexWrap: "wrap", gap: 10 }}>
-      <div className="row" style={{ gap: 8 }}><span>🔗</span><strong>Strava (auto)</strong><span className="muted" style={{ fontSize: 11 }}>watch data via Strava — kept separate from your manual logs</span></div>
-      <div className="row" style={{ gap: 8 }}>
-        <a className="btn ghost sm" href="/api/strava/connect">Connect Strava</a>
-        <button className="btn sm" onClick={sync} disabled={busy}>{busy ? "Syncing…" : "Sync now"}</button>
-      </div>
-    </div>
-    <div className="muted" style={{ fontSize: 12, marginTop: 8 }}>{msg || "Connect once, then Sync to pull your last 60 days of Strava activities here (separate from the manual Cardio/Walk trackers below)."}</div>
-    {!!acts.length && <div style={{ overflowX: "auto", marginTop: 10 }}><table style={{ width: "100%", borderCollapse: "collapse", minWidth: 560 }}>
-      <thead><tr>{["Date","Activity","Distance","Duration","Cal","Avg HR",""].map(h=><th key={h} style={{ textAlign:"left", fontSize:10, textTransform:"uppercase", color:"#5b6577", padding:"6px", borderBottom:"1px solid rgba(255,255,255,.09)" }}>{h}</th>)}</tr></thead>
-      <tbody>{acts.slice(0,20).map((a: any)=><tr key={a.id} style={{ borderBottom:"1px solid rgba(255,255,255,.05)" }}>
+  const watch = acts.filter((a: any) => a.source === "watch");
+  const app = acts.filter((a: any) => a.source !== "watch");
+  const grp = (title: string, list: any[]) => !list.length ? null : <div style={{ marginTop: 12 }}>
+    <div style={{ fontSize: 12, fontWeight: 700, color: "#c4b5fd", marginBottom: 6 }}>{title} <span className="muted" style={{ fontWeight: 400 }}>({list.length})</span></div>
+    <div style={{ overflowX: "auto" }}><table style={{ width: "100%", borderCollapse: "collapse", minWidth: 580 }}>
+      <thead><tr>{["Date","Activity","Distance","Duration","Cal","Avg HR","Device",""].map(h=><th key={h} style={{ textAlign:"left", fontSize:10, textTransform:"uppercase", color:"#5b6577", padding:"6px", borderBottom:"1px solid rgba(255,255,255,.09)" }}>{h}</th>)}</tr></thead>
+      <tbody>{list.slice(0,25).map((a: any)=><tr key={a.id} style={{ borderBottom:"1px solid rgba(255,255,255,.05)" }}>
         <td style={{ padding:"6px", fontSize:12 }}>{a.date}</td>
         <td style={{ padding:"6px", fontSize:12 }}>{a.type}{a.name?` · ${a.name}`:""}</td>
         <td style={{ padding:"6px", fontSize:12 }}>{a.distance||0} km</td>
         <td style={{ padding:"6px", fontSize:12 }}>{a.duration||0} min</td>
         <td style={{ padding:"6px", fontSize:12 }}>{a.cal||0}</td>
         <td style={{ padding:"6px", fontSize:12 }}>{a.avgHR||"—"}</td>
+        <td style={{ padding:"6px", fontSize:11, color:"#8A94A6" }}>{a.device||"—"}</td>
         <td style={{ padding:"6px" }}><span className="btn ghost sm" style={{ cursor:"pointer" }} onClick={()=>del(a.id)}>✕</span></td>
       </tr>)}</tbody>
-    </table></div>}
+    </table></div>
+  </div>;
+  return <div className="card" style={{ marginBottom: 16 }}>
+    <div className="between" style={{ flexWrap: "wrap", gap: 10 }}>
+      <div className="row" style={{ gap: 8 }}><span>🔗</span><strong>Strava (auto)</strong><span className="muted" style={{ fontSize: 11 }}>split by source — kept separate from your manual logs</span></div>
+      <div className="row" style={{ gap: 8 }}>
+        <a className="btn ghost sm" href="/api/strava/connect">Connect Strava</a>
+        <button className="btn sm" onClick={sync} disabled={busy}>{busy ? "Syncing…" : "Sync now"}</button>
+      </div>
+    </div>
+    <div className="muted" style={{ fontSize: 12, marginTop: 8 }}>{msg || "Connect once, then Sync. Activities are split into ⌚ Fitbit watch vs 📱 Strava-app recordings so your watch data and manual recordings stay separate."}</div>
+    {grp("⌚ Fitbit / watch", watch)}
+    {grp("📱 Strava app (manual recordings)", app)}
   </div>;
 }
 

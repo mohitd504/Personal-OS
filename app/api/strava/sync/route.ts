@@ -11,11 +11,13 @@ export async function GET() {
   const r = await fetch(`https://www.strava.com/api/v3/athlete/activities?after=${after}&per_page=50`, { headers: { Authorization: `Bearer ${at}` } });
   const acts = await r.json();
   if (!Array.isArray(acts)) return Response.json({ connected: true, activities: [] });
+  const isWatch = (dev: string) => /(fitbit|garmin|apple|amazfit|coros|polar|wahoo|watch|wear)/i.test(dev || "");
   const mapped = acts.map((a: any) => ({
     id: a.id, name: a.name, type: a.type, date: (a.start_date_local || "").slice(0, 10),
     distance: Math.round((a.distance || 0) / 100) / 10, duration: Math.round((a.moving_time || 0) / 60),
     cal: a.kilojoules ? Math.round(a.kilojoules) : 0,
     avgHR: a.average_heartrate ? Math.round(a.average_heartrate) : "", maxHR: a.max_heartrate ? Math.round(a.max_heartrate) : "",
+    device: a.device_name || "", source: isWatch(a.device_name) ? "watch" : "app",
   }));
   return Response.json({ connected: true, activities: mapped });
 }
