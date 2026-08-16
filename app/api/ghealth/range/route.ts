@@ -54,5 +54,13 @@ export async function GET(req: Request) {
   put(azm.points, "activeMin", o => { for (const k of Object.keys(o || {})) { const n = parseFloat(o[k]); if (!isNaN(n)) return Math.round(n); } return 0; });
 
   const rows = Object.values(map).sort((a: any, b: any) => a.date < b.date ? 1 : -1);
-  return Response.json({ ok: true, connected: true, days, rows });
+  const debug = url.searchParams.get("debug") === "1";
+  const out: any = { ok: true, connected: true, days, rows };
+  if (debug) out.debug = {
+    requestedRange: `${dstr(start)} → ${dstr(end)}`,
+    stepsDaysReturned: steps.points.length,
+    stepsDates: steps.points.map((p: any) => p.date),
+    stepsErr: steps.err || null, distErr: dist.err || null, calErr: cal.err || null,
+  };
+  return Response.json(out);
 }

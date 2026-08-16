@@ -521,15 +521,18 @@ function GoogleHealthCard({ refresh }: { refresh: () => void }) {
           } else if (ad.error) actMsg = ` · activities: ${ad.error}`;
         } catch (e) {}
         // pull last-15-days steps history into the daily store
+        let rangeDbg: any = null;
         try {
-          const rr = await fetch("/api/ghealth/range?days=15"); const rd = await rr.json();
+          const rr = await fetch("/api/ghealth/range?days=15" + (debug?"&debug=1":"")); const rd = await rr.json();
           if (rd.ok && Array.isArray(rd.rows)) {
             const hist = LS("pos_ghealth", []); const idx: any = {}; hist.forEach((x:any,i:number)=>idx[x.date]=i);
             rd.rows.forEach((row:any)=>{ if(idx[row.date]!=null) hist[idx[row.date]] = { ...hist[idx[row.date]], ...row }; else hist.push(row); });
             hist.sort((a:any,b:any)=>a.date<b.date?1:-1); SS("pos_ghealth", hist);
-          }
+            rangeDbg = rd.debug || { rows: rd.rows.length };
+          } else if (rd.error) rangeDbg = { error: rd.error };
         } catch (e) {}
         refresh();
+        if (debug) setMsg((m)=>m+"\n\nRANGE(15d): "+JSON.stringify(rangeDbg));
         setMsg(`Synced ✓ ${d.steps} steps · ${d.distance||0}km · ${d.calories||0}kcal · ${d.activeMin||0} AZ min${d.avgHR?` · HR ${d.minHR}/${d.avgHR}/${d.maxHR}`:""}${d.restingHR?` · RHR ${d.restingHR}`:""}${d.sleepH?` · ${d.sleepH}h sleep`:""}${actMsg}` + (debug?"\n\nDAILY: "+JSON.stringify(d.debug)+"\n\nACTIVITIES: "+JSON.stringify(actDbg):""));
       }
       else if (d.connected === false) setMsg("Not connected — click 'Connect Google Health' first.");
