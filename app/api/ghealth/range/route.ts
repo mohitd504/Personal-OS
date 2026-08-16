@@ -51,7 +51,7 @@ export async function GET(req: Request) {
   put(steps.points, "steps", o => Math.round(parseFloat(o?.countSum || "0") || 0));
   put(dist.points, "distance", o => { let km = (parseFloat(o?.millimetersSum || "0") || 0) / 1_000_000; while (km > 100) km /= 1000; return Math.round(km * 100) / 100; });
   put(cal.points, "cal", o => Math.round(o?.kcalSum || 0));
-  put(azm.points, "activeMin", o => { for (const k of Object.keys(o || {})) { const n = parseFloat(o[k]); if (!isNaN(n)) return Math.round(n); } return 0; });
+  put(azm.points, "activeMin", o => Math.round((+o?.sumInFatBurnHeartZone || 0) + 2 * ((+o?.sumInCardioHeartZone || 0) + (+o?.sumInPeakHeartZone || 0))));
 
   const rows = Object.values(map).sort((a: any, b: any) => a.date < b.date ? 1 : -1);
   const debug = url.searchParams.get("debug") === "1";

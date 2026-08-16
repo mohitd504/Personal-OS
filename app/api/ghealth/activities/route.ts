@@ -68,32 +68,32 @@ export async function GET(req: Request) {
     const j = await r.json();
     if (j.error) return Response.json({ connected: true, error: j.error.message || "api error", code: j.error.code });
 
+    const localDate = (iso: string, off: string) => {
+      const t = Date.parse(iso || ""); if (isNaN(t)) return dstr(new Date());
+      const secs = parseInt(off || "0", 10) || 0;
+      return new Date(t + secs * 1000).toISOString().slice(0, 10);
+    };
     let activities = (j.dataPoints || []).map((dp: any) => {
-      const date = findStart(dp) || dstr(new Date());
-      const distMm = findNum(dp, /millimeter/i) || 0;
-      const distance = distMm ? Math.round(distMm / 1_000_000 * 100) / 100 : (findNum(dp, /distance/i) || 0);
-      let durSec = findNum(dp, /activeDuration|movingDuration|duration.*seconds|elapsed/i) || 0;
-      const durStr = findStr(dp, /duration/i); if (!durSec && durStr) durSec = parseFloat(durStr) || 0;
-      const duration = durSec > 300 ? Math.round(durSec / 60) : durSec;
-      const cal = Math.round(findNum(dp, /kcal|calorie/i) || 0);
-      const avgHR = Math.round(findNum(dp, /beatsPerMinuteAvg|averageHeartRate|avgHeartRate/i) || 0);
-      const maxHR = Math.round(findNum(dp, /beatsPerMinuteMax|maxHeartRate|heartRateMax/i) || 0);
-      const minHR = Math.round(findNum(dp, /beatsPerMinuteMin|minHeartRate|heartRateMin/i) || 0);
-      const steps = Math.round(findNum(dp, /steps.*count|countSum/i) || 0);
-      const azMin = Math.round(findNum(dp, /activeZone|zoneMinutes/i) || 0);
+      const ex = dp.exercise || dp;
+      const ms = ex.metricsSummary || {};
+      const iv = ex.interval || {};
+      const date = localDate(iv.startTime, iv.startUtcOffset);
+      const distance = ms.distanceMillimeters ? Math.round((+ms.distanceMillimeters) / 1_000_000 * 100) / 100 : 0;
+      const steps = Math.round(+ms.steps || 0);
+      const cal = Math.round(+ms.caloriesKcal || 0);
+      const avgHR = Math.round(+ms.averageHeartRateBeatsPerMinute || 0);
+      const azMin = Math.round(+ms.activeZoneMinutes || 0);
+      const durSec = parseInt(ex.activeDuration || "0", 10) || 0;
+      const duration = Math.round(durSec / 60);
       const avgSpeed = distance && duration ? Math.round(distance / (duration / 60) * 10) / 10 : 0;
-      // type: explicit field, else infer from pace / distance
-      let type = findType(dp);
-      if (type) type = type.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
-      else type = avgSpeed >= 8 ? "Run" : avgSpeed >= 4 ? "Walk" : distance >= 0.3 ? "Walk" : "Workout";
-      // unique id from the datapoint resource name
+      const laps = Array.isArray(ex.splits) ? ex.splits.length : 0;
+      let type = (ex.exerciseType || ex.displayName || "Activity").replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (c: string) => c.toUpperCase());
       const resName = typeof dp.name === "string" ? dp.name : "";
-      const id = "gh_" + (resName ? resName.split("/").pop() : `${date}_${duration}_${distance}`);
-      return { id, date, type, distance, duration, avgSpeed, activeZone: azMin, cal, avgHR, maxHR, minHR, steps, laps: 0, source: "watch" };
+      const id = "gh_" + (resName ? resName.split("/").pop() : `${iv.startTime || date}_${duration}`);
+      return { id, date, type, distance, duration, avgSpeed, activeZone: azMin, cal, avgHR, maxHR: 0, minHR: 0, steps, laps, source: "watch" };
     });
-    // drop noise: tiny auto-detected blips (very low speed standing periods, or nothing meaningful)
-    activities = activities.filter((a: any) => (a.distance >= 0.5 || a.cal >= 50) && !(a.avgSpeed && a.avgSpeed < 0.5));
-    // dedupe by id
+    // drop tiny auto/idle blips, keep real sessions (incl. bike rides with calories but no distance)
+    activities = activities.filter((a: any) => a.cal >= 30 || a.distance >= 0.3 || a.duration >= 8);
     const seen: any = {}; activities = activities.filter((a: any) => (seen[a.id] ? false : (seen[a.id] = true)));
 
     const out: any = { ok: true, connected: true, activities };

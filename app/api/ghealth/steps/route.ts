@@ -45,15 +45,13 @@ export async function GET(req: Request) {
   const debug = url.searchParams.get("debug") === "1";
   const [y, m, d] = ds.split("-").map(Number);
 
-  const [steps, distance, totalCal, azm, floors, hr, rhr, sleep] = await Promise.all([
+  const [steps, distance, totalCal, azm, floors, hr] = await Promise.all([
     roll(at, "steps", "steps", y, m, d),
     roll(at, "distance", "distance", y, m, d),
     roll(at, "total-calories", "totalCalories", y, m, d),
     roll(at, "active-zone-minutes", "activeZoneMinutes", y, m, d),
     roll(at, "floors", "floors", y, m, d),
     roll(at, "heart-rate", "heartRate", y, m, d),
-    roll(at, "daily-resting-heart-rate", "restingHeartRatePersonalRange", y, m, d),
-    roll(at, "sleep", "sleep", y, m, d),
   ]);
 
   // steps is the anchor: surface a scope/auth error clearly
@@ -63,22 +61,20 @@ export async function GET(req: Request) {
   let distKmRaw = (parseFloat(distance.obj?.millimetersSum || "0") || 0) / 1_000_000; while (distKmRaw > 100) distKmRaw /= 1000;
   const distKm = Math.round(distKmRaw * 100) / 100;
   const kcal = Math.round(totalCal.obj?.kcalSum || 0);
-  const activeMin = Math.round(num(azm.obj));
-  const floorsN = Math.round(num(floors.obj));
+  // active zone minutes = fat-burn ×1 + (cardio + peak) ×2  (Fitbit AZM formula)
+  const z = azm.obj || {};
+  const activeMin = Math.round((+z.sumInFatBurnHeartZone || 0) + 2 * ((+z.sumInCardioHeartZone || 0) + (+z.sumInPeakHeartZone || 0)));
+  const floorsN = Math.round(parseFloat(floors.obj?.countSum || "0") || 0);
   const hrAvg = Math.round(hr.obj?.beatsPerMinuteAvg || 0);
   const hrMax = Math.round(hr.obj?.beatsPerMinuteMax || 0);
   const hrMin = Math.round(hr.obj?.beatsPerMinuteMin || 0);
-  const rMin = rhr.obj?.beatsPerMinuteMin || 0, rMax = rhr.obj?.beatsPerMinuteMax || 0;
-  const restingHR = Math.round(rMin && rMax ? (rMin + rMax) / 2 : (rMin || rMax || hrMin || 0));
-  // sleep rollup value is a duration; num() grabs the first numeric (seconds or minutes) — normalise to hours
-  const sleepRaw = num(sleep.obj);
-  const sleepH = sleepRaw > 1440 ? Math.round(sleepRaw / 3600 * 10) / 10 : sleepRaw > 24 ? Math.round(sleepRaw / 60 * 10) / 10 : Math.round(sleepRaw * 10) / 10;
+  const restingHR = hrMin; // daily-resting-heart-rate has no rollup; min HR is the closest daily proxy
 
   const out: any = {
     ok: true, connected: true, date: ds,
     steps: stepsN, distance: distKm, calories: kcal, activeMin, floors: floorsN,
-    avgHR: hrAvg, maxHR: hrMax, minHR: hrMin, restingHR, sleepH,
+    avgHR: hrAvg, maxHR: hrMax, minHR: hrMin, restingHR, sleepH: 0,
   };
-  if (debug) out.debug = { steps: steps.raw, distance: distance.raw, totalCal: totalCal.raw, azm: azm.raw, floors: floors.raw, hr: hr.raw, rhr: rhr.raw, sleep: sleep.raw };
+  if (debug) out.debug = { steps: steps.raw, distance: distance.raw, totalCal: totalCal.raw, azm: azm.raw, floors: floors.raw, hr: hr.raw };
   return Response.json(out);
 }

@@ -1021,14 +1021,18 @@ function GoogleHealthBoard({ refresh }: { refresh: () => void }){
   const del=(id:string)=>{ SS("pos_gh_acts",LS("pos_gh_acts",[]).filter((x:any)=>x.id!==id)); refresh(); };
   const set=(k:string,v:any)=>setForm((s:any)=>({...s,[k]:v}));
 
-  const strideM=(heightCm(settOf())*0.415)/100 || 0.75; // walking stride from height
-  const stepKm=(st:number)=>Math.round((st*strideM/1000)*100)/100;
-  const steps=r0(ghToday("steps")|| +H.steps||0);
-  const cal=r0(ghToday("cal")|| +H.caloriesBurned||0);
-  const activeMin=r0(ghToday("activeMin")|| +H.azm||0);
-  const dist=stepKm(steps); // step distance only (not other activities)
+  // build per-day totals from watch sessions, overlaid with the daily rollup (more complete on recent days)
+  const dailyAgg:Record<string,any>={};
+  acts.forEach((a:any)=>{ const d=a.date; if(!d) return; dailyAgg[d]=dailyAgg[d]||{steps:0,distance:0,cal:0,activeMin:0}; dailyAgg[d].steps+=+a.steps||0; dailyAgg[d].distance+=+a.distance||0; dailyAgg[d].cal+=+a.cal||0; dailyAgg[d].activeMin+=+a.activeZone||0; });
+  LS("pos_ghealth",[]).forEach((g:any)=>{ const d=g.date; if(!d) return; dailyAgg[d]=dailyAgg[d]||{steps:0,distance:0,cal:0,activeMin:0}; dailyAgg[d].steps=Math.max(dailyAgg[d].steps,+g.steps||0); dailyAgg[d].distance=Math.max(dailyAgg[d].distance,+g.distance||0); dailyAgg[d].cal=Math.max(dailyAgg[d].cal,+g.cal||0); dailyAgg[d].activeMin=Math.max(dailyAgg[d].activeMin,+g.activeMin||0); });
+  const dayVal=(field:string,n:number)=>{ const out=[]; for(let i=n-1;i>=0;i--){ const d=new Date(); d.setDate(d.getDate()-i); const ds=dstr(d); const g=dailyAgg[ds]; out.push({name:n<=7?DOW[d.getDay()]:String(d.getDate()),value:g?Math.round((+g[field]||0)*10)/10:0}); } return out; };
+  const tA=dailyAgg[today()]||{};
+  const steps=r0(tA.steps);
+  const cal=r0(tA.cal);
+  const activeMin=r0(tA.activeMin);
+  const dist=r1(tA.distance);
   const floors=r0(ghToday("floors")|| +H.floors||0);
-  const sleepH=r1(+H.sleepH||0);
+  const sleepH=(()=>{ const sl=LS("pos_sleep",[]).find((x:any)=>x.date===today()); return sl?r1(+sl.total||0):0; })();
   const rhr=+H.restingHR||0;
   const hrAvgVals=acts.filter((a:any)=>+a.avgHR).map((a:any)=>+a.avgHR);
   const avgHR=(+H.hrAvg||0)|| (hrAvgVals.length?r0(hrAvgVals.reduce((a:number,b:number)=>a+b,0)/hrAvgVals.length):0);
@@ -1036,7 +1040,7 @@ function GoogleHealthBoard({ refresh }: { refresh: () => void }){
   const minHRs=acts.map((a:any)=>+a.minHR||0).filter(Boolean);
   const minHR=(+H.hrMin||0)|| (minHRs.length?Math.min(...minHRs):rhr);
   const F=(k:string,ph:string,w=110)=><input className="in" placeholder={ph} value={form[k]??""} onChange={e=>set(k,e.target.value)} style={{width:w}}/>;
-  const dailyDist=ghByDay("steps",15).map((x:any)=>({name:x.name,value:stepKm(x.value)}));
+  const dailyDist=dayVal("distance",15);
   const actHR=acts.filter((a:any)=>+a.avgHR).slice(0,12).reverse().map((a:any)=>({name:(a.date||"").slice(5),value:+a.avgHR}));
   return <>
     <div className="head"><h1>⌚ Google Health</h1><p>Steps, heart rate &amp; activities from your Fitbit watch. Sync live data, or use AI to estimate an activity when the watch hasn&apos;t synced yet.</p></div>
@@ -1075,16 +1079,16 @@ function GoogleHealthBoard({ refresh }: { refresh: () => void }){
     </div>
 
     <div className="grid g3" style={{marginTop:16}}>
-      <BarC title="Steps (15d, watch)" color="#10B981" data={ghByDay("steps",15)}/>
-      <BarC title="Calories Burned (7d)" color="#F59E0B" data={ghByDay("cal",7)}/>
-      <BarC title="Active Zone Min (7d)" color="#3B82F6" data={ghByDay("activeMin",7)}/>
+      <BarC title="Steps (15d, watch)" color="#10B981" data={dayVal("steps",15)}/>
+      <BarC title="Calories Burned (7d)" color="#F59E0B" data={dayVal("cal",7)}/>
+      <BarC title="Active Zone Min (7d)" color="#3B82F6" data={dayVal("activeMin",7)}/>
       <LineC title="Resting HR (14d)" color="#EC4899" data={ghByDay("restingHR",14).filter((x:any)=>x.value>0)}/>
       <LineC title="Daily Distance (15d, km)" color="#06B6D4" data={dailyDist}/>
       <LineC title="Activity Avg HR" color="#A855F7" data={actHR.length?actHR:[{name:"—",value:0}]}/>
     </div>
 
     <Sec t="👟 Steps — last 15 days" s="Daily totals from your watch (auto-filled on each sync)"/>
-    {(()=>{ const hist=LS("pos_ghealth",[]); const rows:any[]=[]; for(let i=0;i<15;i++){ const d=new Date(); d.setDate(d.getDate()-i); const ds=dstr(d); const g=hist.find((x:any)=>x.date===ds)||{}; rows.push({date:ds,steps:+g.steps||0,distance:stepKm(+g.steps||0),cal:+g.cal||0,activeMin:+g.activeMin||0}); }
+    {(()=>{ const rows:any[]=[]; for(let i=0;i<15;i++){ const d=new Date(); d.setDate(d.getDate()-i); const ds=dstr(d); const g=dailyAgg[ds]||{}; rows.push({date:ds,steps:+g.steps||0,distance:Math.round((+g.distance||0)*100)/100,cal:+g.cal||0,activeMin:+g.activeMin||0}); }
       const tot=rows.reduce((a,x)=>a+x.steps,0); const avg=r0(tot/15);
       return <div className="card">
         <div className="row" style={{gap:18,flexWrap:"wrap",marginBottom:10}}><span className="muted" style={{fontSize:12}}>15-day total <b style={{color:"#E7ECF3"}}>{tot.toLocaleString()}</b> steps</span><span className="muted" style={{fontSize:12}}>daily average <b style={{color:"#E7ECF3"}}>{avg.toLocaleString()}</b></span></div>
