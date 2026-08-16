@@ -509,11 +509,25 @@ function GoogleHealthCard({ refresh }: { refresh: () => void }) {
             const existing = LS("pos_gh_acts", []);
             const byId: any = {}; existing.forEach((x:any)=>byId[x.id]=x);
             ad.activities.forEach((a:any)=>{ byId[a.id] = { ...byId[a.id], ...a }; });
-            const merged = Object.values(byId).sort((a:any,b:any)=>a.date<b.date?1:-1);
+            let merged: any[] = Object.values(byId);
+            // purge stale rows from older buggy syncs (type stored as a resource path)
+            merged = merged.filter((x:any)=> !(typeof x.type==="string" && x.type.includes("/")));
+            // dedupe watch activities that describe the same session
+            const fp: any = {}; merged = merged.filter((x:any)=>{ if(x.source!=="watch") return true; const k=`${x.date}_${x.distance}_${x.duration}`; if(fp[k]) return false; fp[k]=1; return true; });
+            merged.sort((a:any,b:any)=>a.date<b.date?1:-1);
             SS("pos_gh_acts", merged);
             actMsg = ` · ${ad.activities.length} watch activit${ad.activities.length===1?"y":"ies"}`;
             actDbg = ad.debug;
           } else if (ad.error) actMsg = ` · activities: ${ad.error}`;
+        } catch (e) {}
+        // pull last-15-days steps history into the daily store
+        try {
+          const rr = await fetch("/api/ghealth/range?days=15"); const rd = await rr.json();
+          if (rd.ok && Array.isArray(rd.rows)) {
+            const hist = LS("pos_ghealth", []); const idx: any = {}; hist.forEach((x:any,i:number)=>idx[x.date]=i);
+            rd.rows.forEach((row:any)=>{ if(idx[row.date]!=null) hist[idx[row.date]] = { ...hist[idx[row.date]], ...row }; else hist.push(row); });
+            hist.sort((a:any,b:any)=>a.date<b.date?1:-1); SS("pos_ghealth", hist);
+          }
         } catch (e) {}
         refresh();
         setMsg(`Synced ✓ ${d.steps} steps · ${d.distance||0}km · ${d.calories||0}kcal · ${d.activeMin||0} AZ min${d.avgHR?` · HR ${d.minHR}/${d.avgHR}/${d.maxHR}`:""}${d.restingHR?` · RHR ${d.restingHR}`:""}${d.sleepH?` · ${d.sleepH}h sleep`:""}${actMsg}` + (debug?"\n\nDAILY: "+JSON.stringify(d.debug)+"\n\nACTIVITIES: "+JSON.stringify(actDbg):""));
@@ -1056,13 +1070,27 @@ function GoogleHealthBoard({ refresh }: { refresh: () => void }){
     </div>
 
     <div className="grid g3" style={{marginTop:16}}>
-      <BarC title="Steps (7d, watch)" color="#10B981" data={ghByDay("steps",7)}/>
+      <BarC title="Steps (15d, watch)" color="#10B981" data={ghByDay("steps",15)}/>
       <BarC title="Calories Burned (7d)" color="#F59E0B" data={ghByDay("cal",7)}/>
       <BarC title="Active Zone Min (7d)" color="#3B82F6" data={ghByDay("activeMin",7)}/>
       <LineC title="Resting HR (14d)" color="#EC4899" data={ghByDay("restingHR",14).filter((x:any)=>x.value>0)}/>
       <LineC title="Activity Distance (km)" color="#06B6D4" data={actDist.length?actDist:[{name:"—",value:0}]}/>
       <LineC title="Activity Avg HR" color="#A855F7" data={actHR.length?actHR:[{name:"—",value:0}]}/>
     </div>
+
+    <Sec t="👟 Steps — last 15 days" s="Daily totals from your watch (auto-filled on each sync)"/>
+    {(()=>{ const hist=LS("pos_ghealth",[]); const rows:any[]=[]; for(let i=0;i<15;i++){ const d=new Date(); d.setDate(d.getDate()-i); const ds=dstr(d); const g=hist.find((x:any)=>x.date===ds)||{}; rows.push({date:ds,steps:+g.steps||0,distance:+g.distance||0,cal:+g.cal||0,activeMin:+g.activeMin||0}); }
+      const tot=rows.reduce((a,x)=>a+x.steps,0); const avg=r0(tot/15);
+      return <div className="card">
+        <div className="row" style={{gap:18,flexWrap:"wrap",marginBottom:10}}><span className="muted" style={{fontSize:12}}>15-day total <b style={{color:"#E7ECF3"}}>{tot.toLocaleString()}</b> steps</span><span className="muted" style={{fontSize:12}}>daily average <b style={{color:"#E7ECF3"}}>{avg.toLocaleString()}</b></span></div>
+        <div style={{overflowX:"auto"}}><table style={{width:"100%",borderCollapse:"collapse",minWidth:460}}>
+          <thead><tr>{["Date","Steps","Distance","Calories","Active min"].map(h=><th key={h} style={{textAlign:"left",fontSize:10,textTransform:"uppercase",color:"#5b6577",padding:"6px",borderBottom:"1px solid rgba(255,255,255,.09)"}}>{h}</th>)}</tr></thead>
+          <tbody>{rows.map((r:any)=><tr key={r.date} style={{borderBottom:"1px solid rgba(255,255,255,.05)"}}>
+            <td style={{padding:"6px",fontSize:12}}>{r.date}{r.date===today()?" (today)":""}</td><td style={{padding:"6px",fontSize:12}}>{r.steps?r.steps.toLocaleString():"—"}</td><td style={{padding:"6px",fontSize:12}}>{r.distance||"—"} km</td><td style={{padding:"6px",fontSize:12}}>{r.cal||"—"}</td><td style={{padding:"6px",fontSize:12}}>{r.activeMin||"—"}</td>
+          </tr>)}</tbody>
+        </table></div>
+        <div className="muted" style={{fontSize:11,marginTop:8}}>&quot;—&quot; means no watch data synced for that day yet. Sync daily to build the full history.</div>
+      </div>; })()}
 
     <div className="card" style={{marginTop:16}}><div className="between" style={{flexWrap:"wrap",gap:8}}><strong>Activity history</strong><div className="row" style={{gap:8,flexWrap:"wrap"}}>
       <input className="in" type="date" value={fDate} onChange={e=>setFDate(e.target.value)} max={today()} title="Filter by date" style={{width:150}}/>
