@@ -1027,9 +1027,10 @@ function GoogleHealthBoard({ refresh }: { refresh: () => void }){
   const set=(k:string,v:any)=>setForm((s:any)=>({...s,[k]:v}));
 
   // build per-day totals from watch sessions, overlaid with the daily rollup (more complete on recent days)
+  const fixKm=(v:any)=>{ let k=+v||0; while(k>100) k/=1000; return Math.round(k*100)/100; };
   const dailyAgg:Record<string,any>={};
-  acts.forEach((a:any)=>{ const d=a.date; if(!d) return; dailyAgg[d]=dailyAgg[d]||{steps:0,distance:0,cal:0,activeMin:0}; dailyAgg[d].steps+=+a.steps||0; dailyAgg[d].distance+=+a.distance||0; dailyAgg[d].cal+=+a.cal||0; dailyAgg[d].activeMin+=+a.activeZone||0; });
-  LS("pos_ghealth",[]).forEach((g:any)=>{ const d=g.date; if(!d) return; dailyAgg[d]=dailyAgg[d]||{steps:0,distance:0,cal:0,activeMin:0}; dailyAgg[d].steps=Math.max(dailyAgg[d].steps,+g.steps||0); dailyAgg[d].distance=Math.max(dailyAgg[d].distance,+g.distance||0); dailyAgg[d].cal=Math.max(dailyAgg[d].cal,+g.cal||0); dailyAgg[d].activeMin=Math.max(dailyAgg[d].activeMin,+g.activeMin||0); });
+  acts.forEach((a:any)=>{ const d=a.date; if(!d) return; dailyAgg[d]=dailyAgg[d]||{steps:0,distance:0,cal:0,activeMin:0}; dailyAgg[d].steps+=+a.steps||0; dailyAgg[d].distance+=fixKm(a.distance); dailyAgg[d].cal+=+a.cal||0; dailyAgg[d].activeMin+=+a.activeZone||0; });
+  LS("pos_ghealth",[]).forEach((g:any)=>{ const d=g.date; if(!d) return; dailyAgg[d]=dailyAgg[d]||{steps:0,distance:0,cal:0,activeMin:0}; dailyAgg[d].steps=Math.max(dailyAgg[d].steps,+g.steps||0); dailyAgg[d].distance=Math.max(dailyAgg[d].distance,fixKm(g.distance)); dailyAgg[d].cal=Math.max(dailyAgg[d].cal,+g.cal||0); dailyAgg[d].activeMin=Math.max(dailyAgg[d].activeMin,+g.activeMin||0); });
   const dayVal=(field:string,n:number)=>{ const out=[]; for(let i=n-1;i>=0;i--){ const d=new Date(); d.setDate(d.getDate()-i); const ds=dstr(d); const g=dailyAgg[ds]; out.push({name:n<=7?DOW[d.getDay()]:String(d.getDate()),value:g?Math.round((+g[field]||0)*10)/10:0}); } return out; };
   const tA=dailyAgg[today()]||{};
   const steps=r0(tA.steps);
