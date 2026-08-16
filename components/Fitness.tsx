@@ -489,26 +489,25 @@ function GoogleHealthCard({ refresh }: { refresh: () => void }) {
     else if (p === "error") setMsg("Google Health authorization failed — check the callback URL in that project's OAuth client.");
     else if (p === "signin") setMsg("Please sign in first.");
   }, []);
-  const sync = async () => { setBusy(true); setMsg("");
+  const doSync = async (debug:boolean) => { setBusy(true); setMsg("");
     try {
-      const r = await fetch("/api/ghealth/steps"); const d = await r.json();
+      const r = await fetch("/api/ghealth/steps" + (debug?"?debug=1":"")); const d = await r.json();
       if (d.ok) {
         const h = LS("pos_health", {});
         h.steps = d.steps; h.distance = d.distance; h.caloriesBurned = d.calories; h.azm = d.activeMin; h.floors = d.floors;
-        if (d.restingHR) h.restingHR = d.restingHR; if (d.sleepH) h.sleepH = d.sleepH;
+        if (d.restingHR) h.restingHR = d.restingHR; if (d.avgHR) h.hrAvg = d.avgHR; if (d.maxHR) h.hrMax = d.maxHR; if (d.minHR) h.hrMin = d.minHR; if (d.sleepH) h.sleepH = d.sleepH;
         SS("pos_health", h);
-        // daily watch history for charts
         const hist = LS("pos_ghealth", []); const i = hist.findIndex((x:any)=>x.date===d.date);
-        const rec = { date: d.date, steps:d.steps, distance:d.distance, cal:d.calories, activeMin:d.activeMin, floors:d.floors, restingHR:d.restingHR, sleepH:d.sleepH };
+        const rec = { date: d.date, steps:d.steps, distance:d.distance, cal:d.calories, activeMin:d.activeMin, floors:d.floors, restingHR:d.restingHR, avgHR:d.avgHR, maxHR:d.maxHR, minHR:d.minHR, sleepH:d.sleepH };
         if (i>=0) hist[i]=rec; else hist.push(rec); hist.sort((a:any,b:any)=>a.date<b.date?1:-1); SS("pos_ghealth", hist);
-        // mirror sleep into pos_sleep so the sleep section fills too
         if (d.sleepH) { const sl=LS("pos_sleep",[]); const si=sl.findIndex((x:any)=>x.date===d.date); const sr={date:d.date,total:d.sleepH,source:"watch"}; if(si>=0) sl[si]={...sl[si],...sr}; else sl.push(sr); sl.sort((a:any,b:any)=>a.date<b.date?1:-1); SS("pos_sleep",sl); }
         refresh();
-        setMsg(`Synced ✓ ${d.steps} steps · ${d.distance||0}km · ${d.calories||0}kcal · ${d.activeMin||0} active min${d.restingHR?` · RHR ${d.restingHR}`:""}${d.sleepH?` · ${d.sleepH}h sleep`:""}`);
+        setMsg(`Synced ✓ ${d.steps} steps · ${d.distance||0}km · ${d.calories||0}kcal · ${d.activeMin||0} AZ min${d.avgHR?` · HR ${d.minHR}/${d.avgHR}/${d.maxHR}`:""}${d.restingHR?` · RHR ${d.restingHR}`:""}${d.sleepH?` · ${d.sleepH}h sleep`:""}` + (debug?"\n\nRAW: "+JSON.stringify(d.debug):""));
       }
       else if (d.connected === false) setMsg("Not connected — click 'Connect Google Health' first.");
       else setMsg("Google Health error" + (d.code ? ` [${d.code}]` : "") + ": " + (d.error || JSON.stringify(d)));
     } catch (e) { setMsg("Sync failed."); } setBusy(false); };
+  const sync = () => doSync(false);
   return <div className="card" style={{ marginBottom: 16 }}>
     <div className="between" style={{ flexWrap: "wrap", gap: 10 }}>
       <div className="row" style={{ gap: 8 }}><span>⌚</span><strong>Fitbit · Google Health</strong><span className="muted" style={{ fontSize: 11 }}>steps · distance · calories · active min · heart rate · sleep — from your watch</span></div>
@@ -517,7 +516,8 @@ function GoogleHealthCard({ refresh }: { refresh: () => void }) {
         <button className="btn sm" onClick={sync} disabled={busy}>{busy ? "Syncing…" : "Sync from watch"}</button>
       </div>
     </div>
-    <div className="muted" style={{ fontSize: 12, marginTop: 8 }}>{msg || "Connect once (separate from your Gmail login), then Sync to pull today's watch data. Fitbit must be linked to that Google account."}</div>
+    <div className="muted" style={{ fontSize: 12, marginTop: 8, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{msg || "Connect once (separate from your Gmail login), then Sync to pull today's watch data. Fitbit must be linked to that Google account."}</div>
+    <div style={{ marginTop: 6 }}><span className="muted" style={{ fontSize: 10, cursor: "pointer", textDecoration: "underline" }} onClick={()=>doSync(true)}>Debug (show raw watch data)</span></div>
   </div>;
 }
 
@@ -997,10 +997,10 @@ function GoogleHealthBoard({ refresh }: { refresh: () => void }){
   const sleepH=r1(+H.sleepH||0);
   const rhr=+H.restingHR||0;
   const hrAvgVals=acts.filter((a:any)=>+a.avgHR).map((a:any)=>+a.avgHR);
-  const avgHR=hrAvgVals.length?r0(hrAvgVals.reduce((a:number,b:number)=>a+b,0)/hrAvgVals.length):0;
-  const maxHR=Math.max(0,...acts.map((a:any)=>+a.maxHR||0));
+  const avgHR=(+H.hrAvg||0)|| (hrAvgVals.length?r0(hrAvgVals.reduce((a:number,b:number)=>a+b,0)/hrAvgVals.length):0);
+  const maxHR=(+H.hrMax||0)|| Math.max(0,...acts.map((a:any)=>+a.maxHR||0));
   const minHRs=acts.map((a:any)=>+a.minHR||0).filter(Boolean);
-  const minHR=minHRs.length?Math.min(...minHRs):rhr;
+  const minHR=(+H.hrMin||0)|| (minHRs.length?Math.min(...minHRs):rhr);
   const F=(k:string,ph:string,w=110)=><input className="in" placeholder={ph} value={form[k]??""} onChange={e=>set(k,e.target.value)} style={{width:w}}/>;
   const actDist=acts.filter((a:any)=>+a.distance).slice(0,12).reverse().map((a:any)=>({name:(a.date||"").slice(5),value:+a.distance}));
   const actHR=acts.filter((a:any)=>+a.avgHR).slice(0,12).reverse().map((a:any)=>({name:(a.date||"").slice(5),value:+a.avgHR}));
