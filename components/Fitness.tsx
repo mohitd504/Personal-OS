@@ -1033,7 +1033,7 @@ function GoogleHealthBoard({ refresh }: { refresh: () => void }){
   const minHRs=acts.map((a:any)=>+a.minHR||0).filter(Boolean);
   const minHR=(+H.hrMin||0)|| (minHRs.length?Math.min(...minHRs):rhr);
   const F=(k:string,ph:string,w=110)=><input className="in" placeholder={ph} value={form[k]??""} onChange={e=>set(k,e.target.value)} style={{width:w}}/>;
-  const actDist=acts.filter((a:any)=>+a.distance).slice(0,12).reverse().map((a:any)=>({name:(a.date||"").slice(5),value:+a.distance}));
+  const dailyDist=ghByDay("steps",15).map((x:any)=>({name:x.name,value:stepKm(x.value)}));
   const actHR=acts.filter((a:any)=>+a.avgHR).slice(0,12).reverse().map((a:any)=>({name:(a.date||"").slice(5),value:+a.avgHR}));
   return <>
     <div className="head"><h1>⌚ Google Health</h1><p>Steps, heart rate &amp; activities from your Fitbit watch. Sync live data, or use AI to estimate an activity when the watch hasn&apos;t synced yet.</p></div>
@@ -1076,7 +1076,7 @@ function GoogleHealthBoard({ refresh }: { refresh: () => void }){
       <BarC title="Calories Burned (7d)" color="#F59E0B" data={ghByDay("cal",7)}/>
       <BarC title="Active Zone Min (7d)" color="#3B82F6" data={ghByDay("activeMin",7)}/>
       <LineC title="Resting HR (14d)" color="#EC4899" data={ghByDay("restingHR",14).filter((x:any)=>x.value>0)}/>
-      <LineC title="Activity Distance (km)" color="#06B6D4" data={actDist.length?actDist:[{name:"—",value:0}]}/>
+      <LineC title="Daily Distance (15d, km)" color="#06B6D4" data={dailyDist}/>
       <LineC title="Activity Avg HR" color="#A855F7" data={actHR.length?actHR:[{name:"—",value:0}]}/>
     </div>
 
