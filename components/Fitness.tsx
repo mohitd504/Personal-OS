@@ -997,6 +997,7 @@ function GoogleHealthBoard({ refresh }: { refresh: () => void }){
   const acts=LS("pos_gh_acts",[]);
   const [text,setText]=useState(""); const [busy,setBusy]=useState(false);
   const [form,setForm]=useState<any>({date:today()});
+  const [fDate,setFDate]=useState("");
   const calc=async()=>{ if(!text.trim())return; setBusy(true);
     try{ const r=await fetch("/api/gh-activity",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text,weightKg:curWeight()})}); const d=await r.json(); setForm((s:any)=>({date:today(),notes:text,...s,...d})); }catch(e){} setBusy(false); };
   const save=()=>{ const all=LS("pos_gh_acts",[]); all.unshift({id:uid(),date:form.date||today(),type:form.type||"Activity",distance:+form.distance||0,duration:+form.duration||0,avgSpeed:+form.avgSpeed||0,activeZone:+form.activeZone||0,cal:+form.cal||0,avgHR:+form.avgHR||0,maxHR:+form.maxHR||0,minHR:+form.minHR||0,laps:+form.laps||0,notes:form.notes||""}); SS("pos_gh_acts",all); setForm({date:today()}); setText(""); refresh(); };
@@ -1063,16 +1064,20 @@ function GoogleHealthBoard({ refresh }: { refresh: () => void }){
       <LineC title="Activity Avg HR" color="#A855F7" data={actHR.length?actHR:[{name:"—",value:0}]}/>
     </div>
 
-    <div className="card" style={{marginTop:16}}><div className="between"><strong>Activity history</strong><div className="row" style={{gap:8}}>
+    <div className="card" style={{marginTop:16}}><div className="between" style={{flexWrap:"wrap",gap:8}}><strong>Activity history</strong><div className="row" style={{gap:8,flexWrap:"wrap"}}>
+      <input className="in" type="date" value={fDate} onChange={e=>setFDate(e.target.value)} max={today()} title="Filter by date" style={{width:150}}/>
+      {fDate && <button className="btn ghost sm" onClick={()=>setFDate("")}>All dates</button>}
       <button className="btn ghost sm" onClick={()=>{ if(confirm("Remove watch-imported activities? Your AI/manual ones stay.")){ SS("pos_gh_acts", LS("pos_gh_acts",[]).filter((x:any)=>x.source!=="watch")); refresh(); } }}>Clear watch imports</button>
       <button className="btn ghost sm" onClick={()=>exportCSV("pos_gh_acts",acts)}>⬇ CSV</button></div></div>
+      {(()=>{ const shown=fDate?acts.filter((a:any)=>a.date===fDate):acts; return <>
+      {fDate && <div className="muted" style={{fontSize:12,marginTop:8}}>{shown.length} activit{shown.length===1?"y":"ies"} on {fDate}{shown.length?` · ${r1(shown.reduce((s:number,a:any)=>s+(+a.distance||0),0))} km · ${r0(shown.reduce((s:number,a:any)=>s+(+a.cal||0),0))} kcal`:""}</div>}
       <div style={{overflowX:"auto",marginTop:10}}><table style={{width:"100%",borderCollapse:"collapse",minWidth:760}}>
         <thead><tr>{["Date","Type","Dist","Dur","Speed","AZ min","Cal","Avg HR","Max HR","Laps",""].map(h=><th key={h} style={{textAlign:"left",fontSize:10,textTransform:"uppercase",color:"#5b6577",padding:"6px",borderBottom:"1px solid rgba(255,255,255,.09)"}}>{h}</th>)}</tr></thead>
-        <tbody>{acts.length? acts.map((a:any)=><tr key={a.id} style={{borderBottom:"1px solid rgba(255,255,255,.05)"}}>
+        <tbody>{shown.length? shown.map((a:any)=><tr key={a.id} style={{borderBottom:"1px solid rgba(255,255,255,.05)"}}>
           <td style={{padding:"6px",fontSize:12}}>{a.date}</td><td style={{padding:"6px",fontSize:12}}>{a.type}</td><td style={{padding:"6px",fontSize:12}}>{a.distance||"—"}km</td><td style={{padding:"6px",fontSize:12}}>{a.duration||"—"}m</td><td style={{padding:"6px",fontSize:12}}>{a.avgSpeed||"—"}</td><td style={{padding:"6px",fontSize:12}}>{a.activeZone||"—"}</td><td style={{padding:"6px",fontSize:12}}>{a.cal||"—"}</td><td style={{padding:"6px",fontSize:12}}>{a.avgHR||"—"}</td><td style={{padding:"6px",fontSize:12}}>{a.maxHR||"—"}</td><td style={{padding:"6px",fontSize:12}}>{a.laps||"—"}</td>
           <td style={{padding:"6px"}}><span className="btn ghost sm" style={{cursor:"pointer"}} onClick={()=>del(a.id)}>✕</span></td>
-        </tr>): <tr><td colSpan={11} className="muted" style={{padding:"10px 6px"}}>No activities yet — describe one above and Calculate with AI, or Sync from your watch.</td></tr>}</tbody>
-      </table></div>
+        </tr>): <tr><td colSpan={11} className="muted" style={{padding:"10px 6px"}}>{fDate?`No activities on ${fDate}.`:"No activities yet — describe one above and Calculate with AI, or Sync from your watch."}</td></tr>}</tbody>
+      </table></div></>; })()}
     </div>
   </>;
 }
