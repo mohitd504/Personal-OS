@@ -1079,7 +1079,7 @@ function GoogleHealthBoard({ refresh }: { refresh: () => void }){
     </div>
 
     <Sec t="👟 Steps — last 15 days" s="Daily totals from your watch (auto-filled on each sync)"/>
-    {(()=>{ const hist=LS("pos_ghealth",[]); const rows:any[]=[]; for(let i=0;i<15;i++){ const d=new Date(); d.setDate(d.getDate()-i); const ds=dstr(d); const g=hist.find((x:any)=>x.date===ds)||{}; rows.push({date:ds,steps:+g.steps||0,distance:+g.distance||0,cal:+g.cal||0,activeMin:+g.activeMin||0}); }
+    {(()=>{ const fixKm=(v:any)=>{ let k=+v||0; while(k>100) k/=1000; return Math.round(k*100)/100; }; const hist=LS("pos_ghealth",[]); const rows:any[]=[]; for(let i=0;i<15;i++){ const d=new Date(); d.setDate(d.getDate()-i); const ds=dstr(d); const g=hist.find((x:any)=>x.date===ds)||{}; rows.push({date:ds,steps:+g.steps||0,distance:fixKm(g.distance),cal:+g.cal||0,activeMin:+g.activeMin||0}); }
       const tot=rows.reduce((a,x)=>a+x.steps,0); const avg=r0(tot/15);
       return <div className="card">
         <div className="row" style={{gap:18,flexWrap:"wrap",marginBottom:10}}><span className="muted" style={{fontSize:12}}>15-day total <b style={{color:"#E7ECF3"}}>{tot.toLocaleString()}</b> steps</span><span className="muted" style={{fontSize:12}}>daily average <b style={{color:"#E7ECF3"}}>{avg.toLocaleString()}</b></span></div>
