@@ -45,15 +45,14 @@ export async function GET(req: Request) {
     const j = await r.json();
     if (j.error) return Response.json({ connected: true, error: j.error.message || "api error", code: j.error.code });
 
-    const activities = (j.dataPoints || []).map((dp: any) => {
+    let activities = (j.dataPoints || []).map((dp: any) => {
       const startTime = findStr(dp, /civilStartTime|startTime|start_time/i) || "";
       const date = (startTime || "").slice(0, 10) || dstr(new Date());
       const distMm = findNum(dp, /millimeter/i) || 0;
       const distance = distMm ? Math.round(distMm / 1_000_000 * 100) / 100 : (findNum(dp, /distance/i) || 0);
-      // durations often arrive as "1800s" strings; try seconds fields then any duration
       let durSec = findNum(dp, /activeDuration|movingDuration|duration.*seconds|elapsed/i) || 0;
       const durStr = findStr(dp, /duration/i); if (!durSec && durStr) durSec = parseFloat(durStr) || 0;
-      const duration = durSec > 300 ? Math.round(durSec / 60) : durSec; // seconds→min if large
+      const duration = durSec > 300 ? Math.round(durSec / 60) : durSec;
       const cal = Math.round(findNum(dp, /kcal|calorie/i) || 0);
       const avgHR = Math.round(findNum(dp, /beatsPerMinuteAvg|averageHeartRate|avgHeartRate/i) || 0);
       const maxHR = Math.round(findNum(dp, /beatsPerMinuteMax|maxHeartRate/i) || 0);
@@ -62,8 +61,14 @@ export async function GET(req: Request) {
       const azMin = Math.round(findNum(dp, /activeZone|zoneMinutes/i) || 0);
       const type = (findStr(dp, /activityType|exerciseType|\btype\b|\bname\b/i) || "Activity").replace(/_/g, " ");
       const avgSpeed = distance && duration ? Math.round(distance / (duration / 60) * 10) / 10 : 0;
-      return { id: "gh_" + (startTime || Math.random().toString(36).slice(2)), date, type, distance, duration, avgSpeed, activeZone: azMin, cal, avgHR, maxHR, minHR, steps, laps: 0, source: "watch" };
+      // stable id from start time (falls back to a fingerprint so re-syncs don't duplicate)
+      const id = "gh_" + (startTime ? startTime.replace(/[^0-9]/g, "").slice(0, 14) : `${date}_${type}_${duration}_${distance}`);
+      return { id, date, type, distance, duration, avgSpeed, activeZone: azMin, cal, avgHR, maxHR, minHR, steps, laps: 0, source: "watch" };
     });
+    // drop noise: tiny auto-detected blips with no meaningful metrics
+    activities = activities.filter((a: any) => a.duration >= 5 || a.distance >= 0.3 || a.cal >= 20);
+    // dedupe by id
+    const seen: any = {}; activities = activities.filter((a: any) => (seen[a.id] ? false : (seen[a.id] = true)));
 
     const out: any = { ok: true, connected: true, activities };
     if (debug) out.debug = j.dataPoints;

@@ -1063,7 +1063,9 @@ function GoogleHealthBoard({ refresh }: { refresh: () => void }){
       <LineC title="Activity Avg HR" color="#A855F7" data={actHR.length?actHR:[{name:"—",value:0}]}/>
     </div>
 
-    <div className="card" style={{marginTop:16}}><div className="between"><strong>Activity history</strong><button className="btn ghost sm" onClick={()=>exportCSV("pos_gh_acts",acts)}>⬇ CSV</button></div>
+    <div className="card" style={{marginTop:16}}><div className="between"><strong>Activity history</strong><div className="row" style={{gap:8}}>
+      <button className="btn ghost sm" onClick={()=>{ if(confirm("Remove watch-imported activities? Your AI/manual ones stay.")){ SS("pos_gh_acts", LS("pos_gh_acts",[]).filter((x:any)=>x.source!=="watch")); refresh(); } }}>Clear watch imports</button>
+      <button className="btn ghost sm" onClick={()=>exportCSV("pos_gh_acts",acts)}>⬇ CSV</button></div></div>
       <div style={{overflowX:"auto",marginTop:10}}><table style={{width:"100%",borderCollapse:"collapse",minWidth:760}}>
         <thead><tr>{["Date","Type","Dist","Dur","Speed","AZ min","Cal","Avg HR","Max HR","Laps",""].map(h=><th key={h} style={{textAlign:"left",fontSize:10,textTransform:"uppercase",color:"#5b6577",padding:"6px",borderBottom:"1px solid rgba(255,255,255,.09)"}}>{h}</th>)}</tr></thead>
         <tbody>{acts.length? acts.map((a:any)=><tr key={a.id} style={{borderBottom:"1px solid rgba(255,255,255,.05)"}}>
