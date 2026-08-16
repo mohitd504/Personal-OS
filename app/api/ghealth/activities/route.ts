@@ -55,18 +55,24 @@ export async function GET(req: Request) {
   if (!at) return Response.json({ connected: false });
 
   const url = new URL(req.url);
-  const days = Math.min(30, +(url.searchParams.get("days") || 14));
+  const days = Math.min(180, +(url.searchParams.get("days") || 14));
   const debug = url.searchParams.get("debug") === "1";
   const start = new Date(); start.setDate(start.getDate() - days);
   const end = new Date(); end.setDate(end.getDate() + 1);
   const filter = `exercise.interval.civil_start_time >= "${dstr(start)}" AND exercise.interval.civil_start_time < "${dstr(end)}"`;
 
   try {
-    const r = await fetch(`https://health.googleapis.com/v4/users/me/dataTypes/exercise/dataPoints?pageSize=25&filter=${encodeURIComponent(filter)}`, {
-      headers: { Authorization: `Bearer ${at}`, Accept: "application/json" },
-    });
-    const j = await r.json();
-    if (j.error) return Response.json({ connected: true, error: j.error.message || "api error", code: j.error.code });
+    // page through the full history (exercise pageSize maxes at 25)
+    let raw: any[] = []; let pageToken = ""; let guard = 0;
+    do {
+      const u = `https://health.googleapis.com/v4/users/me/dataTypes/exercise/dataPoints?pageSize=25&filter=${encodeURIComponent(filter)}` + (pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : "");
+      const rp = await fetch(u, { headers: { Authorization: `Bearer ${at}`, Accept: "application/json" } });
+      const jp = await rp.json();
+      if (jp.error) { if (!raw.length) return Response.json({ connected: true, error: jp.error.message || "api error", code: jp.error.code }); break; }
+      raw = raw.concat(jp.dataPoints || []);
+      pageToken = jp.nextPageToken || ""; guard++;
+    } while (pageToken && guard < 30);
+    const j = { dataPoints: raw };
 
     const localDate = (iso: string, off: string) => {
       const t = Date.parse(iso || ""); if (isNaN(t)) return dstr(new Date());

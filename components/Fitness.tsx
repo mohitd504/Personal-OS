@@ -504,7 +504,7 @@ function GoogleHealthCard({ refresh }: { refresh: () => void }) {
         // pull recorded activities (walks/runs/workouts) and merge, keeping AI/manual entries
         let actMsg = ""; let actDbg: any = null;
         try {
-          const ar = await fetch("/api/ghealth/activities?days=14" + (debug?"&debug=1":"")); const ad = await ar.json();
+          const ar = await fetch("/api/ghealth/activities?days=180" + (debug?"&debug=1":"")); const ad = await ar.json();
           if (ad.ok && Array.isArray(ad.activities)) {
             const existing = LS("pos_gh_acts", []);
             const byId: any = {}; existing.forEach((x:any)=>byId[x.id]=x);
@@ -523,13 +523,18 @@ function GoogleHealthCard({ refresh }: { refresh: () => void }) {
         // pull last-15-days steps history into the daily store
         let rangeDbg: any = null;
         try {
-          const rr = await fetch("/api/ghealth/range?days=15" + (debug?"&debug=1":"")); const rd = await rr.json();
+          const rr = await fetch("/api/ghealth/range?days=90" + (debug?"&debug=1":"")); const rd = await rr.json();
           if (rd.ok && Array.isArray(rd.rows)) {
             const hist = LS("pos_ghealth", []); const idx: any = {}; hist.forEach((x:any,i:number)=>idx[x.date]=i);
             rd.rows.forEach((row:any)=>{ if(idx[row.date]!=null) hist[idx[row.date]] = { ...hist[idx[row.date]], ...row }; else hist.push(row); });
             hist.sort((a:any,b:any)=>a.date<b.date?1:-1); SS("pos_ghealth", hist);
             rangeDbg = rd.debug || { rows: rd.rows.length };
           } else if (rd.error) rangeDbg = { error: rd.error };
+        } catch (e) {}
+        // retention: keep a rolling 180-day health database
+        try {
+          const cut = new Date(); cut.setDate(cut.getDate()-180); const cutoff = dstr(cut);
+          ["pos_ghealth","pos_gh_acts","pos_sleep"].forEach((k)=>{ const arr=LS(k,[]); if(Array.isArray(arr)) SS(k, arr.filter((x:any)=>(x.date||"")>=cutoff)); });
         } catch (e) {}
         refresh();
         if (debug) setMsg((m)=>m+"\n\nRANGE(15d): "+JSON.stringify(rangeDbg));
@@ -1045,6 +1050,17 @@ function GoogleHealthBoard({ refresh }: { refresh: () => void }){
   return <>
     <div className="head"><h1>⌚ Google Health</h1><p>Steps, heart rate &amp; activities from your Fitbit watch. Sync live data, or use AI to estimate an activity when the watch hasn&apos;t synced yet.</p></div>
     <GoogleHealthCard refresh={refresh}/>
+    {(()=>{ const daysWithData=Object.keys(dailyAgg).filter((d)=>dailyAgg[d]&&(dailyAgg[d].steps||dailyAgg[d].distance||dailyAgg[d].cal)).length; const allDates=[...acts.map((a:any)=>a.date),...Object.keys(dailyAgg)].filter(Boolean).sort(); const oldest=allDates[0]||"—";
+      return <div className="card" style={{marginBottom:16,background:"linear-gradient(100deg,rgba(16,185,129,.10),rgba(59,130,246,.06))"}}>
+        <div className="between" style={{flexWrap:"wrap",gap:10}}>
+          <div className="row" style={{gap:8}}><span>🗄️</span><strong>Health Database</strong><span className="muted" style={{fontSize:11}}>rolling 180-day history · synced across your devices</span></div>
+          <div className="row" style={{gap:18,flexWrap:"wrap"}}>
+            <span className="muted" style={{fontSize:12}}>Days stored <b style={{color:"#E7ECF3"}}>{daysWithData}</b>/180</span>
+            <span className="muted" style={{fontSize:12}}>Activities <b style={{color:"#E7ECF3"}}>{acts.length}</b></span>
+            <span className="muted" style={{fontSize:12}}>Since <b style={{color:"#E7ECF3"}}>{oldest}</b></span>
+          </div>
+        </div>
+      </div>; })()}
     <div className="grid g4">
       <Stat label="Steps Today" value={steps.toLocaleString()} tint="emerald"/>
       <Stat label="Calories Burned" value={cal.toLocaleString()} unit="kcal" tint="orange"/>
