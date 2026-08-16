@@ -501,8 +501,22 @@ function GoogleHealthCard({ refresh }: { refresh: () => void }) {
         const rec = { date: d.date, steps:d.steps, distance:d.distance, cal:d.calories, activeMin:d.activeMin, floors:d.floors, restingHR:d.restingHR, avgHR:d.avgHR, maxHR:d.maxHR, minHR:d.minHR, sleepH:d.sleepH };
         if (i>=0) hist[i]=rec; else hist.push(rec); hist.sort((a:any,b:any)=>a.date<b.date?1:-1); SS("pos_ghealth", hist);
         if (d.sleepH) { const sl=LS("pos_sleep",[]); const si=sl.findIndex((x:any)=>x.date===d.date); const sr={date:d.date,total:d.sleepH,source:"watch"}; if(si>=0) sl[si]={...sl[si],...sr}; else sl.push(sr); sl.sort((a:any,b:any)=>a.date<b.date?1:-1); SS("pos_sleep",sl); }
+        // pull recorded activities (walks/runs/workouts) and merge, keeping AI/manual entries
+        let actMsg = ""; let actDbg: any = null;
+        try {
+          const ar = await fetch("/api/ghealth/activities?days=14" + (debug?"&debug=1":"")); const ad = await ar.json();
+          if (ad.ok && Array.isArray(ad.activities)) {
+            const existing = LS("pos_gh_acts", []);
+            const byId: any = {}; existing.forEach((x:any)=>byId[x.id]=x);
+            ad.activities.forEach((a:any)=>{ byId[a.id] = { ...byId[a.id], ...a }; });
+            const merged = Object.values(byId).sort((a:any,b:any)=>a.date<b.date?1:-1);
+            SS("pos_gh_acts", merged);
+            actMsg = ` · ${ad.activities.length} watch activit${ad.activities.length===1?"y":"ies"}`;
+            actDbg = ad.debug;
+          } else if (ad.error) actMsg = ` · activities: ${ad.error}`;
+        } catch (e) {}
         refresh();
-        setMsg(`Synced ✓ ${d.steps} steps · ${d.distance||0}km · ${d.calories||0}kcal · ${d.activeMin||0} AZ min${d.avgHR?` · HR ${d.minHR}/${d.avgHR}/${d.maxHR}`:""}${d.restingHR?` · RHR ${d.restingHR}`:""}${d.sleepH?` · ${d.sleepH}h sleep`:""}` + (debug?"\n\nRAW: "+JSON.stringify(d.debug):""));
+        setMsg(`Synced ✓ ${d.steps} steps · ${d.distance||0}km · ${d.calories||0}kcal · ${d.activeMin||0} AZ min${d.avgHR?` · HR ${d.minHR}/${d.avgHR}/${d.maxHR}`:""}${d.restingHR?` · RHR ${d.restingHR}`:""}${d.sleepH?` · ${d.sleepH}h sleep`:""}${actMsg}` + (debug?"\n\nDAILY: "+JSON.stringify(d.debug)+"\n\nACTIVITIES: "+JSON.stringify(actDbg):""));
       }
       else if (d.connected === false) setMsg("Not connected — click 'Connect Google Health' first.");
       else setMsg("Google Health error" + (d.code ? ` [${d.code}]` : "") + ": " + (d.error || JSON.stringify(d)));
