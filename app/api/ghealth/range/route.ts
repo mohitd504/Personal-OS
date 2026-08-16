@@ -12,6 +12,7 @@ async function rangeRoll(at: string, dataType: string, key: string, start: Date,
       end: { date: { year: end.getFullYear(), month: end.getMonth() + 1, day: end.getDate() }, time: { hours: 23, minutes: 59, seconds: 59 } },
     },
     windowSizeDays: 1,
+    dataSourceFamily: "users/me/dataSourceFamilies/google-wearables",
   };
   try {
     const r = await fetch(`https://health.googleapis.com/v4/users/me/dataTypes/${dataType}/dataPoints:dailyRollUp`, {
@@ -48,7 +49,7 @@ export async function GET(req: Request) {
   const map: Record<string, any> = {};
   const put = (arr: any[], field: string, conv: (o: any) => number) => arr.forEach(p => { if (!p.date) return; map[p.date] = map[p.date] || { date: p.date }; map[p.date][field] = conv(p.obj); });
   put(steps.points, "steps", o => Math.round(parseFloat(o?.countSum || "0") || 0));
-  put(dist.points, "distance", o => Math.round(((parseFloat(o?.millimetersSum || "0") || 0) / 1_000_000) * 100) / 100);
+  put(dist.points, "distance", o => { let km = (parseFloat(o?.millimetersSum || "0") || 0) / 1_000_000; while (km > 100) km /= 1000; return Math.round(km * 100) / 100; });
   put(cal.points, "cal", o => Math.round(o?.kcalSum || 0));
   put(azm.points, "activeMin", o => { for (const k of Object.keys(o || {})) { const n = parseFloat(o[k]); if (!isNaN(n)) return Math.round(n); } return 0; });
 

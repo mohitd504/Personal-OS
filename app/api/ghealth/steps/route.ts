@@ -16,6 +16,7 @@ async function roll(at: string, dataType: string, key: string, y: number, m: num
       end: { date: { year: y, month: m, day: d }, time: { hours: 23, minutes: 59, seconds: 59 } },
     },
     windowSizeDays: 1,
+    dataSourceFamily: "users/me/dataSourceFamilies/google-wearables",
   };
   try {
     const r = await fetch(`https://health.googleapis.com/v4/users/me/dataTypes/${dataType}/dataPoints:dailyRollUp`, {
@@ -59,7 +60,8 @@ export async function GET(req: Request) {
   if (steps.err) return Response.json({ connected: true, error: steps.err, code: steps.code });
 
   const stepsN = Math.round(parseFloat(steps.obj?.countSum || "0") || 0);
-  const distKm = Math.round(((parseFloat(distance.obj?.millimetersSum || "0") || 0) / 1_000_000) * 100) / 100;
+  let distKmRaw = (parseFloat(distance.obj?.millimetersSum || "0") || 0) / 1_000_000; while (distKmRaw > 100) distKmRaw /= 1000;
+  const distKm = Math.round(distKmRaw * 100) / 100;
   const kcal = Math.round(totalCal.obj?.kcalSum || 0);
   const activeMin = Math.round(num(azm.obj));
   const floorsN = Math.round(num(floors.obj));
