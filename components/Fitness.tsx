@@ -413,8 +413,8 @@ function StravaCard({ refresh }: { refresh: () => void }) {
 }
 
 /* ---------- Strava tab (Watch vs App sub-tabs + charts) ---------- */
-function StravaView({ refresh }: { refresh: () => void }) {
-  const [src, setSrc] = useState<"watch"|"app">("watch");
+function StravaView({ refresh, appOnly }: { refresh: () => void; appOnly?: boolean }) {
+  const [src, setSrc] = useState<"watch"|"app">(appOnly ? "app" : "watch");
   const [msg, setMsg] = useState(""); const [busy, setBusy] = useState(false);
   useEffect(() => {
     const p = new URLSearchParams(window.location.search).get("strava");
@@ -440,12 +440,13 @@ function StravaView({ refresh }: { refresh: () => void }) {
   const speed = acts.filter((a: any)=>a.distance&&a.duration).slice(0,12).reverse().map((a: any)=>({name:(a.date||"").slice(5),value:Math.round((a.distance/(a.duration/60))*10)/10}));
   const del = (id: any) => { SS("pos_strava", LS("pos_strava", []).filter((x: any)=>x.id!==id)); refresh(); };
   return <>
-    <div className="head"><h1>🔗 Strava</h1><p>Synced activities — Fitbit watch and Strava-app kept in separate tabs.</p></div>
+    <div className="head"><h1>🔗 Strava</h1><p>{appOnly?"Strava-app recordings only — your Fitbit watch data lives in the Google Health tab.":"Synced activities."}</p></div>
     <div className="card" style={{ marginBottom: 16 }}>
       <div className="between" style={{ flexWrap: "wrap", gap: 10 }}>
         <div className="row" style={{ gap: 8 }}>
-          <button className={"btn " + (src==="watch"?"":"ghost") + " sm"} onClick={()=>setSrc("watch")}>⌚ Fitbit / Watch</button>
-          <button className={"btn " + (src==="app"?"":"ghost") + " sm"} onClick={()=>setSrc("app")}>📱 Strava App</button>
+          {!appOnly && <button className={"btn " + (src==="watch"?"":"ghost") + " sm"} onClick={()=>setSrc("watch")}>⌚ Fitbit / Watch</button>}
+          {!appOnly && <button className={"btn " + (src==="app"?"":"ghost") + " sm"} onClick={()=>setSrc("app")}>📱 Strava App</button>}
+          {appOnly && <span className="row" style={{gap:8}}><span>📱</span><strong>Strava App</strong></span>}
         </div>
         <div className="row" style={{ gap: 8 }}>
           <a className="btn ghost sm" href="/api/strava/connect">Connect</a>
@@ -491,19 +492,32 @@ function GoogleHealthCard({ refresh }: { refresh: () => void }) {
   const sync = async () => { setBusy(true); setMsg("");
     try {
       const r = await fetch("/api/ghealth/steps"); const d = await r.json();
-      if (d.ok) { const h = LS("pos_health", {}); h.steps = d.steps; SS("pos_health", h); refresh(); setMsg(`Synced ✓ ${d.steps} steps today (Fitbit via Google Health).`); }
+      if (d.ok) {
+        const h = LS("pos_health", {});
+        h.steps = d.steps; h.distance = d.distance; h.caloriesBurned = d.calories; h.azm = d.activeMin; h.floors = d.floors;
+        if (d.restingHR) h.restingHR = d.restingHR; if (d.sleepH) h.sleepH = d.sleepH;
+        SS("pos_health", h);
+        // daily watch history for charts
+        const hist = LS("pos_ghealth", []); const i = hist.findIndex((x:any)=>x.date===d.date);
+        const rec = { date: d.date, steps:d.steps, distance:d.distance, cal:d.calories, activeMin:d.activeMin, floors:d.floors, restingHR:d.restingHR, sleepH:d.sleepH };
+        if (i>=0) hist[i]=rec; else hist.push(rec); hist.sort((a:any,b:any)=>a.date<b.date?1:-1); SS("pos_ghealth", hist);
+        // mirror sleep into pos_sleep so the sleep section fills too
+        if (d.sleepH) { const sl=LS("pos_sleep",[]); const si=sl.findIndex((x:any)=>x.date===d.date); const sr={date:d.date,total:d.sleepH,source:"watch"}; if(si>=0) sl[si]={...sl[si],...sr}; else sl.push(sr); sl.sort((a:any,b:any)=>a.date<b.date?1:-1); SS("pos_sleep",sl); }
+        refresh();
+        setMsg(`Synced ✓ ${d.steps} steps · ${d.distance||0}km · ${d.calories||0}kcal · ${d.activeMin||0} active min${d.restingHR?` · RHR ${d.restingHR}`:""}${d.sleepH?` · ${d.sleepH}h sleep`:""}`);
+      }
       else if (d.connected === false) setMsg("Not connected — click 'Connect Google Health' first.");
       else setMsg("Google Health error" + (d.code ? ` [${d.code}]` : "") + ": " + (d.error || JSON.stringify(d)));
     } catch (e) { setMsg("Sync failed."); } setBusy(false); };
   return <div className="card" style={{ marginBottom: 16 }}>
     <div className="between" style={{ flexWrap: "wrap", gap: 10 }}>
-      <div className="row" style={{ gap: 8 }}><span>⌚</span><strong>Fitbit · Google Health</strong><span className="muted" style={{ fontSize: 11 }}>steps from your watch — separate Google login</span></div>
+      <div className="row" style={{ gap: 8 }}><span>⌚</span><strong>Fitbit · Google Health</strong><span className="muted" style={{ fontSize: 11 }}>steps · distance · calories · active min · heart rate · sleep — from your watch</span></div>
       <div className="row" style={{ gap: 8 }}>
         <a className="btn ghost sm" href="/api/ghealth/connect">Connect Google Health</a>
-        <button className="btn sm" onClick={sync} disabled={busy}>{busy ? "Syncing…" : "Sync steps"}</button>
+        <button className="btn sm" onClick={sync} disabled={busy}>{busy ? "Syncing…" : "Sync from watch"}</button>
       </div>
     </div>
-    <div className="muted" style={{ fontSize: 12, marginTop: 8 }}>{msg || "Connect once (separate from your Gmail login), then Sync to pull today's steps. Fitbit must be linked to that Google account."}</div>
+    <div className="muted" style={{ fontSize: 12, marginTop: 8 }}>{msg || "Connect once (separate from your Gmail login), then Sync to pull today's watch data. Fitbit must be linked to that Google account."}</div>
   </div>;
 }
 
@@ -548,6 +562,10 @@ function bmrOf(s:any,kg:number){ const cm=heightCm(s); return Math.round(10*kg+6
 function nutOf(d:string){ const n=LS("pos_nutri_"+d,{meals:[],water:0}); const t={cal:0,protein:0,carbs:0,fat:0,fiber:0,water:+n.water||0}; (n.meals||[]).forEach((m:any)=>{t.cal+=+m.cal||0;t.protein+=+m.protein||0;t.carbs+=+m.carbs||0;t.fat+=+m.fat||0;t.fiber+=+m.fiber||0;}); return t; }
 function weightSeries(){ return LS("pos_weightlog",[]).filter((x:any)=>+x.weight).map((x:any)=>({date:x.date,w:+x.weight,bf:+x.bodyfat||0,mu:+x.muscle||0,waist:+x.waist||0})).sort((a:any,b:any)=>a.date<b.date?-1:1); }
 function dayExCal(d:string){ const w=LS("pos_walks",[]).filter((x:any)=>x.date===d).reduce((a:number,x:any)=>a+(+x.cal||0),0); const c=LS("pos_cardio",[]).filter((x:any)=>x.date===d).reduce((a:number,x:any)=>a+(+x.cal||0),0); const g=LS("pos_workouts",[]).filter((x:any)=>x.date===d).reduce((a:number,x:any)=>a+(+x.calories||0),0); return w+c+g; }
+/* watch (Google Health) daily history helpers */
+function ghByDay(field:string,n:number){ const rows=LS("pos_ghealth",[]); const out=[]; for(let i=n-1;i>=0;i--){ const d=new Date(); d.setDate(d.getDate()-i); const ds=dstr(d); const g=rows.find((x:any)=>x.date===ds); out.push({name:n<=7?DOW[d.getDay()]:String(d.getDate()),value:g?Math.round((+g[field]||0)*10)/10:0}); } return out; }
+function ghSum(field:string,n:number){ return ghByDay(field,n).reduce((a,x)=>a+x.value,0); }
+function ghToday(field:string){ const g=LS("pos_ghealth",[]).find((x:any)=>x.date===today()); return g?+g[field]||0:0; }
 
 function Gauge({ value, label, color, size=150, suffix="" }: any){
   const v=clamp(value); const r=(size-18)/2; const c=2*Math.PI*r; const off=c*(1-v/100); const cx=size/2;
@@ -603,13 +621,14 @@ function ExecDash({ refresh }: { refresh: () => void }){
   const walksToday=LS("pos_walks",[]).filter((x:any)=>x.date===today());
   const cardioToday=LS("pos_cardio",[]).filter((x:any)=>x.date===today());
   const woToday=LS("pos_workouts",[]).filter((x:any)=>x.date===today());
-  const stepsToday=Math.max(walksToday.reduce((a:number,x:any)=>a+(+x.steps||0),0), +H.steps||0);
-  const wkAvgSteps=r0(sumRange("pos_walks","steps",7)/7);
-  const moAvgSteps=r0(sumRange("pos_walks","steps",30)/30);
-  const distToday=r1(Math.max(walksToday.reduce((a:number,x:any)=>a+(+x.distance||0),0), +H.distance||0));
-  const activeMin=r0(walksToday.reduce((a:number,x:any)=>a+(+x.activeMin||0),0)+cardioToday.reduce((a:number,x:any)=>a+(+x.duration||0),0)+(+H.azm||0));
-  const floors=+H.floors||0;
-  const calBurn=r0(dayExCal(today())+(+H.caloriesBurned||0));
+  // activity — Google Health (watch) only
+  const stepsToday=r0(ghToday("steps")|| +H.steps||0);
+  const wkAvgSteps=r0(ghSum("steps",7)/7);
+  const moAvgSteps=r0(ghSum("steps",30)/30);
+  const distToday=r1(ghToday("distance")|| +H.distance||0);
+  const activeMin=r0(ghToday("activeMin")|| +H.azm||0);
+  const floors=r0(ghToday("floors")|| +H.floors||0);
+  const calBurn=r0(ghToday("cal")|| +H.caloriesBurned||0);
 
   // exercise
   const allWo=LS("pos_workouts",[]); const allCardio=LS("pos_cardio",[]); const allStrava=LS("pos_strava",[]);
@@ -669,10 +688,10 @@ function ExecDash({ refresh }: { refresh: () => void }){
   const wellTint = healthScore>=85?"emerald":healthScore>=70?"blue":healthScore>=50?"orange":"pink";
 
   // charts
-  const stepChart=byDay("pos_walks","steps",7);
+  const stepChart=ghByDay("steps",7);
   const weightChart=wl.slice(-30).map((x:any)=>({name:(x.date||"").slice(5),value:x.w}));
   const sleepChart=sleep.slice(-14).map((x:any)=>({name:(x.date||"").slice(5),value:+x.total||0}));
-  const hrChart=hrPool.slice(-12).map((a:any)=>({name:(a.date||"").slice(5),value:+a.avgHR}));
+  const hrChart=ghByDay("restingHR",14).filter((x:any)=>x.value>0);
   const woFreq=(()=>{ const o:any[]=[]; for(let i=6;i>=0;i--){ const d=new Date(); d.setDate(d.getDate()-i); const ds=dstr(d); o.push({name:DOW[d.getDay()],value:allWo.filter((w:any)=>w.date===ds).length+allCardio.filter((c:any)=>c.date===ds).length}); } return o; })();
   const proteinChart=(()=>{ const o:any[]=[]; for(let i=6;i>=0;i--){ const d=new Date(); d.setDate(d.getDate()-i); const ds=dstr(d); o.push({name:DOW[d.getDay()],value:nutOf(ds).protein}); } return o; })();
   const deficitChart=(()=>{ const o:any[]=[]; for(let i=6;i>=0;i--){ const d=new Date(); d.setDate(d.getDate()-i); const ds=dstr(d); const consumed=nutOf(ds).cal; const td=bmrOf(s,curW)*1.2+dayExCal(ds); o.push({name:DOW[d.getDay()],value: consumed? r0(td-consumed):0}); } return o; })();
@@ -705,7 +724,7 @@ function ExecDash({ refresh }: { refresh: () => void }){
   const tintFor=(k:string)=> k==="good"?"emerald":k==="risk"?"pink":"orange";
 
   return <>
-    <div className="head"><h1>🩺 Executive Health Dashboard</h1><p>Complete view of activity, fitness, nutrition, sleep &amp; weight-loss · {new Date().toLocaleDateString(undefined,{weekday:"long",month:"long",day:"numeric"})}</p></div>
+    <div className="head"><h1>🩺 Executive Health Dashboard</h1><p>Steps · distance · calories · active minutes · heart rate · sleep pulled from your watch (Google Health). Weight &amp; workouts from your logs. · {new Date().toLocaleDateString(undefined,{weekday:"long",month:"long",day:"numeric"})}</p></div>
     <GoogleHealthCard refresh={refresh}/>
 
     {/* executive summary */}
@@ -759,8 +778,8 @@ function ExecDash({ refresh }: { refresh: () => void }){
     </div>
     <div className="grid g3" style={{marginTop:16}}>
       <BarC title="Daily Steps (7d)" color="#10B981" data={stepChart}/>
-      <BarC title="Calories Burned (7d)" color="#F59E0B" data={byDay("pos_walks","cal",7)}/>
-      <BarC title="Active Minutes (7d)" color="#3B82F6" data={byDay("pos_walks","activeMin",7)}/>
+      <BarC title="Calories Burned (7d)" color="#F59E0B" data={ghByDay("cal",7)}/>
+      <BarC title="Active Minutes (7d)" color="#3B82F6" data={ghByDay("activeMin",7)}/>
     </div>
 
     {/* exercise */}
@@ -793,7 +812,7 @@ function ExecDash({ refresh }: { refresh: () => void }){
       <Stat label="HR Recovery" value={"—"} sub="needs watch data" tint="blue"/>
     </div>
     <div className="grid g2" style={{marginTop:16}}>
-      <LineC title="Heart Rate Trend (recent)" color="#EC4899" data={hrChart.length?hrChart:[{name:"—",value:0}]}/>
+      <LineC title="Resting Heart Rate (14d, watch)" color="#EC4899" data={hrChart.length?hrChart:[{name:"—",value:0}]}/>
       <div className="card"><strong>Cardio fitness note</strong><div className="muted" style={{fontSize:13,marginTop:10,lineHeight:1.6}}>VO₂ max estimated from your max &amp; resting HR{rhr&&maxHR?"":" — log resting HR (Health tab) and a workout with max HR to activate this"}. Higher VO₂ max and lower resting HR both signal improving cardiovascular fitness.</div></div>
     </div>
 
@@ -958,31 +977,139 @@ function Analytics() {
   </>;
 }
 
+/* ================= GOOGLE HEALTH BOARD (watch) ================= */
+function GoogleHealthBoard({ refresh }: { refresh: () => void }){
+  const H=LS("pos_health",{});
+  const acts=LS("pos_gh_acts",[]);
+  const [text,setText]=useState(""); const [busy,setBusy]=useState(false);
+  const [form,setForm]=useState<any>({date:today()});
+  const calc=async()=>{ if(!text.trim())return; setBusy(true);
+    try{ const r=await fetch("/api/gh-activity",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text,weightKg:curWeight()})}); const d=await r.json(); setForm((s:any)=>({date:today(),notes:text,...s,...d})); }catch(e){} setBusy(false); };
+  const save=()=>{ const all=LS("pos_gh_acts",[]); all.unshift({id:uid(),date:form.date||today(),type:form.type||"Activity",distance:+form.distance||0,duration:+form.duration||0,avgSpeed:+form.avgSpeed||0,activeZone:+form.activeZone||0,cal:+form.cal||0,avgHR:+form.avgHR||0,maxHR:+form.maxHR||0,minHR:+form.minHR||0,laps:+form.laps||0,notes:form.notes||""}); SS("pos_gh_acts",all); setForm({date:today()}); setText(""); refresh(); };
+  const del=(id:string)=>{ SS("pos_gh_acts",LS("pos_gh_acts",[]).filter((x:any)=>x.id!==id)); refresh(); };
+  const set=(k:string,v:any)=>setForm((s:any)=>({...s,[k]:v}));
+
+  const steps=r0(ghToday("steps")|| +H.steps||0);
+  const cal=r0(ghToday("cal")|| +H.caloriesBurned||0);
+  const activeMin=r0(ghToday("activeMin")|| +H.azm||0);
+  const dist=r1(ghToday("distance")|| +H.distance||0);
+  const floors=r0(ghToday("floors")|| +H.floors||0);
+  const sleepH=r1(+H.sleepH||0);
+  const rhr=+H.restingHR||0;
+  const hrAvgVals=acts.filter((a:any)=>+a.avgHR).map((a:any)=>+a.avgHR);
+  const avgHR=hrAvgVals.length?r0(hrAvgVals.reduce((a:number,b:number)=>a+b,0)/hrAvgVals.length):0;
+  const maxHR=Math.max(0,...acts.map((a:any)=>+a.maxHR||0));
+  const minHRs=acts.map((a:any)=>+a.minHR||0).filter(Boolean);
+  const minHR=minHRs.length?Math.min(...minHRs):rhr;
+  const F=(k:string,ph:string,w=110)=><input className="in" placeholder={ph} value={form[k]??""} onChange={e=>set(k,e.target.value)} style={{width:w}}/>;
+  const actDist=acts.filter((a:any)=>+a.distance).slice(0,12).reverse().map((a:any)=>({name:(a.date||"").slice(5),value:+a.distance}));
+  const actHR=acts.filter((a:any)=>+a.avgHR).slice(0,12).reverse().map((a:any)=>({name:(a.date||"").slice(5),value:+a.avgHR}));
+  return <>
+    <div className="head"><h1>⌚ Google Health</h1><p>Steps, heart rate &amp; activities from your Fitbit watch. Sync live data, or use AI to estimate an activity when the watch hasn&apos;t synced yet.</p></div>
+    <GoogleHealthCard refresh={refresh}/>
+    <div className="grid g4">
+      <Stat label="Steps Today" value={steps.toLocaleString()} tint="emerald"/>
+      <Stat label="Calories Burned" value={cal.toLocaleString()} unit="kcal" tint="orange"/>
+      <Stat label="Active Zone Min" value={activeMin} unit="min" tint="blue"/>
+      <Stat label="Distance" value={dist} unit="km" tint="cyan"/>
+      <Stat label="Floors" value={floors||"—"} tint="orange"/>
+      <Stat label="Resting HR" value={rhr||"—"} unit="bpm" tint="pink"/>
+      <Stat label="Sleep" value={sleepH||"—"} unit="h" tint="indigo"/>
+      <Stat label="Activities Logged" value={acts.length} tint="violet"/>
+    </div>
+    <Sec t="❤️ Heart Rate" s="Across your recorded activities"/>
+    <div className="grid g4">
+      <Stat label="Max HR" value={maxHR||"—"} unit="bpm" tint="pink"/>
+      <Stat label="Average HR" value={avgHR||"—"} unit="bpm" tint="pink"/>
+      <Stat label="Min HR" value={minHR||"—"} unit="bpm" tint="blue"/>
+      <Stat label="Resting HR" value={rhr||"—"} unit="bpm" tint="emerald"/>
+    </div>
+
+    <Sec t="🏃 Log / estimate an activity" s="Walk, run, ride or workout — describe it and AI fills distance, speed, active zone, calories & heart rate"/>
+    <div className="card">
+      <div style={{padding:12,borderRadius:12,background:"rgba(139,92,246,.08)",border:"1px solid rgba(139,92,246,.25)"}}>
+        <div className="row" style={{gap:8}}><span>✨</span><strong style={{fontSize:13}}>Describe it — Claude estimates the metrics</strong></div>
+        <textarea className="in" value={text} onChange={e=>setText(e.target.value)} placeholder="e.g. ran 5 km in 28 min, felt hard, hilly" style={{width:"100%",minHeight:52,marginTop:8}}/>
+        <div style={{marginTop:6}}><button className="btn ghost sm" onClick={calc} disabled={busy}>{busy?"🤖 Estimating…":"✨ Calculate with AI"}</button> <span className="muted" style={{fontSize:11}}>review &amp; edit below, then Save</span></div>
+      </div>
+      <div className="row" style={{marginTop:12,flexWrap:"wrap",gap:8}}>
+        <input className="in" type="date" value={form.date||today()} onChange={e=>set("date",e.target.value)} style={{width:150}}/>
+        {F("type","Type",110)}{F("distance","Distance km",110)}{F("duration","Duration min",110)}{F("avgSpeed","Avg speed km/h",120)}
+        {F("activeZone","Active zone min",120)}{F("cal","Calories",100)}{F("avgHR","Avg HR",90)}{F("maxHR","Max HR",90)}{F("minHR","Min HR",90)}{F("laps","Laps",80)}
+        <button className="btn" onClick={save}>Save activity</button>
+      </div>
+    </div>
+
+    <div className="grid g3" style={{marginTop:16}}>
+      <BarC title="Steps (7d, watch)" color="#10B981" data={ghByDay("steps",7)}/>
+      <BarC title="Calories Burned (7d)" color="#F59E0B" data={ghByDay("cal",7)}/>
+      <BarC title="Active Zone Min (7d)" color="#3B82F6" data={ghByDay("activeMin",7)}/>
+      <LineC title="Resting HR (14d)" color="#EC4899" data={ghByDay("restingHR",14).filter((x:any)=>x.value>0)}/>
+      <LineC title="Activity Distance (km)" color="#06B6D4" data={actDist.length?actDist:[{name:"—",value:0}]}/>
+      <LineC title="Activity Avg HR" color="#A855F7" data={actHR.length?actHR:[{name:"—",value:0}]}/>
+    </div>
+
+    <div className="card" style={{marginTop:16}}><div className="between"><strong>Activity history</strong><button className="btn ghost sm" onClick={()=>exportCSV("pos_gh_acts",acts)}>⬇ CSV</button></div>
+      <div style={{overflowX:"auto",marginTop:10}}><table style={{width:"100%",borderCollapse:"collapse",minWidth:760}}>
+        <thead><tr>{["Date","Type","Dist","Dur","Speed","AZ min","Cal","Avg HR","Max HR","Laps",""].map(h=><th key={h} style={{textAlign:"left",fontSize:10,textTransform:"uppercase",color:"#5b6577",padding:"6px",borderBottom:"1px solid rgba(255,255,255,.09)"}}>{h}</th>)}</tr></thead>
+        <tbody>{acts.length? acts.map((a:any)=><tr key={a.id} style={{borderBottom:"1px solid rgba(255,255,255,.05)"}}>
+          <td style={{padding:"6px",fontSize:12}}>{a.date}</td><td style={{padding:"6px",fontSize:12}}>{a.type}</td><td style={{padding:"6px",fontSize:12}}>{a.distance||"—"}km</td><td style={{padding:"6px",fontSize:12}}>{a.duration||"—"}m</td><td style={{padding:"6px",fontSize:12}}>{a.avgSpeed||"—"}</td><td style={{padding:"6px",fontSize:12}}>{a.activeZone||"—"}</td><td style={{padding:"6px",fontSize:12}}>{a.cal||"—"}</td><td style={{padding:"6px",fontSize:12}}>{a.avgHR||"—"}</td><td style={{padding:"6px",fontSize:12}}>{a.maxHR||"—"}</td><td style={{padding:"6px",fontSize:12}}>{a.laps||"—"}</td>
+          <td style={{padding:"6px"}}><span className="btn ghost sm" style={{cursor:"pointer"}} onClick={()=>del(a.id)}>✕</span></td>
+        </tr>): <tr><td colSpan={11} className="muted" style={{padding:"10px 6px"}}>No activities yet — describe one above and Calculate with AI, or Sync from your watch.</td></tr>}</tbody>
+      </table></div>
+    </div>
+  </>;
+}
+
+/* ================= SLEEP BOARD ================= */
+function SleepBoard({ refresh }: { refresh: () => void }){
+  const sleep=LS("pos_sleep",[]).slice().sort((a:any,b:any)=>a.date<b.date?-1:1);
+  const last=sleep[sleep.length-1]||{};
+  const avg=sleep.length? r1(sleep.slice(-7).reduce((a:number,x:any)=>a+(+x.total||0),0)/Math.min(7,sleep.length)):0;
+  const chart=sleep.slice(-14).map((x:any)=>({name:(x.date||"").slice(5),value:+x.total||0}));
+  const eff=+last.efficiency||0; const goalPct=pctOf(+last.total||avg,8);
+  const del=(d:string)=>{ SS("pos_sleep",LS("pos_sleep",[]).filter((x:any)=>x.date!==d)); refresh(); };
+  return <>
+    <div className="head"><h1>😴 Sleep Tracker</h1><p>Filled automatically from your watch (Google Health) — or log manually anytime.</p></div>
+    <div className="grid g4">
+      <Stat label="Last Night" value={+last.total||"—"} unit="h" tint="indigo"/>
+      <Stat label="7-day Avg" value={avg||"—"} unit="h" tint="indigo"/>
+      <Stat label="Deep" value={+last.deep||"—"} unit="h" tint="violet"/>
+      <Stat label="REM" value={+last.rem||"—"} unit="h" tint="violet"/>
+      <Stat label="Light" value={+last.light||"—"} unit="h" tint="blue"/>
+      <Stat label="Efficiency" value={eff||"—"} unit="%" tint="emerald"/>
+      <Stat label="Quality" value={eff? clamp(r0(eff*0.6+goalPct*0.4)) : (goalPct||"—")} unit="/100" tint="emerald"/>
+      <Stat label="Sleep Goal" value={goalPct} unit="%" sub="target 8h" tint="cyan"/>
+    </div>
+    <div className="grid g2" style={{marginTop:16}}>
+      <LineC title="Sleep Duration (14d)" color="#8B5CF6" data={chart.length?chart:[{name:"—",value:0}]}/>
+      <div className="card"><strong>Log sleep</strong><div className="muted" style={{fontSize:12,marginTop:6}}>Watch sync fills this automatically; add or correct entries here.</div><SleepQuickAdd refresh={refresh}/>
+        <div style={{overflowX:"auto",marginTop:12}}><table style={{width:"100%",borderCollapse:"collapse"}}>
+          <thead><tr>{["Date","Total","Deep","REM","Eff","Src",""].map(h=><th key={h} style={{textAlign:"left",fontSize:10,textTransform:"uppercase",color:"#5b6577",padding:"6px"}}>{h}</th>)}</tr></thead>
+          <tbody>{sleep.slice().reverse().slice(0,12).map((x:any,i:number)=><tr key={i} style={{borderBottom:"1px solid rgba(255,255,255,.05)"}}>
+            <td style={{padding:"6px",fontSize:12}}>{x.date}</td><td style={{padding:"6px",fontSize:12}}>{x.total||"—"}h</td><td style={{padding:"6px",fontSize:12}}>{x.deep||"—"}</td><td style={{padding:"6px",fontSize:12}}>{x.rem||"—"}</td><td style={{padding:"6px",fontSize:12}}>{x.efficiency||"—"}</td><td style={{padding:"6px",fontSize:11,color:"#8A94A6"}}>{x.source==="watch"?"⌚":"✎"}</td>
+            <td style={{padding:"6px"}}><span className="btn ghost sm" style={{cursor:"pointer"}} onClick={()=>del(x.date)}>✕</span></td></tr>)}
+          {!sleep.length&&<tr><td colSpan={7} className="muted" style={{padding:"10px 6px"}}>No sleep logged yet.</td></tr>}</tbody>
+        </table></div>
+      </div>
+    </div>
+  </>;
+}
+
 /* ---------- root ---------- */
 export default function Fitness() {
-  const [tab, setTab] = useState("exec");
+  const [tab, setTab] = useState("ghealth");
   const [, setT] = useState(0); const refresh = () => setT(x=>x+1);
   const TABS: [string,string,string][] = [
-    ["exec","Dashboard","🩺"],["overview","Overview","📊"],["workout","Today's Workout","🏋️"],["walk","Daily Walk","🚶"],
-    ["weight","Weight","⚖️"],["cardio","Cardio","🏃"],["strava","Strava","🔗"],["analytics","Analytics","📈"],
+    ["ghealth","Google Health","⌚"],["workout","Workout","🏋️"],["strava","Strava","🔗"],["sleep","Sleep","😴"],
   ];
   return <>
     <div className="row" style={{flexWrap:"wrap",gap:8,marginBottom:18}}>
       {TABS.map(t=><button key={t[0]} onClick={()=>setTab(t[0])} className={"btn "+(tab===t[0]?"":"ghost")+" sm"} style={{fontWeight:600}}>{t[2]} {t[1]}</button>)}
     </div>
-    {tab==="exec" && <ExecDash refresh={refresh}/>}
-    {tab==="overview" && <Overview refresh={refresh}/>}
-    {tab==="walk" && <Tracker refresh={refresh} aiCal="walking" aiParse="walk" storeKey="pos_walks" title="Daily Walk Tracker" icon="🚶"
-      fields={[{k:"date",label:"Date",type:"date"},{k:"steps",label:"Steps"},{k:"distance",label:"Distance km"},{k:"cal",label:"Calories (watch)"},{k:"activeMin",label:"Active Min"},{k:"duration",label:"Duration min"},{k:"pace",label:"Avg Pace",type:"text"},{k:"notes",label:"Notes",type:"text"}]}
-      charts={[{title:"Daily Steps (7d)",field:"steps",kind:"bar",color:"#10B981"},{title:"Monthly Steps (30d)",field:"steps",kind:"bar",color:"#10B981"},{title:"Calories Burned (7d)",field:"cal",kind:"bar",color:"#F59E0B"},{title:"Active Minutes (7d)",field:"activeMin",kind:"bar",color:"#3B82F6"},{title:"Distance Walked (7d)",field:"distance",kind:"line",color:"#06B6D4"}]}/>}
+    {tab==="ghealth" && <GoogleHealthBoard refresh={refresh}/>}
     {tab==="workout" && <TodayWorkout refresh={refresh}/>}
-    {tab==="weight" && <Tracker refresh={refresh} storeKey="pos_weightlog" title="Weight Tracker" icon="⚖️"
-      fields={[{k:"date",label:"Date",type:"date"},{k:"weight",label:"Morning Weight kg"},{k:"bodyfat",label:"Body Fat %",optional:true},{k:"muscle",label:"Muscle %",optional:true},{k:"bmi",label:"BMI",optional:true},{k:"waist",label:"Waist",optional:true},{k:"chest",label:"Chest",optional:true},{k:"arms",label:"Arms",optional:true},{k:"thigh",label:"Thigh",optional:true},{k:"notes",label:"Notes",type:"text"}]}
-      charts={[{title:"Daily Weight (30d)",field:"weight",kind:"line",color:"#06B6D4"},{title:"Body Fat % (30d)",field:"bodyfat",kind:"line",color:"#F59E0B"}]}/>}
-    {tab==="strava" && <StravaView refresh={refresh}/>}
-    {tab==="cardio" && <Tracker refresh={refresh} aiCal="cardio" aiParse="cardio" storeKey="pos_cardio" title="Cardio Tracker" icon="🏃"
-      fields={[{k:"date",label:"Date",type:"date"},{k:"activity",label:"Activity",type:"select",options:["Running","Cycling","StairMaster","Rowing","Walking","Swimming","Elliptical","HIIT","Other"]},{k:"duration",label:"Duration min"},{k:"distance",label:"Distance km"},{k:"cal",label:"Calories"},{k:"avgSpeed",label:"Avg Speed",optional:true},{k:"avgHR",label:"Avg HR",optional:true},{k:"maxHR",label:"Max HR",optional:true},{k:"notes",label:"Notes",type:"text"}]}
-      charts={[{title:"Weekly Cardio Duration",field:"duration",kind:"bar",color:"#EC4899"},{title:"Monthly Cardio Duration",field:"duration",kind:"bar",color:"#EC4899"},{title:"Calories Burned (7d)",field:"cal",kind:"bar",color:"#F59E0B"},{title:"Distance Covered (7d)",field:"distance",kind:"line",color:"#10B981"}]}/>}
-    {tab==="analytics" && <Analytics/>}
+    {tab==="strava" && <StravaView refresh={refresh} appOnly/>}
+    {tab==="sleep" && <SleepBoard refresh={refresh}/>}
   </>;
 }
