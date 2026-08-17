@@ -59,6 +59,8 @@ body{font-family:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans
 .muted{color:var(--mut)}
 .in{background:rgba(255,255,255,.05);border:1px solid var(--stroke);border-radius:9px;padding:8px 11px;color:var(--txt);font-size:13px;outline:none}
 .in:focus{border-color:var(--blue)}
+select.in{appearance:none;-webkit-appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--mut) 50%),linear-gradient(135deg,var(--mut) 50%,transparent 50%);background-position:calc(100% - 16px) 50%,calc(100% - 11px) 50%;background-size:5px 5px,5px 5px;background-repeat:no-repeat;padding-right:30px}
+option,select option{background:#0f172a !important;color:#E7ECF3 !important}
 .btn{border:none;border-radius:10px;padding:9px 15px;font-size:13px;font-weight:650;cursor:pointer;color:#fff;background:linear-gradient(100deg,var(--blue),var(--indigo))}
 .btn.ghost{background:var(--card);color:var(--txt);border:1px solid var(--stroke)}
 .btn.sm{padding:6px 11px;font-size:12px}

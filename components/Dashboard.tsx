@@ -78,7 +78,7 @@ export default function Dashboard({ onSignOut, name }: { onSignOut: ()=>void; na
               <button className="btn ghost sm" onClick={()=>setSelDate(today())}>Today</button>
             </>}
             <span className="in" style={{ padding:"6px 12px" }}>{clock}</span>
-            <span style={{ fontSize:10, color:"var(--mut2)" }} title="build marker — bump this to verify a deploy went live">build&nbsp;45</span>
+            <span style={{ fontSize:10, color:"var(--mut2)" }} title="build marker — bump this to verify a deploy went live">build&nbsp;46</span>
           </div>
         </div>
         <div className="content"><Boundary key={view}>
@@ -506,6 +506,9 @@ const P_PULL=["Deadlift","Lat Pulldown","Pull-ups","Barbell Row","Seated Cable R
 const P_LEGS=["Squat","Romanian Deadlift","Leg Press","Walking Lunges","Leg Extension","Hamstring Curl","Bulgarian Split Squat","Standing Calf Raise","Hip Thrust","Glute Bridge"];
 const EX_LIB:Record<string,string[]>={Push:P_PUSH,Pull:P_PULL,Legs:P_LEGS};
 const COURSES=["AI / ML","Interview Prep","Data Structures & Algorithms","System Design","DevOps","Cloud","Frontend","Other"];
+function PRow({ icon, tint, title, children }: any){ return <div className="card" style={{marginBottom:14}}>
+  <div className="row" style={{gap:10,marginBottom:10}}><Chip tint={tint}>{icon}</Chip><strong style={{fontSize:15}}>{title}</strong></div>{children}</div>; }
+const OPT = { background:"#0f172a", color:"#E7ECF3" } as any;
 function GoalPlanner({ sett }: any) {
   const days=sett.planDays||120;
   const [sel,setSel]=useState(today());
@@ -532,8 +535,6 @@ function GoalPlanner({ sett }: any) {
     try{ const r=await fetch("/api/proofread",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text:p.journal})}); const d=await r.json();
       if(d.text && d.text!==p.journal){ save({journal:d.text}); setFixMsg("✓ Grammar & spelling corrected."); } else setFixMsg("Looks good — no changes needed."); }
     catch(e){ setFixMsg("Couldn't proofread right now."); } setFixBusy(false); };
-  const Row=({icon,tint,title,children}:any)=><div className="card" style={{marginBottom:14}}>
-    <div className="row" style={{gap:10,marginBottom:10}}><Chip tint={tint}>{icon}</Chip><strong style={{fontSize:15}}>{title}</strong></div>{children}</div>;
   return <div style={{marginTop:16}}>
     <div className="card" style={{marginBottom:16}}>
       <div className="between" style={{flexWrap:"wrap",gap:10}}>
@@ -548,7 +549,7 @@ function GoalPlanner({ sett }: any) {
       <div className="muted" style={{fontSize:12,marginTop:10}}>Planning for <b style={{color:"#E7ECF3"}}>{new Date(sel).toLocaleDateString(undefined,{weekday:"long",day:"numeric",month:"long",year:"numeric"})}</b> · scheduled workout: <b style={{color:"#E7ECF3"}}>{PPL[new Date(sel).getDay()]}</b></div>
     </div>
 
-    <Row icon="🏋️" tint="blue" title="Exercise — what are you doing today?">
+    <PRow icon="🏋️" tint="blue" title="Exercise — what are you doing today?">
       <div className="row" style={{flexWrap:"wrap",gap:8}}>
         {EX_TYPES.map(t=><button key={t} className={"btn "+(p.exType===t?"":"ghost")+" sm"} onClick={()=>save({exType:t,exSelected:[]})}>{t}</button>)}
       </div>
@@ -558,9 +559,9 @@ function GoalPlanner({ sett }: any) {
           {EX_LIB[p.exType].map(ex=>{ const on=(p.exSelected||[]).includes(ex); return <button key={ex} className={"btn "+(on?"":"ghost")+" sm"} onClick={()=>toggleEx(ex)} style={{fontWeight:500}}>{on?"✓ ":""}{ex}</button>; })}
         </div>
       </div> : p.exType? <input className="in" value={p.exDetail||""} onChange={e=>save({exDetail:e.target.value})} placeholder={`${p.exType} details — e.g. 5 km run, or 45 min yoga flow`} style={{width:"100%",marginTop:12}}/> : <div className="muted" style={{fontSize:12,marginTop:10}}>Pick what you're training today.</div>}
-    </Row>
+    </PRow>
 
-    <Row icon="🍎" tint="emerald" title="Meals — what will you eat? (AI counts the macros)">
+    <PRow icon="🍎" tint="emerald" title="Meals — what will you eat? (AI counts the macros)">
       {["breakfast","lunch","dinner"].map((key)=>{ const meal=p.meals[key]||{}; const tt=meal.total||null; const lbl=key.charAt(0).toUpperCase()+key.slice(1);
         return <div key={key} style={{marginBottom:14,paddingBottom:14,borderBottom:key!=="dinner"?"1px solid rgba(255,255,255,.06)":"none"}}>
           <div className="between" style={{flexWrap:"wrap",gap:8}}><strong style={{fontSize:13}}>{key==="breakfast"?"🌅":key==="lunch"?"🥗":"🌙"} {lbl}</strong>
@@ -579,11 +580,11 @@ function GoalPlanner({ sett }: any) {
           <span className="muted" style={{fontSize:13}}>🔥 <b style={{color:"#E7ECF3"}}>{Math.round(dayTotal.cal)}</b> kcal · P {Math.round(dayTotal.protein)}g · C {Math.round(dayTotal.carbs)}g · F {Math.round(dayTotal.fat)}g · Fiber {Math.round(dayTotal.fiber)}g</span>
         </div>
       </div>:null}
-    </Row>
+    </PRow>
 
-    <Row icon="📚" tint="purple" title="Study — what will you study? (AI splits your time)">
+    <PRow icon="📚" tint="purple" title="Study — what will you study? (AI splits your time)">
       <div className="row" style={{flexWrap:"wrap",gap:8}}>
-        <select className="in" value={p.study||""} onChange={e=>save({study:e.target.value})} style={{minWidth:180}}><option value="">Course (optional)…</option>{COURSES.map(c=><option key={c}>{c}</option>)}</select>
+        <select className="in" value={p.study||""} onChange={e=>save({study:e.target.value})} style={{minWidth:180}}><option value="" style={OPT}>Course (optional)…</option>{COURSES.map(c=><option key={c} style={OPT}>{c}</option>)}</select>
         <input className="in" type="number" value={p.studyHours||""} onChange={e=>save({studyHours:e.target.value})} placeholder="Hours" style={{width:90}}/>
       </div>
       <textarea className="in" value={p.studyText||""} onChange={e=>save({studyText:e.target.value})} placeholder="What do you want to study today? e.g. system design — caching, load balancing; 20 DSA problems on trees" style={{width:"100%",minHeight:70,marginTop:8}}/>
@@ -593,16 +594,16 @@ function GoalPlanner({ sett }: any) {
         <tbody>{p.studyPlan.map((x:any,i:number)=><tr key={i} style={{borderBottom:"1px solid rgba(255,255,255,.05)"}}><td style={{padding:"7px 6px",fontSize:12,whiteSpace:"nowrap",color:"#c4b5fd",fontWeight:600}}>{x.time}</td><td style={{padding:"7px 6px",fontSize:13}}>{x.task}</td></tr>)}</tbody>
       </table></div>}
       {(p.studyNext||[]).length>0 && <div style={{marginTop:10}}><div className="muted" style={{fontSize:11,textTransform:"uppercase",letterSpacing:.5,marginBottom:6}}>Up next</div><ul className="list">{p.studyNext.map((x:string,i:number)=><li className="li" key={i}><span className="dot" style={{background:"var(--mut2)"}}/><span style={{fontSize:13}} className="muted">{x}</span></li>)}</ul></div>}
-    </Row>
+    </PRow>
 
-    <Row icon="📓" tint="orange" title="Daily Journal">
+    <PRow icon="📓" tint="orange" title="Daily Journal">
       <div className="between" style={{flexWrap:"wrap",gap:8,marginBottom:10,paddingBottom:10,borderBottom:"1px solid rgba(255,255,255,.08)"}}>
         <div><div style={{fontSize:16,fontWeight:700}}>{new Date(sel).toLocaleDateString(undefined,{weekday:"long"})}</div><div className="muted" style={{fontSize:12}}>{new Date(sel).toLocaleDateString(undefined,{day:"numeric",month:"long",year:"numeric"})}</div></div>
         <button className="btn ghost sm" onClick={fixGrammar} disabled={fixBusy}>{fixBusy?"✨ Fixing…":"✨ Fix grammar & spelling"}</button>
       </div>
       <textarea className="in" value={p.journal||""} onChange={e=>save({journal:e.target.value})} placeholder={"Dear diary…\n\n• Highlights of the day —\n• Challenges —\n• Grateful for —\n• Tomorrow —\n\nWrite freely, then tap ‘Fix grammar & spelling’."} style={{width:"100%",minHeight:220,lineHeight:1.8,fontSize:15}}/>
       {fixMsg && <div className="muted" style={{fontSize:12,marginTop:6}}>{fixMsg}</div>}
-    </Row>
+    </PRow>
 
     <div className="card" style={{marginTop:2}}><strong>{days}-Day Plan Overview</strong><div className="muted" style={{fontSize:12,marginTop:2,marginBottom:6}}>Green = planned. Tap any day to edit it.</div><div className="cal-grid">{cells}</div></div>
   </div>;
