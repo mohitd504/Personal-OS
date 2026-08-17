@@ -78,7 +78,7 @@ export default function Dashboard({ onSignOut, name }: { onSignOut: ()=>void; na
               <button className="btn ghost sm" onClick={()=>setSelDate(today())}>Today</button>
             </>}
             <span className="in" style={{ padding:"6px 12px" }}>{clock}</span>
-            <span style={{ fontSize:10, color:"var(--mut2)" }} title="build marker — bump this to verify a deploy went live">build&nbsp;42</span>
+            <span style={{ fontSize:10, color:"var(--mut2)" }} title="build marker — bump this to verify a deploy went live">build&nbsp;43</span>
           </div>
         </div>
         <div className="content"><Boundary key={view}>
@@ -498,16 +498,21 @@ function Goals({ sett, tick }: any) {
 }
 /* ---------- 120-day daily goal planner ---------- */
 function planKey(d:string){ return "pos_plan_"+d; }
-function loadPlan(d:string){ return LS(planKey(d),{exercise:"",nutrition:"",study:""}); }
+function loadPlan(d:string){ return LS(planKey(d),{exercise:"",nutrition:"",study:"",journal:""}); }
 function GoalPlanner({ sett }: any) {
   const days=sett.planDays||120;
   const [sel,setSel]=useState(today());
   const [p,setP]=useState<any>(loadPlan(today()));
   const [,setT]=useState(0);
-  useEffect(()=>{ setP(loadPlan(sel)); },[sel]);
+  const [fixBusy,setFixBusy]=useState(false); const [fixMsg,setFixMsg]=useState("");
+  useEffect(()=>{ setP(loadPlan(sel)); setFixMsg(""); },[sel]);
   const save=(k:string,v:string)=>{ const n={...p,[k]:v}; setP(n); SS(planKey(sel),n); setT(x=>x+1); };
+  const fixGrammar=async()=>{ if(!(p.journal||"").trim()){ setFixMsg("Write something in the journal first."); return; } setFixBusy(true); setFixMsg("");
+    try{ const r=await fetch("/api/proofread",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text:p.journal})}); const d=await r.json();
+      if(d.text && d.text!==p.journal){ save("journal",d.text); setFixMsg("✓ Grammar & spelling corrected."); } else setFixMsg("Looks good — no changes needed."); }
+    catch(e){ setFixMsg("Couldn't proofread right now."); } setFixBusy(false); };
   const shift=(n:number)=>{ const d=new Date(sel); d.setDate(d.getDate()+n); setSel(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`); };
-  const filled=(d:string)=>{ const x=loadPlan(d); return !!(x.exercise||x.nutrition||x.study); };
+  const filled=(d:string)=>{ const x=loadPlan(d); return !!(x.exercise||x.nutrition||x.study||x.journal); };
   const start=new Date(sett.planStart);
   const cells=[]; for(let i=0;i<days;i++){ const d=new Date(start); d.setDate(d.getDate()+i); const ds=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; const f=filled(ds);
     cells.push(<div key={i} onClick={()=>setSel(ds)} title={`Day ${i+1} · ${ds}${f?" · planned":""}`} className={"cal-cell"+(ds===sel?" today":"")} style={{cursor:"pointer",background:f?"rgba(16,185,129,.35)":undefined}}><div className="cd">{i+1}</div><div className="cs">{f?"✓":""}</div></div>); }
@@ -531,6 +536,14 @@ function GoalPlanner({ sett }: any) {
       {box("Exercise plan","exercise","e.g. Push day — chest focus, 4 chest / 2 shoulder / 3 triceps; 30 min walk","blue")}
       {box("Nutrition plan","nutrition","e.g. 2350 kcal · 180g protein · high-protein breakfast, salad lunch…","emerald")}
       {box("Study plan","study","e.g. 2h System Design, 1h DSA problems, revise notes…","purple")}
+    </div>
+    <div className="card" style={{marginTop:16,background:"linear-gradient(160deg,rgba(255,255,255,.05),rgba(255,255,255,.02))"}}>
+      <div className="between" style={{flexWrap:"wrap",gap:8}}>
+        <div className="row" style={{gap:8}}><Chip tint="orange">📓</Chip><div><strong>Daily Journal</strong><div className="muted" style={{fontSize:12}}>How did today go? Wins, struggles, thoughts…</div></div></div>
+        <button className="btn ghost sm" onClick={fixGrammar} disabled={fixBusy}>{fixBusy?"✨ Fixing…":"✨ Fix grammar & spelling"}</button>
+      </div>
+      <textarea className="in" value={p.journal||""} onChange={e=>save("journal",e.target.value)} placeholder="Dear diary…  write freely — then tap ‘Fix grammar & spelling’ to clean it up." style={{width:"100%",minHeight:200,marginTop:12,lineHeight:1.7,fontSize:15}}/>
+      {fixMsg && <div className="muted" style={{fontSize:12,marginTop:6}}>{fixMsg}</div>}
     </div>
     <div className="card" style={{marginTop:16}}><strong>{days}-Day Plan Overview</strong><div className="muted" style={{fontSize:12,marginTop:2,marginBottom:6}}>Green = planned. Tap any day to edit it.</div><div className="cal-grid">{cells}</div></div>
   </div>;
