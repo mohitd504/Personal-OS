@@ -78,7 +78,7 @@ export default function Dashboard({ onSignOut, name }: { onSignOut: ()=>void; na
               <button className="btn ghost sm" onClick={()=>setSelDate(today())}>Today</button>
             </>}
             <span className="in" style={{ padding:"6px 12px" }}>{clock}</span>
-            <span style={{ fontSize:10, color:"var(--mut2)" }} title="build marker — bump this to verify a deploy went live">build&nbsp;40</span>
+            <span style={{ fontSize:10, color:"var(--mut2)" }} title="build marker — bump this to verify a deploy went live">build&nbsp;41</span>
           </div>
         </div>
         <div className="content"><Boundary key={view}>
@@ -272,14 +272,27 @@ function Nutrition({ sett, refresh, tick, date }: any) {
   const [busy,setBusy]=useState(false);
   const [paste,setPaste]=useState("");
   const [photoBusy,setPhotoBusy]=useState(false); const [photoMsg,setPhotoMsg]=useState("");
-  const onPhoto=(file:File|undefined)=>{ if(!file) return; setPhotoBusy(true); setPhotoMsg("Reading photo…");
-    const rd=new FileReader(); rd.onload=async()=>{ try{
-      const r=await fetch("/api/food-photo",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({image:rd.result})});
+  // shrink the image in the browser so the upload stays well under the request size limit
+  const compress=(file:File):Promise<string>=>new Promise((resolve,reject)=>{
+    const rd=new FileReader();
+    rd.onerror=()=>reject(new Error("read"));
+    rd.onload=()=>{ const img=new Image(); img.onerror=()=>reject(new Error("img"));
+      img.onload=()=>{ const max=1024; let{width:w,height:h}=img; if(w>h&&w>max){h=Math.round(h*max/w);w=max;} else if(h>max){w=Math.round(w*max/h);h=max;}
+        const c=document.createElement("canvas"); c.width=w; c.height=h; const ctx=c.getContext("2d"); if(!ctx){reject(new Error("ctx"));return;} ctx.drawImage(img,0,0,w,h);
+        resolve(c.toDataURL("image/jpeg",0.7)); };
+      img.src=rd.result as string; };
+    rd.readAsDataURL(file);
+  });
+  const onPhoto=async(file:File|undefined)=>{ if(!file) return; setPhotoBusy(true); setPhotoMsg("Analysing photo…");
+    try{
+      const image=await compress(file);
+      const r=await fetch("/api/food-photo",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({image})});
+      if(!r.ok){ setPhotoMsg(`Upload failed (${r.status}). Try a smaller/clearer photo.`); setPhotoBusy(false); return; }
       const d=await r.json();
       if(d && !d.error && (d.cal||d.protein||d.carbs)){ const m=loadNut(D); m.meals.push({name:d.name||"Photo meal",cal:Math.round(d.cal||0),protein:Math.round(d.protein||0),carbs:Math.round(d.carbs||0),fat:Math.round(d.fat||0),fiber:Math.round(d.fiber||0)}); SS(nutKey(D),m); refresh(); setPhotoMsg(`Added ✓ ${d.name||"meal"} · ${Math.round(d.cal||0)} kcal`); }
       else setPhotoMsg(d.error||"Couldn't read that photo — try a clearer shot.");
-    }catch(e){ setPhotoMsg("Photo read failed."); } setPhotoBusy(false); };
-    rd.readAsDataURL(file);
+    }catch(e:any){ setPhotoMsg("Photo read failed ("+(e?.message||"error")+")."); }
+    setPhotoBusy(false);
   };
   const importPaste=()=>{ const text=paste; if(!text.trim())return;
     const num=(re:RegExp)=>{const m=text.match(re);return m?parseFloat(m[1]):0;};
