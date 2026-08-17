@@ -78,7 +78,7 @@ export default function Dashboard({ onSignOut, name }: { onSignOut: ()=>void; na
               <button className="btn ghost sm" onClick={()=>setSelDate(today())}>Today</button>
             </>}
             <span className="in" style={{ padding:"6px 12px" }}>{clock}</span>
-            <span style={{ fontSize:10, color:"var(--mut2)" }} title="build marker — bump this to verify a deploy went live">build&nbsp;44</span>
+            <span style={{ fontSize:10, color:"var(--mut2)" }} title="build marker — bump this to verify a deploy went live">build&nbsp;45</span>
           </div>
         </div>
         <div className="content"><Boundary key={view}>
@@ -498,9 +498,13 @@ function Goals({ sett, tick }: any) {
 }
 /* ---------- 120-day daily goal planner ---------- */
 function planKey(d:string){ return "pos_plan_"+d; }
-const PLAN_DEF:any={exType:"",exDetail:"",menu:"",menuTotal:null,menuItems:[],study:"",studyGoal:"",studyToday:[],studyNext:[],journal:""};
-function loadPlan(d:string){ return {...PLAN_DEF, ...LS(planKey(d),{})}; }
+const PLAN_DEF:any={exType:"",exSelected:[],exDetail:"",meals:{breakfast:{text:"",total:null},lunch:{text:"",total:null},dinner:{text:"",total:null}},study:"",studyText:"",studyHours:"",studyPlan:[],studyNext:[],journal:""};
+function loadPlan(d:string){ const raw=LS(planKey(d),{}); const m={...PLAN_DEF.meals,...(raw.meals||{})}; return {...PLAN_DEF, ...raw, meals:{breakfast:{text:"",total:null,...m.breakfast},lunch:{text:"",total:null,...m.lunch},dinner:{text:"",total:null,...m.dinner}}}; }
 const EX_TYPES=["Rest","Push","Pull","Legs","Cardio","Walk","HIIT","Yoga"];
+const P_PUSH=["Bench Press","Incline Dumbbell Press","Machine Chest Press","Cable Fly","Shoulder Press","Lateral Raise","Rear Delt Fly","Tricep Pushdown","Overhead Tricep Extension","Dips"];
+const P_PULL=["Deadlift","Lat Pulldown","Pull-ups","Barbell Row","Seated Cable Row","Single Arm Row","Face Pull","Barbell Curl","Hammer Curl","Preacher Curl"];
+const P_LEGS=["Squat","Romanian Deadlift","Leg Press","Walking Lunges","Leg Extension","Hamstring Curl","Bulgarian Split Squat","Standing Calf Raise","Hip Thrust","Glute Bridge"];
+const EX_LIB:Record<string,string[]>={Push:P_PUSH,Pull:P_PULL,Legs:P_LEGS};
 const COURSES=["AI / ML","Interview Prep","Data Structures & Algorithms","System Design","DevOps","Cloud","Frontend","Other"];
 function GoalPlanner({ sett }: any) {
   const days=sett.planDays||120;
@@ -508,25 +512,26 @@ function GoalPlanner({ sett }: any) {
   const [p,setP]=useState<any>(loadPlan(today()));
   const [,setT]=useState(0);
   const [fixBusy,setFixBusy]=useState(false); const [fixMsg,setFixMsg]=useState("");
-  const [nutBusy,setNutBusy]=useState(false); const [studyBusy,setStudyBusy]=useState(false);
+  const [mealBusy,setMealBusy]=useState(""); const [studyBusy,setStudyBusy]=useState(false);
   useEffect(()=>{ setP(loadPlan(sel)); setFixMsg(""); },[sel]);
   const save=(patch:any)=>{ const n={...p,...patch}; setP(n); SS(planKey(sel),n); setT(x=>x+1); };
   const shift=(n:number)=>{ const d=new Date(sel); d.setDate(d.getDate()+n); setSel(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`); };
-  const filled=(d:string)=>{ const x=loadPlan(d); return !!(x.exType||x.exDetail||x.menu||x.study||x.journal); };
+  const filled=(d:string)=>{ const x=loadPlan(d); const mealsTxt=(x.meals?.breakfast?.text||"")+(x.meals?.lunch?.text||"")+(x.meals?.dinner?.text||""); return !!(x.exType||x.exDetail||(x.exSelected||[]).length||mealsTxt||x.studyText||x.journal); };
   const start=new Date(sett.planStart);
   const cells=[]; for(let i=0;i<days;i++){ const d=new Date(start); d.setDate(d.getDate()+i); const ds=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; const f=filled(ds);
     cells.push(<div key={i} onClick={()=>setSel(ds)} title={`Day ${i+1} · ${ds}${f?" · planned":""}`} className={"cal-cell"+(ds===sel?" today":"")} style={{cursor:"pointer",background:f?"rgba(16,185,129,.35)":undefined}}><div className="cd">{i+1}</div><div className="cs">{f?"✓":""}</div></div>); }
   const plannedCount=(()=>{ let n=0; for(let i=0;i<days;i++){ const d=new Date(start); d.setDate(d.getDate()+i); const ds=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; if(filled(ds))n++; } return n; })();
-  const countNutrition=async()=>{ if(!(p.menu||"").trim()) return; setNutBusy(true);
-    try{ const r=await fetch("/api/plan-nutrition",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({menu:p.menu})}); const d=await r.json(); save({menuTotal:d.total||null,menuItems:d.items||[]}); }catch(e){} setNutBusy(false); };
-  const addMenuToLog=()=>{ const its=p.menuItems||[]; if(!its.length){ alert("Count the menu first."); return; } const m=loadNut(sel); its.forEach((it:any)=>m.meals.push({name:(it.name||"Item")+(it.qty?` (${it.qty})`:""),cal:Math.round(it.cal||0),protein:Math.round(it.protein||0),carbs:Math.round(it.carbs||0),fat:Math.round(it.fat||0),fiber:Math.round(it.fiber||0)})); SS(nutKey(sel),m); alert(`Added ${its.length} item(s) to ${sel} food log ✓`); };
-  const suggestPath=async()=>{ setStudyBusy(true);
-    try{ const r=await fetch("/api/study-path",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({course:p.study,goal:p.studyGoal})}); const d=await r.json(); save({studyToday:d.today||[],studyNext:d.next||[]}); }catch(e){} setStudyBusy(false); };
+  const toggleEx=(name:string)=>{ const cur=p.exSelected||[]; save({exSelected: cur.includes(name)? cur.filter((x:string)=>x!==name): [...cur,name]}); };
+  const setMeal=(key:string,patch:any)=>{ save({meals:{...p.meals,[key]:{...p.meals[key],...patch}}}); };
+  const countMeal=async(key:string)=>{ const txt=p.meals[key]?.text||""; if(!txt.trim())return; setMealBusy(key);
+    try{ const r=await fetch("/api/plan-nutrition",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({menu:txt})}); const d=await r.json(); setMeal(key,{total:d.total||null,items:d.items||[]}); }catch(e){} setMealBusy(""); };
+  const dayTotal=(()=>{ const t={cal:0,protein:0,carbs:0,fat:0,fiber:0}; ["breakfast","lunch","dinner"].forEach(k=>{ const tt=p.meals[k]?.total; if(tt){ t.cal+=+tt.cal||0; t.protein+=+tt.protein||0; t.carbs+=+tt.carbs||0; t.fat+=+tt.fat||0; t.fiber+=+tt.fiber||0; } }); return t; })();
+  const suggestPath=async()=>{ if(!(p.studyText||"").trim() && !p.study){ return; } setStudyBusy(true);
+    try{ const r=await fetch("/api/study-path",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({course:p.study,text:p.studyText,hours:p.studyHours})}); const d=await r.json(); save({studyPlan:d.plan||[],studyNext:d.next||[]}); }catch(e){} setStudyBusy(false); };
   const fixGrammar=async()=>{ if(!(p.journal||"").trim()){ setFixMsg("Write something in the journal first."); return; } setFixBusy(true); setFixMsg("");
     try{ const r=await fetch("/api/proofread",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text:p.journal})}); const d=await r.json();
       if(d.text && d.text!==p.journal){ save({journal:d.text}); setFixMsg("✓ Grammar & spelling corrected."); } else setFixMsg("Looks good — no changes needed."); }
     catch(e){ setFixMsg("Couldn't proofread right now."); } setFixBusy(false); };
-  const mt=p.menuTotal||{};
   const Row=({icon,tint,title,children}:any)=><div className="card" style={{marginBottom:14}}>
     <div className="row" style={{gap:10,marginBottom:10}}><Chip tint={tint}>{icon}</Chip><strong style={{fontSize:15}}>{title}</strong></div>{children}</div>;
   return <div style={{marginTop:16}}>
@@ -545,51 +550,57 @@ function GoalPlanner({ sett }: any) {
 
     <Row icon="🏋️" tint="blue" title="Exercise — what are you doing today?">
       <div className="row" style={{flexWrap:"wrap",gap:8}}>
-        {EX_TYPES.map(t=><button key={t} className={"btn "+(p.exType===t?"":"ghost")+" sm"} onClick={()=>save({exType:t})}>{t}</button>)}
+        {EX_TYPES.map(t=><button key={t} className={"btn "+(p.exType===t?"":"ghost")+" sm"} onClick={()=>save({exType:t,exSelected:[]})}>{t}</button>)}
       </div>
-      <input className="in" value={p.exDetail||""} onChange={e=>save({exDetail:e.target.value})} placeholder="Which exercises / focus? e.g. chest focus — bench, incline, cable fly, dips…" style={{width:"100%",marginTop:10}}/>
-      {p.exType==="Push"||p.exType==="Pull"||p.exType==="Legs"? <div className="muted" style={{fontSize:11,marginTop:6}}>Tip: log the actual sets in the Exercise → Workout tab.</div>:null}
+      {EX_LIB[p.exType]? <div style={{marginTop:12}}>
+        <div className="muted" style={{fontSize:11,marginBottom:8}}>Tick the {p.exType} exercises you'll do ({(p.exSelected||[]).length} selected):</div>
+        <div className="row" style={{flexWrap:"wrap",gap:8}}>
+          {EX_LIB[p.exType].map(ex=>{ const on=(p.exSelected||[]).includes(ex); return <button key={ex} className={"btn "+(on?"":"ghost")+" sm"} onClick={()=>toggleEx(ex)} style={{fontWeight:500}}>{on?"✓ ":""}{ex}</button>; })}
+        </div>
+      </div> : p.exType? <input className="in" value={p.exDetail||""} onChange={e=>save({exDetail:e.target.value})} placeholder={`${p.exType} details — e.g. 5 km run, or 45 min yoga flow`} style={{width:"100%",marginTop:12}}/> : <div className="muted" style={{fontSize:12,marginTop:10}}>Pick what you're training today.</div>}
     </Row>
 
-    <Row icon="🍎" tint="emerald" title="Nutrition — what's on the menu?">
-      <textarea className="in" value={p.menu||""} onChange={e=>save({menu:e.target.value})} placeholder={"Write your full menu, e.g.\n2 eggs + 2 roti breakfast\nGrilled chicken salad lunch\n1 guava, 30g almonds snack\nDal + rice + paneer dinner"} style={{width:"100%",minHeight:110,marginTop:2}}/>
-      <div className="row" style={{gap:8,marginTop:8,flexWrap:"wrap"}}>
-        <button className="btn sm" onClick={countNutrition} disabled={nutBusy}>{nutBusy?"🤖 Counting…":"✨ Count nutrition"}</button>
-        {(p.menuItems||[]).length>0 && <button className="btn ghost sm" onClick={addMenuToLog}>➕ Add to {sel} food log</button>}
-      </div>
-      {mt.cal? <div className="row" style={{flexWrap:"wrap",gap:8,marginTop:12}}>
-        <span className="in" style={{padding:"5px 10px"}}>🔥 {Math.round(mt.cal)} kcal</span>
-        <span className="in" style={{padding:"5px 10px"}}>Protein {Math.round(mt.protein||0)}g</span>
-        <span className="in" style={{padding:"5px 10px"}}>Carbs {Math.round(mt.carbs||0)}g</span>
-        <span className="in" style={{padding:"5px 10px"}}>Fat {Math.round(mt.fat||0)}g</span>
-        <span className="in" style={{padding:"5px 10px"}}>Fiber {Math.round(mt.fiber||0)}g</span>
+    <Row icon="🍎" tint="emerald" title="Meals — what will you eat? (AI counts the macros)">
+      {["breakfast","lunch","dinner"].map((key)=>{ const meal=p.meals[key]||{}; const tt=meal.total||null; const lbl=key.charAt(0).toUpperCase()+key.slice(1);
+        return <div key={key} style={{marginBottom:14,paddingBottom:14,borderBottom:key!=="dinner"?"1px solid rgba(255,255,255,.06)":"none"}}>
+          <div className="between" style={{flexWrap:"wrap",gap:8}}><strong style={{fontSize:13}}>{key==="breakfast"?"🌅":key==="lunch"?"🥗":"🌙"} {lbl}</strong>
+            <button className="btn sm" onClick={()=>countMeal(key)} disabled={mealBusy===key}>{mealBusy===key?"🤖 Counting…":"✨ Count macros"}</button></div>
+          <textarea className="in" value={meal.text||""} onChange={e=>setMeal(key,{text:e.target.value})} placeholder={key==="breakfast"?"e.g. 3 eggs, 2 roti, 1 banana, black coffee":key==="lunch"?"e.g. grilled chicken 200g, rice 1 cup, salad":"e.g. dal, 2 roti, paneer sabzi, curd"} style={{width:"100%",minHeight:60,marginTop:8}}/>
+          {tt&&tt.cal? <div className="row" style={{flexWrap:"wrap",gap:6,marginTop:8}}>
+            <span className="in" style={{padding:"4px 9px",fontSize:12}}>🔥 {Math.round(tt.cal)} kcal</span>
+            <span className="in" style={{padding:"4px 9px",fontSize:12}}>P {Math.round(tt.protein||0)}g</span>
+            <span className="in" style={{padding:"4px 9px",fontSize:12}}>C {Math.round(tt.carbs||0)}g</span>
+            <span className="in" style={{padding:"4px 9px",fontSize:12}}>F {Math.round(tt.fat||0)}g</span>
+            <span className="in" style={{padding:"4px 9px",fontSize:12}}>Fiber {Math.round(tt.fiber||0)}g</span>
+          </div>:null}
+        </div>; })}
+      {dayTotal.cal? <div style={{marginTop:4,padding:"10px 12px",borderRadius:12,background:"rgba(16,185,129,.10)",border:"1px solid rgba(16,185,129,.25)"}}>
+        <div className="row" style={{flexWrap:"wrap",gap:10}}><strong style={{fontSize:13}}>Day total</strong>
+          <span className="muted" style={{fontSize:13}}>🔥 <b style={{color:"#E7ECF3"}}>{Math.round(dayTotal.cal)}</b> kcal · P {Math.round(dayTotal.protein)}g · C {Math.round(dayTotal.carbs)}g · F {Math.round(dayTotal.fat)}g · Fiber {Math.round(dayTotal.fiber)}g</span>
+        </div>
       </div>:null}
-      {(p.menuItems||[]).length>0 && <div style={{overflowX:"auto",marginTop:10}}><table style={{width:"100%",borderCollapse:"collapse",minWidth:460}}>
-        <thead><tr>{["Item","Qty","Cal","P","C","F","Fiber"].map(h=><th key={h} style={{textAlign:"left",fontSize:10,textTransform:"uppercase",color:"#5b6577",padding:"6px",borderBottom:"1px solid rgba(255,255,255,.09)"}}>{h}</th>)}</tr></thead>
-        <tbody>{p.menuItems.map((it:any,i:number)=><tr key={i} style={{borderBottom:"1px solid rgba(255,255,255,.05)"}}><td style={{padding:"6px",fontSize:12}}>{it.name}</td><td style={{padding:"6px",fontSize:12}}>{it.qty||"—"}</td><td style={{padding:"6px",fontSize:12}}>{Math.round(it.cal||0)}</td><td style={{padding:"6px",fontSize:12}}>{Math.round(it.protein||0)}</td><td style={{padding:"6px",fontSize:12}}>{Math.round(it.carbs||0)}</td><td style={{padding:"6px",fontSize:12}}>{Math.round(it.fat||0)}</td><td style={{padding:"6px",fontSize:12}}>{Math.round(it.fiber||0)}</td></tr>)}</tbody>
-      </table></div>}
     </Row>
 
-    <Row icon="📚" tint="purple" title="Study — what are you learning?">
+    <Row icon="📚" tint="purple" title="Study — what will you study? (AI splits your time)">
       <div className="row" style={{flexWrap:"wrap",gap:8}}>
-        <select className="in" value={p.study||""} onChange={e=>save({study:e.target.value})} style={{minWidth:200}}><option value="">Choose a course…</option>{COURSES.map(c=><option key={c}>{c}</option>)}</select>
-        <input className="in" value={p.studyGoal||""} onChange={e=>save({studyGoal:e.target.value})} placeholder="Goal (optional) — e.g. crack FAANG SD round" style={{flex:1,minWidth:180}}/>
-        <button className="btn sm" onClick={suggestPath} disabled={studyBusy||!p.study}>{studyBusy?"🤖 Planning…":"✨ Suggest learning path"}</button>
+        <select className="in" value={p.study||""} onChange={e=>save({study:e.target.value})} style={{minWidth:180}}><option value="">Course (optional)…</option>{COURSES.map(c=><option key={c}>{c}</option>)}</select>
+        <input className="in" type="number" value={p.studyHours||""} onChange={e=>save({studyHours:e.target.value})} placeholder="Hours" style={{width:90}}/>
       </div>
-      {(p.studyToday||[]).length>0 && <div style={{marginTop:12}}>
-        <div className="muted" style={{fontSize:11,textTransform:"uppercase",letterSpacing:.5,marginBottom:6}}>Today</div>
-        <ul className="list">{p.studyToday.map((x:string,i:number)=><li className="li" key={i}><span className="dot" style={{background:"var(--purple)"}}/><span style={{fontSize:13}}>{x}</span></li>)}</ul>
-        {(p.studyNext||[]).length>0 && <><div className="muted" style={{fontSize:11,textTransform:"uppercase",letterSpacing:.5,margin:"10px 0 6px"}}>Up next</div>
-          <ul className="list">{p.studyNext.map((x:string,i:number)=><li className="li" key={i}><span className="dot" style={{background:"var(--mut2)"}}/><span style={{fontSize:13}} className="muted">{x}</span></li>)}</ul></>}
-      </div>}
+      <textarea className="in" value={p.studyText||""} onChange={e=>save({studyText:e.target.value})} placeholder="What do you want to study today? e.g. system design — caching, load balancing; 20 DSA problems on trees" style={{width:"100%",minHeight:70,marginTop:8}}/>
+      <div style={{marginTop:8}}><button className="btn sm" onClick={suggestPath} disabled={studyBusy||(!(p.studyText||"").trim()&&!p.study)}>{studyBusy?"🤖 Planning…":"✨ Get timed study plan"}</button></div>
+      {(p.studyPlan||[]).length>0 && <div style={{overflowX:"auto",marginTop:12}}><table style={{width:"100%",borderCollapse:"collapse",minWidth:360}}>
+        <thead><tr>{["Time","Focus"].map(h=><th key={h} style={{textAlign:"left",fontSize:10,textTransform:"uppercase",color:"#5b6577",padding:"6px",borderBottom:"1px solid rgba(255,255,255,.09)"}}>{h}</th>)}</tr></thead>
+        <tbody>{p.studyPlan.map((x:any,i:number)=><tr key={i} style={{borderBottom:"1px solid rgba(255,255,255,.05)"}}><td style={{padding:"7px 6px",fontSize:12,whiteSpace:"nowrap",color:"#c4b5fd",fontWeight:600}}>{x.time}</td><td style={{padding:"7px 6px",fontSize:13}}>{x.task}</td></tr>)}</tbody>
+      </table></div>}
+      {(p.studyNext||[]).length>0 && <div style={{marginTop:10}}><div className="muted" style={{fontSize:11,textTransform:"uppercase",letterSpacing:.5,marginBottom:6}}>Up next</div><ul className="list">{p.studyNext.map((x:string,i:number)=><li className="li" key={i}><span className="dot" style={{background:"var(--mut2)"}}/><span style={{fontSize:13}} className="muted">{x}</span></li>)}</ul></div>}
     </Row>
 
     <Row icon="📓" tint="orange" title="Daily Journal">
-      <div className="between" style={{flexWrap:"wrap",gap:8,marginBottom:8}}>
-        <span className="muted" style={{fontSize:12}}>How did today go? Wins, struggles, thoughts…</span>
+      <div className="between" style={{flexWrap:"wrap",gap:8,marginBottom:10,paddingBottom:10,borderBottom:"1px solid rgba(255,255,255,.08)"}}>
+        <div><div style={{fontSize:16,fontWeight:700}}>{new Date(sel).toLocaleDateString(undefined,{weekday:"long"})}</div><div className="muted" style={{fontSize:12}}>{new Date(sel).toLocaleDateString(undefined,{day:"numeric",month:"long",year:"numeric"})}</div></div>
         <button className="btn ghost sm" onClick={fixGrammar} disabled={fixBusy}>{fixBusy?"✨ Fixing…":"✨ Fix grammar & spelling"}</button>
       </div>
-      <textarea className="in" value={p.journal||""} onChange={e=>save({journal:e.target.value})} placeholder="Dear diary… write freely — then tap ‘Fix grammar & spelling’ to clean it up." style={{width:"100%",minHeight:180,lineHeight:1.7,fontSize:15}}/>
+      <textarea className="in" value={p.journal||""} onChange={e=>save({journal:e.target.value})} placeholder={"Dear diary…\n\n• Highlights of the day —\n• Challenges —\n• Grateful for —\n• Tomorrow —\n\nWrite freely, then tap ‘Fix grammar & spelling’."} style={{width:"100%",minHeight:220,lineHeight:1.8,fontSize:15}}/>
       {fixMsg && <div className="muted" style={{fontSize:12,marginTop:6}}>{fixMsg}</div>}
     </Row>
 
