@@ -78,7 +78,7 @@ export default function Dashboard({ onSignOut, name }: { onSignOut: ()=>void; na
               <button className="btn ghost sm" onClick={()=>setSelDate(today())}>Today</button>
             </>}
             <span className="in" style={{ padding:"6px 12px" }}>{clock}</span>
-            <span style={{ fontSize:10, color:"var(--mut2)" }} title="build marker — bump this to verify a deploy went live">build&nbsp;38</span>
+            <span style={{ fontSize:10, color:"var(--mut2)" }} title="build marker — bump this to verify a deploy went live">build&nbsp;39</span>
           </div>
         </div>
         <div className="content"><Boundary key={view}>
@@ -416,8 +416,34 @@ function Calendar({ sett, tick }: any) {
       <div className="card"><strong>Today</strong><ul className="list">{today_===null?<li className="muted" style={{padding:"8px 0"}}>Loading…</li>:today_.length?today_.map((e,i)=><li className="li" key={i}><span className="dot" style={{background:"var(--violet)"}}/><div style={{flex:1}} className="between"><strong style={{fontSize:13}}>{e.summary}</strong><span className="muted" style={{fontSize:11}}>{t(e)}</span></div></li>):<li className="muted" style={{padding:"8px 0"}}>Clear day 🎯</li>}</ul></div>
       <div className="card"><strong>Next 7 days</strong><ul className="list">{week===null?<li className="muted" style={{padding:"8px 0"}}>Loading…</li>:week.length?week.map((e,i)=><li className="li" key={i}><span className="dot" style={{background:"var(--blue)"}}/><div style={{flex:1}} className="between"><strong style={{fontSize:13}}>{e.summary}</strong><span className="muted" style={{fontSize:11}}>{e.allDay?"":new Date(e.start).toLocaleDateString(undefined,{weekday:"short",hour:"numeric",minute:"2-digit"})}</span></div></li>):<li className="muted" style={{padding:"8px 0"}}>Nothing scheduled.</li>}</ul></div>
     </div>
+    <Cal120 />
     <PlanCalendar sett={sett}/>
   </>;
+}
+/* ---------- 120-day calendar outlook ---------- */
+function Cal120(){
+  const [events,setEvents]=useState<any[]|null>(null); const [err,setErr]=useState("");
+  const [sel,setSel]=useState<string>("");
+  useEffect(()=>{ fetch("/api/calendar?days=120").then(r=>r.json()).then(d=>{ if(d.error)setErr(d.error); setEvents(d.events||[]); }).catch(e=>setErr(String(e))); },[]);
+  const byDay:Record<string,any[]>={}; (events||[]).forEach(e=>{ const ds=(e.start||"").slice(0,10); if(!ds)return; (byDay[ds]=byDay[ds]||[]).push(e); });
+  const cells=[]; for(let i=0;i<120;i++){ const d=new Date(); d.setHours(0,0,0,0); d.setDate(d.getDate()+i); const ds=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; const n=(byDay[ds]||[]).length;
+    const bg=n===0?"rgba(255,255,255,.05)":n<=1?"rgba(59,130,246,.4)":n<=3?"rgba(59,130,246,.7)":"rgba(59,130,246,1)";
+    cells.push(<div key={i} onClick={()=>setSel(ds)} title={`${ds} · ${n} event${n===1?"":"s"}`} style={{aspectRatio:"1",borderRadius:5,background:bg,cursor:"pointer",outline:ds===sel?"2px solid #fff":ds===today()?"1px solid rgba(255,255,255,.4)":"none"}}/>); }
+  const scheduled=Object.keys(byDay).length; const free=120-scheduled;
+  const selList=sel?(byDay[sel]||[]):[];
+  return <div className="card" style={{marginTop:16}}>
+    <div className="between" style={{flexWrap:"wrap",gap:8}}><strong>Next 120 days — schedule outlook</strong>
+      <div className="row" style={{gap:14}}><span className="muted" style={{fontSize:12}}>Scheduled <b style={{color:"#E7ECF3"}}>{scheduled}</b> days</span><span className="muted" style={{fontSize:12}}>Free <b style={{color:"#E7ECF3"}}>{free}</b> days</span></div>
+    </div>
+    {err && <div className="muted" style={{color:"var(--pink)",fontSize:12,marginTop:8}}>{err}</div>}
+    {events===null? <div className="muted" style={{padding:"10px 0"}}>Loading 120-day outlook…</div> :
+      <><div className="cal-grid" style={{gridTemplateColumns:"repeat(20,1fr)"}}>{cells}</div>
+      <div className="muted" style={{fontSize:11,marginTop:8}}>Bluer = more events. Tap a day to see what's on it.</div>
+      {sel && <div style={{marginTop:12,paddingTop:12,borderTop:"1px solid rgba(255,255,255,.07)"}}>
+        <strong style={{fontSize:13}}>{sel}</strong>
+        <ul className="list">{selList.length? selList.map((e,i)=><li className="li" key={i}><span className="dot" style={{background:"var(--violet)"}}/><div style={{flex:1}} className="between"><span style={{fontSize:13}}>{e.summary}</span><span className="muted" style={{fontSize:11}}>{e.allDay?"All day":new Date(e.start).toLocaleTimeString(undefined,{hour:"numeric",minute:"2-digit"})}</span></div></li>):<li className="muted" style={{padding:"8px 0"}}>Free day — nothing scheduled 🎯</li>}</ul>
+      </div>}</>}
+  </div>;
 }
 function PlanCalendar({ sett }: any) {
   const start=new Date(sett.planStart); const done:Record<string,boolean>={}; LS("pos_workouts",[]).forEach((w:any)=>done[w.date]=true);
@@ -437,8 +463,48 @@ function Goals({ sett, tick }: any) {
       <div className="val" style={{fontSize:30,fontWeight:770,marginTop:10}}>{pct}%</div><Bar v={pct} goal={100} color="linear-gradient(90deg,var(--pink),var(--indigo))"/>
       <div className="muted" style={{marginTop:6}}>Day {dayNo} of {sett.planDays} · started {sett.planStart}</div>
     </div>
+    <GoalPlanner sett={sett}/>
     <PlanCalendar sett={sett}/>
   </>;
+}
+/* ---------- 120-day daily goal planner ---------- */
+function planKey(d:string){ return "pos_plan_"+d; }
+function loadPlan(d:string){ return LS(planKey(d),{exercise:"",nutrition:"",study:""}); }
+function GoalPlanner({ sett }: any) {
+  const days=sett.planDays||120;
+  const [sel,setSel]=useState(today());
+  const [p,setP]=useState<any>(loadPlan(today()));
+  const [,setT]=useState(0);
+  useEffect(()=>{ setP(loadPlan(sel)); },[sel]);
+  const save=(k:string,v:string)=>{ const n={...p,[k]:v}; setP(n); SS(planKey(sel),n); setT(x=>x+1); };
+  const shift=(n:number)=>{ const d=new Date(sel); d.setDate(d.getDate()+n); setSel(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`); };
+  const filled=(d:string)=>{ const x=loadPlan(d); return !!(x.exercise||x.nutrition||x.study); };
+  const start=new Date(sett.planStart);
+  const cells=[]; for(let i=0;i<days;i++){ const d=new Date(start); d.setDate(d.getDate()+i); const ds=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; const f=filled(ds);
+    cells.push(<div key={i} onClick={()=>setSel(ds)} title={`Day ${i+1} · ${ds}${f?" · planned":""}`} className={"cal-cell"+(ds===sel?" today":"")} style={{cursor:"pointer",background:f?"rgba(16,185,129,.35)":undefined}}><div className="cd">{i+1}</div><div className="cs">{f?"✓":""}</div></div>); }
+  const box=(lbl:string,k:string,ph:string,tint:string)=><div className="card"><div className="row" style={{gap:8}}><Chip tint={tint}>{k==="exercise"?"🏋️":k==="nutrition"?"🍎":"📚"}</Chip><strong>{lbl}</strong></div>
+    <textarea className="in" value={p[k]||""} onChange={e=>save(k,e.target.value)} placeholder={ph} style={{width:"100%",minHeight:110,marginTop:10}}/></div>;
+  const plannedCount=(()=>{ let n=0; for(let i=0;i<days;i++){ const d=new Date(start); d.setDate(d.getDate()+i); const ds=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; if(filled(ds))n++; } return n; })();
+  return <div style={{marginTop:16}}>
+    <div className="card" style={{marginBottom:16}}>
+      <div className="between" style={{flexWrap:"wrap",gap:10}}>
+        <div><strong>📋 {days}-Day Daily Planner</strong><div className="muted" style={{fontSize:12,marginTop:2}}>Plan exercise, nutrition &amp; study for each day. {plannedCount} of {days} days planned.</div></div>
+        <div className="row" style={{gap:6}}>
+          <button className="btn ghost sm" onClick={()=>shift(-1)}>‹ Prev</button>
+          <input className="in" type="date" value={sel} onChange={e=>setSel(e.target.value)} style={{width:150}}/>
+          <button className="btn ghost sm" onClick={()=>shift(1)}>Next ›</button>
+          <button className="btn ghost sm" onClick={()=>setSel(today())}>Today</button>
+        </div>
+      </div>
+      <div className="muted" style={{fontSize:12,marginTop:10}}>Planning for <b style={{color:"#E7ECF3"}}>{new Date(sel).toLocaleDateString(undefined,{weekday:"long",day:"numeric",month:"long",year:"numeric"})}</b> · scheduled workout: <b style={{color:"#E7ECF3"}}>{PPL[new Date(sel).getDay()]}</b></div>
+    </div>
+    <div className="grid g3">
+      {box("Exercise plan","exercise","e.g. Push day — chest focus, 4 chest / 2 shoulder / 3 triceps; 30 min walk","blue")}
+      {box("Nutrition plan","nutrition","e.g. 2350 kcal · 180g protein · high-protein breakfast, salad lunch…","emerald")}
+      {box("Study plan","study","e.g. 2h System Design, 1h DSA problems, revise notes…","purple")}
+    </div>
+    <div className="card" style={{marginTop:16}}><strong>{days}-Day Plan Overview</strong><div className="muted" style={{fontSize:12,marginTop:2,marginBottom:6}}>Green = planned. Tap any day to edit it.</div><div className="cal-grid">{cells}</div></div>
+  </div>;
 }
 
 /* ---------- SETTINGS ---------- */

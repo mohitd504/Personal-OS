@@ -14,7 +14,7 @@ export async function GET(req: Request) {
 
   try {
     const r = await fetch(
-      `https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${start.toISOString()}&timeMax=${end.toISOString()}&singleEvents=true&orderBy=startTime&maxResults=30`,
+      `https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${start.toISOString()}&timeMax=${end.toISOString()}&singleEvents=true&orderBy=startTime&maxResults=250`,
       { headers: { Authorization: `Bearer ${token}` } }
     );
     const data = await r.json();
