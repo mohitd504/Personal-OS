@@ -78,7 +78,7 @@ export default function Dashboard({ onSignOut, name }: { onSignOut: ()=>void; na
               <button className="btn ghost sm" onClick={()=>setSelDate(today())}>Today</button>
             </>}
             <span className="in" style={{ padding:"6px 12px" }}>{clock}</span>
-            <span style={{ fontSize:10, color:"var(--mut2)" }} title="build marker — bump this to verify a deploy went live">build&nbsp;46</span>
+            <span style={{ fontSize:10, color:"var(--mut2)" }} title="build marker — bump this to verify a deploy went live">build&nbsp;47</span>
           </div>
         </div>
         <div className="content"><Boundary key={view}>
@@ -515,16 +515,19 @@ function GoalPlanner({ sett }: any) {
   const [p,setP]=useState<any>(loadPlan(today()));
   const [,setT]=useState(0);
   const [fixBusy,setFixBusy]=useState(false); const [fixMsg,setFixMsg]=useState("");
-  const [mealBusy,setMealBusy]=useState(""); const [studyBusy,setStudyBusy]=useState(false);
-  useEffect(()=>{ setP(loadPlan(sel)); setFixMsg(""); },[sel]);
-  const save=(patch:any)=>{ const n={...p,...patch}; setP(n); SS(planKey(sel),n); setT(x=>x+1); };
+  const [mealBusy,setMealBusy]=useState(""); const [studyBusy,setStudyBusy]=useState(false); const [saved,setSaved]=useState("");
+  useEffect(()=>{ setP(loadPlan(sel)); setFixMsg(""); setSaved(""); },[sel]);
+  const save=(patch:any)=>{ const n={...p,...patch}; setP(n); SS(planKey(sel),n); setT(x=>x+1); setSaved(""); };
+  const doSave=()=>{ SS(planKey(sel),p); setSaved("✓ Saved "+new Date().toLocaleTimeString(undefined,{hour:"numeric",minute:"2-digit"})+" — synced for the future"); };
+  const isEx=(name:string)=>(p.exSelected||[]).some((x:any)=>(x.name||x)===name);
+  const setExField=(name:string,field:string,val:string)=> save({exSelected:(p.exSelected||[]).map((x:any)=> (x.name||x)===name? {...(typeof x==="string"?{name:x}:x),[field]:val}:x)});
   const shift=(n:number)=>{ const d=new Date(sel); d.setDate(d.getDate()+n); setSel(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`); };
   const filled=(d:string)=>{ const x=loadPlan(d); const mealsTxt=(x.meals?.breakfast?.text||"")+(x.meals?.lunch?.text||"")+(x.meals?.dinner?.text||""); return !!(x.exType||x.exDetail||(x.exSelected||[]).length||mealsTxt||x.studyText||x.journal); };
   const start=new Date(sett.planStart);
   const cells=[]; for(let i=0;i<days;i++){ const d=new Date(start); d.setDate(d.getDate()+i); const ds=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; const f=filled(ds);
     cells.push(<div key={i} onClick={()=>setSel(ds)} title={`Day ${i+1} · ${ds}${f?" · planned":""}`} className={"cal-cell"+(ds===sel?" today":"")} style={{cursor:"pointer",background:f?"rgba(16,185,129,.35)":undefined}}><div className="cd">{i+1}</div><div className="cs">{f?"✓":""}</div></div>); }
   const plannedCount=(()=>{ let n=0; for(let i=0;i<days;i++){ const d=new Date(start); d.setDate(d.getDate()+i); const ds=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; if(filled(ds))n++; } return n; })();
-  const toggleEx=(name:string)=>{ const cur=p.exSelected||[]; save({exSelected: cur.includes(name)? cur.filter((x:string)=>x!==name): [...cur,name]}); };
+  const toggleEx=(name:string)=>{ const cur=p.exSelected||[]; if(cur.some((x:any)=>(x.name||x)===name)) save({exSelected:cur.filter((x:any)=>(x.name||x)!==name)}); else save({exSelected:[...cur,{name,sets:"3",reps:"10",weight:"",note:""}]}); };
   const setMeal=(key:string,patch:any)=>{ save({meals:{...p.meals,[key]:{...p.meals[key],...patch}}}); };
   const countMeal=async(key:string)=>{ const txt=p.meals[key]?.text||""; if(!txt.trim())return; setMealBusy(key);
     try{ const r=await fetch("/api/plan-nutrition",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({menu:txt})}); const d=await r.json(); setMeal(key,{total:d.total||null,items:d.items||[]}); }catch(e){} setMealBusy(""); };
@@ -544,9 +547,14 @@ function GoalPlanner({ sett }: any) {
           <input className="in" type="date" value={sel} onChange={e=>setSel(e.target.value)} style={{width:150}}/>
           <button className="btn ghost sm" onClick={()=>shift(1)}>Next ›</button>
           <button className="btn ghost sm" onClick={()=>setSel(today())}>Today</button>
+          <button className="btn sm" onClick={doSave}>💾 Save day</button>
         </div>
       </div>
-      <div className="muted" style={{fontSize:12,marginTop:10}}>Planning for <b style={{color:"#E7ECF3"}}>{new Date(sel).toLocaleDateString(undefined,{weekday:"long",day:"numeric",month:"long",year:"numeric"})}</b> · scheduled workout: <b style={{color:"#E7ECF3"}}>{PPL[new Date(sel).getDay()]}</b></div>
+      <div className="between" style={{flexWrap:"wrap",gap:8,marginTop:10}}>
+        <div className="muted" style={{fontSize:12}}>Planning for <b style={{color:"#E7ECF3"}}>{new Date(sel).toLocaleDateString(undefined,{weekday:"long",day:"numeric",month:"long",year:"numeric"})}</b> · scheduled workout: <b style={{color:"#E7ECF3"}}>{PPL[new Date(sel).getDay()]}</b></div>
+        {saved && <span style={{fontSize:12,color:"#6ee7b7"}}>{saved}</span>}
+      </div>
+      <div className="muted" style={{fontSize:11,marginTop:6}}>Everything you type is saved automatically — the Save button just confirms &amp; syncs it. Reopen any day to see it again.</div>
     </div>
 
     <PRow icon="🏋️" tint="blue" title="Exercise — what are you doing today?">
@@ -556,8 +564,19 @@ function GoalPlanner({ sett }: any) {
       {EX_LIB[p.exType]? <div style={{marginTop:12}}>
         <div className="muted" style={{fontSize:11,marginBottom:8}}>Tick the {p.exType} exercises you'll do ({(p.exSelected||[]).length} selected):</div>
         <div className="row" style={{flexWrap:"wrap",gap:8}}>
-          {EX_LIB[p.exType].map(ex=>{ const on=(p.exSelected||[]).includes(ex); return <button key={ex} className={"btn "+(on?"":"ghost")+" sm"} onClick={()=>toggleEx(ex)} style={{fontWeight:500}}>{on?"✓ ":""}{ex}</button>; })}
+          {EX_LIB[p.exType].map(ex=>{ const on=isEx(ex); return <button key={ex} className={"btn "+(on?"":"ghost")+" sm"} onClick={()=>toggleEx(ex)} style={{fontWeight:500}}>{on?"✓ ":""}{ex}</button>; })}
         </div>
+        {(p.exSelected||[]).length>0 && <div style={{overflowX:"auto",marginTop:12}}><table style={{width:"100%",borderCollapse:"collapse",minWidth:520}}>
+          <thead><tr>{["Exercise","Sets","Reps","Weight (kg)","Note",""].map(h=><th key={h} style={{textAlign:"left",fontSize:10,textTransform:"uppercase",color:"#5b6577",padding:"6px",borderBottom:"1px solid rgba(255,255,255,.09)"}}>{h}</th>)}</tr></thead>
+          <tbody>{(p.exSelected||[]).map((x:any,i:number)=>{ const nm=x.name||x; const o:any=typeof x==="string"?{}:x; return <tr key={i} style={{borderBottom:"1px solid rgba(255,255,255,.05)"}}>
+            <td style={{padding:"6px",fontSize:13,fontWeight:600}}>{nm}</td>
+            <td style={{padding:"6px"}}><input className="in" value={o.sets||""} onChange={e=>setExField(nm,"sets",e.target.value)} style={{width:56}}/></td>
+            <td style={{padding:"6px"}}><input className="in" value={o.reps||""} onChange={e=>setExField(nm,"reps",e.target.value)} style={{width:56}}/></td>
+            <td style={{padding:"6px"}}><input className="in" value={o.weight||""} onChange={e=>setExField(nm,"weight",e.target.value)} placeholder="opt" style={{width:70}}/></td>
+            <td style={{padding:"6px"}}><input className="in" value={o.note||""} onChange={e=>setExField(nm,"note",e.target.value)} placeholder="e.g. drop set" style={{minWidth:110}}/></td>
+            <td style={{padding:"6px"}}><span className="btn ghost sm" style={{cursor:"pointer"}} onClick={()=>toggleEx(nm)}>✕</span></td>
+          </tr>; })}</tbody>
+        </table></div>}
       </div> : p.exType? <input className="in" value={p.exDetail||""} onChange={e=>save({exDetail:e.target.value})} placeholder={`${p.exType} details — e.g. 5 km run, or 45 min yoga flow`} style={{width:"100%",marginTop:12}}/> : <div className="muted" style={{fontSize:12,marginTop:10}}>Pick what you're training today.</div>}
     </PRow>
 
