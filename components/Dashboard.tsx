@@ -78,7 +78,7 @@ export default function Dashboard({ onSignOut, name }: { onSignOut: ()=>void; na
               <button className="btn ghost sm" onClick={()=>setSelDate(today())}>Today</button>
             </>}
             <span className="in" style={{ padding:"6px 12px" }}>{clock}</span>
-            <span style={{ fontSize:10, color:"var(--mut2)" }} title="build marker — bump this to verify a deploy went live">build&nbsp;43</span>
+            <span style={{ fontSize:10, color:"var(--mut2)" }} title="build marker — bump this to verify a deploy went live">build&nbsp;44</span>
           </div>
         </div>
         <div className="content"><Boundary key={view}>
@@ -498,31 +498,41 @@ function Goals({ sett, tick }: any) {
 }
 /* ---------- 120-day daily goal planner ---------- */
 function planKey(d:string){ return "pos_plan_"+d; }
-function loadPlan(d:string){ return LS(planKey(d),{exercise:"",nutrition:"",study:"",journal:""}); }
+const PLAN_DEF:any={exType:"",exDetail:"",menu:"",menuTotal:null,menuItems:[],study:"",studyGoal:"",studyToday:[],studyNext:[],journal:""};
+function loadPlan(d:string){ return {...PLAN_DEF, ...LS(planKey(d),{})}; }
+const EX_TYPES=["Rest","Push","Pull","Legs","Cardio","Walk","HIIT","Yoga"];
+const COURSES=["AI / ML","Interview Prep","Data Structures & Algorithms","System Design","DevOps","Cloud","Frontend","Other"];
 function GoalPlanner({ sett }: any) {
   const days=sett.planDays||120;
   const [sel,setSel]=useState(today());
   const [p,setP]=useState<any>(loadPlan(today()));
   const [,setT]=useState(0);
   const [fixBusy,setFixBusy]=useState(false); const [fixMsg,setFixMsg]=useState("");
+  const [nutBusy,setNutBusy]=useState(false); const [studyBusy,setStudyBusy]=useState(false);
   useEffect(()=>{ setP(loadPlan(sel)); setFixMsg(""); },[sel]);
-  const save=(k:string,v:string)=>{ const n={...p,[k]:v}; setP(n); SS(planKey(sel),n); setT(x=>x+1); };
-  const fixGrammar=async()=>{ if(!(p.journal||"").trim()){ setFixMsg("Write something in the journal first."); return; } setFixBusy(true); setFixMsg("");
-    try{ const r=await fetch("/api/proofread",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text:p.journal})}); const d=await r.json();
-      if(d.text && d.text!==p.journal){ save("journal",d.text); setFixMsg("✓ Grammar & spelling corrected."); } else setFixMsg("Looks good — no changes needed."); }
-    catch(e){ setFixMsg("Couldn't proofread right now."); } setFixBusy(false); };
+  const save=(patch:any)=>{ const n={...p,...patch}; setP(n); SS(planKey(sel),n); setT(x=>x+1); };
   const shift=(n:number)=>{ const d=new Date(sel); d.setDate(d.getDate()+n); setSel(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`); };
-  const filled=(d:string)=>{ const x=loadPlan(d); return !!(x.exercise||x.nutrition||x.study||x.journal); };
+  const filled=(d:string)=>{ const x=loadPlan(d); return !!(x.exType||x.exDetail||x.menu||x.study||x.journal); };
   const start=new Date(sett.planStart);
   const cells=[]; for(let i=0;i<days;i++){ const d=new Date(start); d.setDate(d.getDate()+i); const ds=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; const f=filled(ds);
     cells.push(<div key={i} onClick={()=>setSel(ds)} title={`Day ${i+1} · ${ds}${f?" · planned":""}`} className={"cal-cell"+(ds===sel?" today":"")} style={{cursor:"pointer",background:f?"rgba(16,185,129,.35)":undefined}}><div className="cd">{i+1}</div><div className="cs">{f?"✓":""}</div></div>); }
-  const box=(lbl:string,k:string,ph:string,tint:string)=><div className="card"><div className="row" style={{gap:8}}><Chip tint={tint}>{k==="exercise"?"🏋️":k==="nutrition"?"🍎":"📚"}</Chip><strong>{lbl}</strong></div>
-    <textarea className="in" value={p[k]||""} onChange={e=>save(k,e.target.value)} placeholder={ph} style={{width:"100%",minHeight:110,marginTop:10}}/></div>;
   const plannedCount=(()=>{ let n=0; for(let i=0;i<days;i++){ const d=new Date(start); d.setDate(d.getDate()+i); const ds=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; if(filled(ds))n++; } return n; })();
+  const countNutrition=async()=>{ if(!(p.menu||"").trim()) return; setNutBusy(true);
+    try{ const r=await fetch("/api/plan-nutrition",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({menu:p.menu})}); const d=await r.json(); save({menuTotal:d.total||null,menuItems:d.items||[]}); }catch(e){} setNutBusy(false); };
+  const addMenuToLog=()=>{ const its=p.menuItems||[]; if(!its.length){ alert("Count the menu first."); return; } const m=loadNut(sel); its.forEach((it:any)=>m.meals.push({name:(it.name||"Item")+(it.qty?` (${it.qty})`:""),cal:Math.round(it.cal||0),protein:Math.round(it.protein||0),carbs:Math.round(it.carbs||0),fat:Math.round(it.fat||0),fiber:Math.round(it.fiber||0)})); SS(nutKey(sel),m); alert(`Added ${its.length} item(s) to ${sel} food log ✓`); };
+  const suggestPath=async()=>{ setStudyBusy(true);
+    try{ const r=await fetch("/api/study-path",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({course:p.study,goal:p.studyGoal})}); const d=await r.json(); save({studyToday:d.today||[],studyNext:d.next||[]}); }catch(e){} setStudyBusy(false); };
+  const fixGrammar=async()=>{ if(!(p.journal||"").trim()){ setFixMsg("Write something in the journal first."); return; } setFixBusy(true); setFixMsg("");
+    try{ const r=await fetch("/api/proofread",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text:p.journal})}); const d=await r.json();
+      if(d.text && d.text!==p.journal){ save({journal:d.text}); setFixMsg("✓ Grammar & spelling corrected."); } else setFixMsg("Looks good — no changes needed."); }
+    catch(e){ setFixMsg("Couldn't proofread right now."); } setFixBusy(false); };
+  const mt=p.menuTotal||{};
+  const Row=({icon,tint,title,children}:any)=><div className="card" style={{marginBottom:14}}>
+    <div className="row" style={{gap:10,marginBottom:10}}><Chip tint={tint}>{icon}</Chip><strong style={{fontSize:15}}>{title}</strong></div>{children}</div>;
   return <div style={{marginTop:16}}>
     <div className="card" style={{marginBottom:16}}>
       <div className="between" style={{flexWrap:"wrap",gap:10}}>
-        <div><strong>📋 {days}-Day Daily Planner</strong><div className="muted" style={{fontSize:12,marginTop:2}}>Plan exercise, nutrition &amp; study for each day. {plannedCount} of {days} days planned.</div></div>
+        <div><strong>📋 {days}-Day Daily Planner</strong><div className="muted" style={{fontSize:12,marginTop:2}}>Fill the day&apos;s plan below. {plannedCount} of {days} days planned.</div></div>
         <div className="row" style={{gap:6}}>
           <button className="btn ghost sm" onClick={()=>shift(-1)}>‹ Prev</button>
           <input className="in" type="date" value={sel} onChange={e=>setSel(e.target.value)} style={{width:150}}/>
@@ -532,20 +542,58 @@ function GoalPlanner({ sett }: any) {
       </div>
       <div className="muted" style={{fontSize:12,marginTop:10}}>Planning for <b style={{color:"#E7ECF3"}}>{new Date(sel).toLocaleDateString(undefined,{weekday:"long",day:"numeric",month:"long",year:"numeric"})}</b> · scheduled workout: <b style={{color:"#E7ECF3"}}>{PPL[new Date(sel).getDay()]}</b></div>
     </div>
-    <div className="grid g3">
-      {box("Exercise plan","exercise","e.g. Push day — chest focus, 4 chest / 2 shoulder / 3 triceps; 30 min walk","blue")}
-      {box("Nutrition plan","nutrition","e.g. 2350 kcal · 180g protein · high-protein breakfast, salad lunch…","emerald")}
-      {box("Study plan","study","e.g. 2h System Design, 1h DSA problems, revise notes…","purple")}
-    </div>
-    <div className="card" style={{marginTop:16,background:"linear-gradient(160deg,rgba(255,255,255,.05),rgba(255,255,255,.02))"}}>
-      <div className="between" style={{flexWrap:"wrap",gap:8}}>
-        <div className="row" style={{gap:8}}><Chip tint="orange">📓</Chip><div><strong>Daily Journal</strong><div className="muted" style={{fontSize:12}}>How did today go? Wins, struggles, thoughts…</div></div></div>
+
+    <Row icon="🏋️" tint="blue" title="Exercise — what are you doing today?">
+      <div className="row" style={{flexWrap:"wrap",gap:8}}>
+        {EX_TYPES.map(t=><button key={t} className={"btn "+(p.exType===t?"":"ghost")+" sm"} onClick={()=>save({exType:t})}>{t}</button>)}
+      </div>
+      <input className="in" value={p.exDetail||""} onChange={e=>save({exDetail:e.target.value})} placeholder="Which exercises / focus? e.g. chest focus — bench, incline, cable fly, dips…" style={{width:"100%",marginTop:10}}/>
+      {p.exType==="Push"||p.exType==="Pull"||p.exType==="Legs"? <div className="muted" style={{fontSize:11,marginTop:6}}>Tip: log the actual sets in the Exercise → Workout tab.</div>:null}
+    </Row>
+
+    <Row icon="🍎" tint="emerald" title="Nutrition — what's on the menu?">
+      <textarea className="in" value={p.menu||""} onChange={e=>save({menu:e.target.value})} placeholder={"Write your full menu, e.g.\n2 eggs + 2 roti breakfast\nGrilled chicken salad lunch\n1 guava, 30g almonds snack\nDal + rice + paneer dinner"} style={{width:"100%",minHeight:110,marginTop:2}}/>
+      <div className="row" style={{gap:8,marginTop:8,flexWrap:"wrap"}}>
+        <button className="btn sm" onClick={countNutrition} disabled={nutBusy}>{nutBusy?"🤖 Counting…":"✨ Count nutrition"}</button>
+        {(p.menuItems||[]).length>0 && <button className="btn ghost sm" onClick={addMenuToLog}>➕ Add to {sel} food log</button>}
+      </div>
+      {mt.cal? <div className="row" style={{flexWrap:"wrap",gap:8,marginTop:12}}>
+        <span className="in" style={{padding:"5px 10px"}}>🔥 {Math.round(mt.cal)} kcal</span>
+        <span className="in" style={{padding:"5px 10px"}}>Protein {Math.round(mt.protein||0)}g</span>
+        <span className="in" style={{padding:"5px 10px"}}>Carbs {Math.round(mt.carbs||0)}g</span>
+        <span className="in" style={{padding:"5px 10px"}}>Fat {Math.round(mt.fat||0)}g</span>
+        <span className="in" style={{padding:"5px 10px"}}>Fiber {Math.round(mt.fiber||0)}g</span>
+      </div>:null}
+      {(p.menuItems||[]).length>0 && <div style={{overflowX:"auto",marginTop:10}}><table style={{width:"100%",borderCollapse:"collapse",minWidth:460}}>
+        <thead><tr>{["Item","Qty","Cal","P","C","F","Fiber"].map(h=><th key={h} style={{textAlign:"left",fontSize:10,textTransform:"uppercase",color:"#5b6577",padding:"6px",borderBottom:"1px solid rgba(255,255,255,.09)"}}>{h}</th>)}</tr></thead>
+        <tbody>{p.menuItems.map((it:any,i:number)=><tr key={i} style={{borderBottom:"1px solid rgba(255,255,255,.05)"}}><td style={{padding:"6px",fontSize:12}}>{it.name}</td><td style={{padding:"6px",fontSize:12}}>{it.qty||"—"}</td><td style={{padding:"6px",fontSize:12}}>{Math.round(it.cal||0)}</td><td style={{padding:"6px",fontSize:12}}>{Math.round(it.protein||0)}</td><td style={{padding:"6px",fontSize:12}}>{Math.round(it.carbs||0)}</td><td style={{padding:"6px",fontSize:12}}>{Math.round(it.fat||0)}</td><td style={{padding:"6px",fontSize:12}}>{Math.round(it.fiber||0)}</td></tr>)}</tbody>
+      </table></div>}
+    </Row>
+
+    <Row icon="📚" tint="purple" title="Study — what are you learning?">
+      <div className="row" style={{flexWrap:"wrap",gap:8}}>
+        <select className="in" value={p.study||""} onChange={e=>save({study:e.target.value})} style={{minWidth:200}}><option value="">Choose a course…</option>{COURSES.map(c=><option key={c}>{c}</option>)}</select>
+        <input className="in" value={p.studyGoal||""} onChange={e=>save({studyGoal:e.target.value})} placeholder="Goal (optional) — e.g. crack FAANG SD round" style={{flex:1,minWidth:180}}/>
+        <button className="btn sm" onClick={suggestPath} disabled={studyBusy||!p.study}>{studyBusy?"🤖 Planning…":"✨ Suggest learning path"}</button>
+      </div>
+      {(p.studyToday||[]).length>0 && <div style={{marginTop:12}}>
+        <div className="muted" style={{fontSize:11,textTransform:"uppercase",letterSpacing:.5,marginBottom:6}}>Today</div>
+        <ul className="list">{p.studyToday.map((x:string,i:number)=><li className="li" key={i}><span className="dot" style={{background:"var(--purple)"}}/><span style={{fontSize:13}}>{x}</span></li>)}</ul>
+        {(p.studyNext||[]).length>0 && <><div className="muted" style={{fontSize:11,textTransform:"uppercase",letterSpacing:.5,margin:"10px 0 6px"}}>Up next</div>
+          <ul className="list">{p.studyNext.map((x:string,i:number)=><li className="li" key={i}><span className="dot" style={{background:"var(--mut2)"}}/><span style={{fontSize:13}} className="muted">{x}</span></li>)}</ul></>}
+      </div>}
+    </Row>
+
+    <Row icon="📓" tint="orange" title="Daily Journal">
+      <div className="between" style={{flexWrap:"wrap",gap:8,marginBottom:8}}>
+        <span className="muted" style={{fontSize:12}}>How did today go? Wins, struggles, thoughts…</span>
         <button className="btn ghost sm" onClick={fixGrammar} disabled={fixBusy}>{fixBusy?"✨ Fixing…":"✨ Fix grammar & spelling"}</button>
       </div>
-      <textarea className="in" value={p.journal||""} onChange={e=>save("journal",e.target.value)} placeholder="Dear diary…  write freely — then tap ‘Fix grammar & spelling’ to clean it up." style={{width:"100%",minHeight:200,marginTop:12,lineHeight:1.7,fontSize:15}}/>
+      <textarea className="in" value={p.journal||""} onChange={e=>save({journal:e.target.value})} placeholder="Dear diary… write freely — then tap ‘Fix grammar & spelling’ to clean it up." style={{width:"100%",minHeight:180,lineHeight:1.7,fontSize:15}}/>
       {fixMsg && <div className="muted" style={{fontSize:12,marginTop:6}}>{fixMsg}</div>}
-    </div>
-    <div className="card" style={{marginTop:16}}><strong>{days}-Day Plan Overview</strong><div className="muted" style={{fontSize:12,marginTop:2,marginBottom:6}}>Green = planned. Tap any day to edit it.</div><div className="cal-grid">{cells}</div></div>
+    </Row>
+
+    <div className="card" style={{marginTop:2}}><strong>{days}-Day Plan Overview</strong><div className="muted" style={{fontSize:12,marginTop:2,marginBottom:6}}>Green = planned. Tap any day to edit it.</div><div className="cal-grid">{cells}</div></div>
   </div>;
 }
 
