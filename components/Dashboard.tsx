@@ -78,7 +78,7 @@ export default function Dashboard({ onSignOut, name }: { onSignOut: ()=>void; na
               <button className="btn ghost sm" onClick={()=>setSelDate(today())}>Today</button>
             </>}
             <span className="in" style={{ padding:"6px 12px" }}>{clock}</span>
-            <span style={{ fontSize:10, color:"var(--mut2)" }} title="build marker — bump this to verify a deploy went live">build&nbsp;51</span>
+            <span style={{ fontSize:10, color:"var(--mut2)" }} title="build marker — bump this to verify a deploy went live">build&nbsp;52</span>
           </div>
         </div>
         <div className="content"><Boundary key={view}>
@@ -548,14 +548,17 @@ function GoalPlanner({ sett }: any) {
   const autoCheckExercise=(silent?:boolean)=>{ const sessions=p.exSessions||[]; if(!sessions.length){ if(!silent) alert("No sessions to check."); return; }
     const acts=LS("pos_gh_acts",[]).filter((a:any)=>a.date===sel);
     const gh=LS("pos_ghealth",[]).find((x:any)=>x.date===sel)||{};
+    const health=LS("pos_health",{}); const isToday=sel===today();
     const wo=LS("pos_workouts",[]).filter((w:any)=>w.date===sel);
+    const daySteps=Math.max(+gh.steps||0, acts.reduce((a:number,x:any)=>a+(+x.steps||0),0), isToday?(+health.steps||0):0);
+    const dayDist=Math.max(+gh.distance||0, acts.reduce((a:number,x:any)=>a+(+x.distance||0),0), isToday?(+health.distance||0):0);
     let changed=false;
     const next=sessions.map((s:any)=>{ if(s.done) return s; let done=false;
       if(EX_LIB[s.type]) done=wo.some((w:any)=>(w.type||"").toLowerCase()===s.type.toLowerCase());
-      else if(s.type==="Walk"||s.type==="Cardio"||s.type==="HIIT"){ const planSteps=+s.steps||0; const hasAct=acts.some((a:any)=>/walk|run|cardio|hike|cycle|bike|hiit/i.test(a.type||"")); const stepsOK=planSteps? (+gh.steps||0)>=planSteps*0.9 : false; done=hasAct||stepsOK; }
+      else if(s.type==="Walk"||s.type==="Cardio"||s.type==="HIIT"){ const planSteps=+s.steps||0; const hasAct=acts.some((a:any)=>/walk|run|cardio|hike|cycle|bike|hiit/i.test(a.type||"")); done = hasAct || (planSteps? daySteps>=planSteps*0.85 : daySteps>=500) || dayDist>=0.3; }
       else if(s.type==="Yoga") done=acts.some((a:any)=>/yoga/i.test(a.type||""));
       if(done){ changed=true; return {...s,done:true,selected:(s.selected||[]).map((x:any)=>({...x,done:true}))}; } return s; });
-    if(changed) save({exSessions:next}); else if(!silent) alert("No matching activity found yet in your watch/workout logs for "+sel+".");
+    if(changed) save({exSessions:next}); else if(!silent) alert(`No auto-match for ${sel}.\nWatch shows: ${daySteps.toLocaleString()} steps · ${Math.round(dayDist*10)/10} km · ${acts.length} recorded activit${acts.length===1?"y":"ies"} · ${wo.length} gym log(s).\nTip: tap ‘Sync from watch’ on the Google Health tab first, or tick the session manually.`);
   };
   useEffect(()=>{ const t=setTimeout(()=>autoCheckExercise(true),400); return ()=>clearTimeout(t); /* eslint-disable-next-line */ },[sel,p.exSessions.length]);
   const toggleSessEx=(id:string,name:string)=>{ const s=(p.exSessions||[]).find((x:any)=>x.id===id); if(!s)return; const cur=s.selected||[]; const nx=cur.some((x:any)=>x.name===name)?cur.filter((x:any)=>x.name!==name):[...cur,{name,sets:"3",reps:"10",weight:"",note:""}]; updSession(id,{selected:nx}); };
