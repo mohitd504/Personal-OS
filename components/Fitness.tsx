@@ -30,15 +30,15 @@ const FOCUS: Record<string, {key:string;label:string;list:string[]}[]> = {
     { key:"glute", label:"Glute / Ham focus", list:["Romanian Deadlift","Hip Thrust","Glute Bridge","Hamstring Curl","Bulgarian Split Squat","Squat","Leg Press","Standing Calf Raise","Ab Wheel"] },
   ],
 };
-function exEmoji(name:string){ const n=name.toLowerCase();
+export function exEmoji(name:string){ const n=name.toLowerCase();
   if(/(squat|lunge|leg press|leg extension|hip thrust|glute|calf|split squat)/.test(n)) return "🦵";
   if(/curl/.test(n)) return "💪";
   if(/(plank|ab wheel|crunch)/.test(n)) return "🧘";
   if(/(pull-?up|chin|pulldown|lat)/.test(n)) return "🧗";
   if(/(deadlift|row|shrug|farmer)/.test(n)) return "🏋️";
   return "🏋️"; }
-function demoLink(name:string){ return "https://www.youtube.com/results?search_query="+encodeURIComponent(name+" proper form"); }
-const HOWTO: Record<string,string> = {
+export function demoLink(name:string){ return "https://www.youtube.com/results?search_query="+encodeURIComponent(name+" proper form"); }
+export const HOWTO: Record<string,string> = {
   "Bench Press":"Lie flat, grip the bar slightly wider than shoulders. Unrack, lower the bar to mid-chest with elbows about 45°, then press up until arms lock. Keep shoulder blades pinched and feet planted.",
   "Incline Dumbbell Press":"Set the bench to 30–45°. Start with dumbbells at shoulder level, press up and slightly together until arms extend, then lower slowly to feel the upper-chest stretch.",
   "Machine Chest Press":"Sit with back flat and handles at chest height. Push forward until arms are straight, squeeze the chest, and return under control without letting the stack slam.",

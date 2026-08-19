@@ -16,7 +16,7 @@ class Boundary extends Component<{ children: any }, { err: any }> {
   }
 }
 import { PieChart, Pie, Cell, BarChart, Bar as RBar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
-import Fitness from "@/components/Fitness";
+import Fitness, { HOWTO, demoLink, exEmoji } from "@/components/Fitness";
 import SyncManager from "@/components/SyncManager";
 import Assistant from "@/components/Assistant";
 
@@ -78,7 +78,7 @@ export default function Dashboard({ onSignOut, name }: { onSignOut: ()=>void; na
               <button className="btn ghost sm" onClick={()=>setSelDate(today())}>Today</button>
             </>}
             <span className="in" style={{ padding:"6px 12px" }}>{clock}</span>
-            <span style={{ fontSize:10, color:"var(--mut2)" }} title="build marker — bump this to verify a deploy went live">build&nbsp;55</span>
+            <span style={{ fontSize:10, color:"var(--mut2)" }} title="build marker — bump this to verify a deploy went live">build&nbsp;56</span>
           </div>
         </div>
         <div className="content"><Boundary key={view}>
@@ -521,7 +521,7 @@ function GoalPlanner({ sett }: any) {
   const [exTab,setExTab]=useState(""); const [studyTab,setStudyTab]=useState("");
   const [mealDraft,setMealDraft]=useState<any>({breakfast:{time:"",food:""},lunch:{time:"",food:""},dinner:{time:"",food:""}});
   const [studyDraft,setStudyDraft]=useState<any>({label:"",hours:""});
-  const [exPrompt,setExPrompt]=useState(""); const [exEditBusy,setExEditBusy]=useState(false);
+  const [exPrompt,setExPrompt]=useState(""); const [exEditBusy,setExEditBusy]=useState(false); const [planInfo,setPlanInfo]=useState<string|null>(null);
   useEffect(()=>{ const pl=loadPlan(sel); setP(pl); setFixMsg(""); setSaved("");
     setExTab((pl.exSessions[0]||{}).id||""); setStudyTab((pl.studyList[0]||{}).id||"");
     setMealDraft({breakfast:{time:"",food:""},lunch:{time:"",food:""},dinner:{time:"",food:""}}); setStudyDraft({label:"",hours:""}); },[sel]);
@@ -635,9 +635,13 @@ function GoalPlanner({ sett }: any) {
               <td style={{padding:"6px"}}><input className="in" value={o.reps||""} onChange={e=>setSessExField(curS.id,o.name,"reps",e.target.value)} style={{width:56}}/></td>
               <td style={{padding:"6px"}}><input className="in" value={o.weight||""} onChange={e=>setSessExField(curS.id,o.name,"weight",e.target.value)} placeholder="opt" style={{width:70}}/></td>
               <td style={{padding:"6px"}}><input className="in" value={o.note||""} onChange={e=>setSessExField(curS.id,o.name,"note",e.target.value)} placeholder="note" style={{minWidth:100}}/></td>
-              <td style={{padding:"6px"}}><span className="btn ghost sm" style={{cursor:"pointer"}} onClick={()=>toggleSessEx(curS.id,o.name)}>✕</span></td>
+              <td style={{padding:"6px",whiteSpace:"nowrap"}}><span className="btn ghost sm" style={{cursor:"pointer",marginRight:4}} title="How to do this" onClick={()=>setPlanInfo(planInfo===o.name?null:o.name)}>ⓘ</span><span className="btn ghost sm" style={{cursor:"pointer"}} onClick={()=>toggleSessEx(curS.id,o.name)}>✕</span></td>
             </tr>)}</tbody>
           </table></div>}
+          {planInfo && (curS.selected||[]).some((o:any)=>o.name===planInfo) && <div className="muted" style={{fontSize:13,lineHeight:1.6,marginTop:10,padding:12,borderRadius:12,background:"rgba(255,255,255,.03)",border:"1px solid var(--stroke)"}}>
+            <div className="between"><b style={{color:"#E7ECF3"}}>{exEmoji(planInfo)} {planInfo}</b><a href={demoLink(planInfo)} target="_blank" rel="noopener" style={{fontSize:12,color:"#7dd3fc",textDecoration:"none"}}>📺 Demo</a></div>
+            <div style={{marginTop:6}}>{HOWTO[planInfo]||"Perform with controlled form and a full range of motion — tap Demo to watch it."}</div>
+          </div>}
         </div> : <div className="row" style={{flexWrap:"wrap",gap:8,marginTop:12}}>
           <input className="in" value={curS.steps||""} onChange={e=>updSession(curS.id,{steps:e.target.value})} placeholder="Steps (e.g. 10000)" style={{width:150}}/>
           <input className="in" value={curS.distance||""} onChange={e=>updSession(curS.id,{distance:e.target.value})} placeholder="Distance km" style={{width:120}}/>
