@@ -78,7 +78,7 @@ export default function Dashboard({ onSignOut, name }: { onSignOut: ()=>void; na
               <button className="btn ghost sm" onClick={()=>setSelDate(today())}>Today</button>
             </>}
             <span className="in" style={{ padding:"6px 12px" }}>{clock}</span>
-            <span style={{ fontSize:10, color:"var(--mut2)" }} title="build marker — bump this to verify a deploy went live">build&nbsp;54</span>
+            <span style={{ fontSize:10, color:"var(--mut2)" }} title="build marker — bump this to verify a deploy went live">build&nbsp;55</span>
           </div>
         </div>
         <div className="content"><Boundary key={view}>
@@ -638,14 +638,6 @@ function GoalPlanner({ sett }: any) {
               <td style={{padding:"6px"}}><span className="btn ghost sm" style={{cursor:"pointer"}} onClick={()=>toggleSessEx(curS.id,o.name)}>✕</span></td>
             </tr>)}</tbody>
           </table></div>}
-          <div style={{marginTop:12,padding:12,borderRadius:12,background:"rgba(139,92,246,.08)",border:"1px solid rgba(139,92,246,.25)"}}>
-            <div className="row" style={{gap:8}}><span>✨</span><strong style={{fontSize:13}}>Change this workout with AI</strong></div>
-            <div className="row" style={{gap:8,marginTop:8,flexWrap:"wrap"}}>
-              <input className="in" value={exPrompt} onChange={e=>setExPrompt(e.target.value)} placeholder="e.g. swap bench for dumbbell press, add rear delts, go lighter on legs" style={{flex:1,minWidth:220}} onKeyDown={e=>{ if(e.key==="Enter") editSessionAI(curS.id); }}/>
-              <button className="btn sm" onClick={()=>editSessionAI(curS.id)} disabled={exEditBusy}>{exEditBusy?"🤖 Updating…":"✨ Apply change"}</button>
-            </div>
-            <div className="muted" style={{fontSize:11,marginTop:6}}>Ask in plain language — it rewrites the exercises &amp; weights above.</div>
-          </div>
         </div> : <div className="row" style={{flexWrap:"wrap",gap:8,marginTop:12}}>
           <input className="in" value={curS.steps||""} onChange={e=>updSession(curS.id,{steps:e.target.value})} placeholder="Steps (e.g. 10000)" style={{width:150}}/>
           <input className="in" value={curS.distance||""} onChange={e=>updSession(curS.id,{distance:e.target.value})} placeholder="Distance km" style={{width:120}}/>

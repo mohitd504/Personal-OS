@@ -226,6 +226,10 @@ function WorkoutPage({ type, list, refresh }: { type:string; list:string[]; refr
   const [saving, setSaving] = useState(false);
   const [rep, setRep] = useState<any>(null); const [repBusy, setRepBusy] = useState(false);
   const [schedDate, setSchedDate] = useState(""); const [schedMsg, setSchedMsg] = useState("");
+  const [repPrompt, setRepPrompt] = useState(""); const [repEditBusy, setRepEditBusy] = useState(false); const [infoEx, setInfoEx] = useState<string|null>(null);
+  const editNextAI = async () => { if (!rep || !repPrompt.trim()) return; setRepEditBusy(true);
+    try { const r = await fetch("/api/edit-workout", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ type, exercises: rep.next, prompt: repPrompt }) }); const d = await r.json();
+      if (Array.isArray(d.exercises)) setRep((x:any)=>({ ...x, next: d.exercises })); setRepPrompt(""); } catch (e) {} setRepEditBusy(false); };
   const getEx = (ex:string) => { const e = rows[ex] || {}; return { ...e, sets: Array.isArray(e.sets) ? e.sets : [{w:"",r:""}], rpe: e.rpe??"", rest: e.rest??"", notes: e.notes??"", done: !!e.done }; };
   const saveRows = (n:any) => { setRows(n); SS(draftKey, n); };
   const setEx = (ex:string, patch:any) => saveRows({ ...rows, [ex]: { ...getEx(ex), ...patch } });
@@ -343,10 +347,22 @@ function WorkoutPage({ type, list, refresh }: { type:string; list:string[]; refr
           <td style={{padding:"6px"}}><input className="in" value={x.sets??""} onChange={e=>setNextField(i,"sets",e.target.value)} style={{width:52}}/></td>
           <td style={{padding:"6px"}}><input className="in" value={x.reps??""} onChange={e=>setNextField(i,"reps",e.target.value)} style={{width:52}}/></td>
           <td style={{padding:"6px"}}><input className="in" value={x.weight??""} onChange={e=>setNextField(i,"weight",e.target.value)} style={{width:70}}/></td>
-          <td style={{padding:"6px"}}><span className="btn ghost sm" style={{cursor:"pointer"}} onClick={()=>delNext(i)}>✕</span></td>
+          <td style={{padding:"6px",whiteSpace:"nowrap"}}><span className="btn ghost sm" style={{cursor:"pointer",marginRight:4}} title="How to do this" onClick={()=>setInfoEx(infoEx===x.name?null:x.name)}>ⓘ</span><span className="btn ghost sm" style={{cursor:"pointer"}} onClick={()=>delNext(i)}>✕</span></td>
         </tr>)}</tbody>
       </table></div>
-      <div className="muted" style={{fontSize:11,marginTop:8}}>Edit any exercise or weight above. Happy with it? Pick the day you&apos;ll do it 👇</div>
+      {infoEx && <div className="muted" style={{fontSize:13,lineHeight:1.6,margin:"10px 0 0",padding:12,borderRadius:12,background:"rgba(255,255,255,.03)",border:"1px solid var(--stroke)"}}>
+        <div className="between"><b style={{color:"#E7ECF3"}}>{exEmoji(infoEx)} {infoEx}</b><a href={demoLink(infoEx)} target="_blank" rel="noopener" style={{fontSize:12,color:"#7dd3fc",textDecoration:"none"}}>📺 Demo</a></div>
+        <div style={{marginTop:6}}>{HOWTO[infoEx]||"Perform with controlled form and a full range of motion."}</div>
+      </div>}
+      <div style={{marginTop:12,padding:12,borderRadius:12,background:"rgba(139,92,246,.08)",border:"1px solid rgba(139,92,246,.25)"}}>
+        <div className="row" style={{gap:8}}><span>✨</span><strong style={{fontSize:13}}>Change this workout with AI</strong></div>
+        <div className="row" style={{gap:8,marginTop:8,flexWrap:"wrap"}}>
+          <input className="in" value={repPrompt} onChange={e=>setRepPrompt(e.target.value)} placeholder="e.g. swap bench for dumbbell press, add rear delts, lighter legs" style={{flex:1,minWidth:220}} onKeyDown={e=>{ if(e.key==="Enter") editNextAI(); }}/>
+          <button className="btn sm" onClick={editNextAI} disabled={repEditBusy}>{repEditBusy?"🤖 Updating…":"✨ Apply change"}</button>
+        </div>
+        <div className="muted" style={{fontSize:11,marginTop:6}}>Ask in plain language — it rewrites the exercises &amp; weights above.</div>
+      </div>
+      <div className="muted" style={{fontSize:11,marginTop:10}}>Tap ⓘ to see how to do each exercise. Happy with it? Pick the day you&apos;ll do it 👇</div>
       <div className="row" style={{gap:8,marginTop:10,flexWrap:"wrap",alignItems:"center"}}>
         <span className="muted" style={{fontSize:13}}>Do this workout on:</span>
         <input className="in" type="date" value={schedDate} min={today()} onChange={e=>setSchedDate(e.target.value)} style={{width:160}}/>
