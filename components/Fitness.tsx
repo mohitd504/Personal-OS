@@ -224,6 +224,8 @@ function WorkoutPage({ type, list, refresh }: { type:string; list:string[]; refr
   const [dur, setDur] = useState<any>(LS(draftKey+"_dur", ""));
   const [notes, setNotes] = useState<any>(LS(draftKey+"_notes", ""));
   const [saving, setSaving] = useState(false);
+  const [rep, setRep] = useState<any>(null); const [repBusy, setRepBusy] = useState(false);
+  const [schedDate, setSchedDate] = useState(""); const [schedMsg, setSchedMsg] = useState("");
   const getEx = (ex:string) => { const e = rows[ex] || {}; return { ...e, sets: Array.isArray(e.sets) ? e.sets : [{w:"",r:""}], rpe: e.rpe??"", rest: e.rest??"", notes: e.notes??"", done: !!e.done }; };
   const saveRows = (n:any) => { setRows(n); SS(draftKey, n); };
   const setEx = (ex:string, patch:any) => saveRows({ ...rows, [ex]: { ...getEx(ex), ...patch } });
@@ -256,6 +258,27 @@ function WorkoutPage({ type, list, refresh }: { type:string; list:string[]; refr
     if (finish) alert(type+" workout saved ✔  (~"+calories+" kcal)");
   };
   const submitEx = (ex:string) => { const e=getEx(ex); const n={ ...rows, [ex]: { ...e, done: !e.done } }; setRows(n); SS(draftKey, n); commit(false); };
+  const genReport = async () => {
+    await commit(true);
+    const w = LS("pos_workouts", []).find((x:any)=>x.date===today()&&x.type===type);
+    if (!w || !(w.exercises||[]).length) { alert("Log at least one exercise first."); return; }
+    setRepBusy(true); setSchedMsg(""); setRep(null);
+    try {
+      const r = await fetch("/api/workout-report", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ workout:{ type:w.type, exercises:(w.exercises||[]).map((e:any)=>({ name:e.name, topWeight:e.topWeight, reps:e.reps, sets:(e.sets||[]).map((s:any)=>({weight:s.w,reps:s.r})) })), volume:w.volume, duration:w.duration } }) });
+      const d = await r.json();
+      if (d.error) alert(d.error); else setRep(d);
+    } catch (e) { alert("Report failed — check your AI key."); }
+    setRepBusy(false);
+  };
+  const setNextField = (i:number, field:string, val:string) => setRep((r:any)=> r? { ...r, next: (r.next||[]).map((x:any,idx:number)=> idx===i? {...x,[field]:val}:x) } : r);
+  const delNext = (i:number) => setRep((r:any)=> r? { ...r, next:(r.next||[]).filter((_:any,idx:number)=>idx!==i) } : r);
+  const addToPlan = () => {
+    if (!schedDate) { alert("Pick a date for the next workout."); return; }
+    const key = "pos_plan_"+schedDate; const cur:any = LS(key, {}); const ex = Array.isArray(cur.exSessions)? cur.exSessions : [];
+    ex.push({ id: uid(), time:"", type, done:false, detail: rep.nextFocus? ("Focus: "+rep.nextFocus):"", steps:"", distance:"", duration:"", selected: (rep.next||[]).map((x:any)=>({ name:x.name, sets:String(x.sets||3), reps:String(x.reps||10), weight:String(x.weight||""), note:"" })) });
+    SS(key, { ...cur, exSessions: ex });
+    setSchedMsg("✓ Added to your plan on "+schedDate+" — open Goals to see it with all exercises & weights.");
+  };
 
   const color = type==="Push"?"🟦":type==="Pull"?"🟪":"🟩";
   return <>
@@ -301,9 +324,37 @@ function WorkoutPage({ type, list, refresh }: { type:string; list:string[]; refr
     </div>
     <div className="card" style={{marginTop:16}}><strong>Workout notes</strong>
       <textarea className="in" value={notes} onChange={e=>{setNotes(e.target.value);SS(draftKey+"_notes",e.target.value);}} placeholder="How did it feel? PRs?" style={{width:"100%",minHeight:70,marginTop:8}}/>
-      <div style={{marginTop:10}}><button className="btn" onClick={()=>commit(true)} disabled={saving}>{saving?"🤖 Estimating calories…":"Finish & save "+type+" workout"}</button></div>
-      <div className="muted" style={{fontSize:11,marginTop:8}}>Each exercise you submit is saved to today&apos;s session automatically — &quot;Finish&quot; just refines the calorie estimate.</div>
+      <div className="row" style={{marginTop:10,gap:8,flexWrap:"wrap"}}>
+        <button className="btn" onClick={()=>commit(true)} disabled={saving}>{saving?"🤖 Estimating calories…":"Finish & save "+type+" workout"}</button>
+        <button className="btn" onClick={genReport} disabled={repBusy} style={{background:"linear-gradient(100deg,var(--emerald),var(--blue))"}}>{repBusy?"🤖 Building report…":"🏁 Workout fully done — AI report & next plan"}</button>
+      </div>
+      <div className="muted" style={{fontSize:11,marginTop:8}}>Each exercise you submit is saved to today&apos;s session automatically. Tap the green button for a full report and your next {type} workout.</div>
     </div>
+
+    {rep && <div className="card" style={{marginTop:16,borderColor:"rgba(16,185,129,.4)"}}>
+      <div className="row" style={{gap:8,marginBottom:8}}><span>📋</span><strong style={{fontSize:16}}>Today&apos;s {type} Report</strong></div>
+      <div style={{whiteSpace:"pre-wrap",fontSize:13,lineHeight:1.7,color:"#c9d3e0",background:"rgba(255,255,255,.03)",border:"1px solid var(--stroke)",borderRadius:12,padding:14}}>{rep.report}</div>
+      <div className="row" style={{gap:8,margin:"16px 0 8px"}}><span>🎯</span><strong style={{fontSize:15}}>Next {type} workout{rep.nextFocus?` — ${rep.nextFocus} focus`:""}</strong></div>
+      {rep.note && <div className="muted" style={{fontSize:12,marginBottom:8}}>{rep.note}</div>}
+      <div style={{overflowX:"auto"}}><table style={{width:"100%",borderCollapse:"collapse",minWidth:460}}>
+        <thead><tr>{["Exercise","Sets","Reps","Weight (kg)",""].map(h=><th key={h} style={{textAlign:"left",fontSize:10,textTransform:"uppercase",color:"#5b6577",padding:"6px",borderBottom:"1px solid rgba(255,255,255,.09)"}}>{h}</th>)}</tr></thead>
+        <tbody>{(rep.next||[]).map((x:any,i:number)=><tr key={i} style={{borderBottom:"1px solid rgba(255,255,255,.05)"}}>
+          <td style={{padding:"6px"}}><input className="in" value={x.name||""} onChange={e=>setNextField(i,"name",e.target.value)} style={{minWidth:150,width:"100%"}}/></td>
+          <td style={{padding:"6px"}}><input className="in" value={x.sets??""} onChange={e=>setNextField(i,"sets",e.target.value)} style={{width:52}}/></td>
+          <td style={{padding:"6px"}}><input className="in" value={x.reps??""} onChange={e=>setNextField(i,"reps",e.target.value)} style={{width:52}}/></td>
+          <td style={{padding:"6px"}}><input className="in" value={x.weight??""} onChange={e=>setNextField(i,"weight",e.target.value)} style={{width:70}}/></td>
+          <td style={{padding:"6px"}}><span className="btn ghost sm" style={{cursor:"pointer"}} onClick={()=>delNext(i)}>✕</span></td>
+        </tr>)}</tbody>
+      </table></div>
+      <div className="muted" style={{fontSize:11,marginTop:8}}>Edit any exercise or weight above. Happy with it? Pick the day you&apos;ll do it 👇</div>
+      <div className="row" style={{gap:8,marginTop:10,flexWrap:"wrap",alignItems:"center"}}>
+        <span className="muted" style={{fontSize:13}}>Do this workout on:</span>
+        <input className="in" type="date" value={schedDate} min={today()} onChange={e=>setSchedDate(e.target.value)} style={{width:160}}/>
+        <button className="btn" onClick={addToPlan}>✅ OK — add to my plan</button>
+        <button className="btn ghost sm" onClick={()=>setRep(null)}>Dismiss</button>
+      </div>
+      {schedMsg && <div style={{fontSize:12,marginTop:8,color:"#6ee7b7"}}>{schedMsg}</div>}
+    </div>}
     <div className="card" style={{marginTop:16}}><strong>Recent {type} sessions</strong>
       <ul className="list">{LS("pos_workouts",[]).filter((w:any)=>w.type===type).slice(0,6).map((w:any)=><li className="li" key={w.id}><span className="dot" style={{background:"var(--blue)"}}/><div style={{flex:1}} className="between"><span>{w.date}</span><span className="muted">{w.volume}kg · {w.completion}% · {w.calories}kcal</span></div></li>)}
       {!LS("pos_workouts",[]).filter((w:any)=>w.type===type).length && <li className="muted" style={{padding:"8px 0"}}>No saved sessions yet.</li>}</ul>
