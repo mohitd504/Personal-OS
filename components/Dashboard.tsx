@@ -78,7 +78,7 @@ export default function Dashboard({ onSignOut, name }: { onSignOut: ()=>void; na
               <button className="btn ghost sm" onClick={()=>setSelDate(today())}>Today</button>
             </>}
             <span className="in" style={{ padding:"6px 12px" }}>{clock}</span>
-            <span style={{ fontSize:10, color:"var(--mut2)" }} title="build marker — bump this to verify a deploy went live">build&nbsp;62</span>
+            <span style={{ fontSize:10, color:"var(--mut2)" }} title="build marker — bump this to verify a deploy went live">build&nbsp;63</span>
           </div>
         </div>
         <div className="content"><Boundary key={view}>
@@ -498,6 +498,18 @@ function Goals({ sett, tick }: any) {
     });
     SS("pos_seed_agentic","v2");
   },[]);
+  useEffect(()=>{ if(LS("pos_seed_sysdesign","")==="v1") return;
+    const s0=new Date(2026,7,20); const fmt=(m:number)=>`${Math.floor(m/60)}:${String(m%60).padStart(2,"0")}`;
+    SYSDESIGN_COURSE.forEach((day,i)=>{ const d=new Date(s0); d.setDate(d.getDate()+i); const ds=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+      const key=planKey(ds); const cur:any=LS(key,{}); const list=(Array.isArray(cur.studyList)?cur.studyList:[]).filter((x:any)=>x.courseId!=="sysdesign");
+      const startMin=i*15; const timing=`${fmt(startMin)}-${fmt(startMin+15)}`; const sec=startMin*60;
+      list.push({ id:uid(), courseId:"sysdesign", label:`SD Day ${i+1}: ${day.title}`, hours:"1.5", brief:day.brief, resource:SD_DOCS,
+        pdf:`/course/sd-day-${String(i+1).padStart(2,"0")}.pdf`, video:`▶ ${timing} of the 5h video`, courseVideo:`${SD_VIDEO}&t=${sec}s`,
+        plan:[{time:"25 min",task:`Watch the course video ${timing} — ${day.title}`},{time:"45 min",task:"Read the PDF notes + Telusko docs; draw the architecture diagram"},{time:"20 min",task:"Write your own notes / answer the day's tasks"}], next:[] });
+      SS(key,{...cur,studyList:list});
+    });
+    SS("pos_seed_sysdesign","v1");
+  },[]);
   return <>
     <Head t="Goals" p={`${sett.planDays}-day transformation`} />
     <div className="card" style={{background:"linear-gradient(120deg,rgba(236,72,153,.15),rgba(99,102,241,.12))"}}>
@@ -558,6 +570,30 @@ const AGENTIC_COURSE=[
   {title:"LLM Evaluation",brief:"Evaluate RAG/agent quality — metrics and running evals.",link:GH_EVAL,timing:"8:00–8:40"},
   {title:"LLM Gateways & putting it together",brief:"Gateways/routing and integrating everything into one app.",link:GH_ROAD,timing:"8:40–9:20"},
   {title:"Capstone project & review",brief:"Build a small end-to-end agentic RAG app and review the whole course.",link:GH_ROAD,timing:"9:20–10:00"},
+];
+const SD_VIDEO="https://www.youtube.com/watch?v=Vnm-ycSfJx4";
+const SD_DOCS="https://docs.telusko.com/docs/system-design/getting-started";
+const SYSDESIGN_COURSE=[
+  {title:"What is System Design",brief:"What system design is, why it matters, and functional vs non-functional requirements."},
+  {title:"Scalability - Vertical vs Horizontal",brief:"Scaling up one machine vs scaling out to many; why stateless services scale."},
+  {title:"Load Balancing",brief:"Spreading traffic across servers; algorithms, health checks, L4 vs L7."},
+  {title:"Caching",brief:"Cache layers, hit/miss, eviction (LRU/LFU/TTL), and write strategies."},
+  {title:"CDN & Content Delivery",brief:"Edge servers that serve static content near users; invalidation & TTLs."},
+  {title:"SQL vs NoSQL Databases",brief:"Relational vs document/key-value/wide-column/graph; choosing by access pattern."},
+  {title:"Database Replication",brief:"Leader-follower, async vs sync, failover, and read replicas."},
+  {title:"Sharding / Partitioning",brief:"Splitting data by a shard key; strategies and hotspots."},
+  {title:"Indexing",brief:"B-tree indexes to speed reads; the write/storage trade-off."},
+  {title:"CAP Theorem & Consistency",brief:"Consistency vs availability under partitions; strong vs eventual."},
+  {title:"Message Queues & Async",brief:"Decoupling with Kafka/RabbitMQ/SQS; pub/sub and idempotency."},
+  {title:"Rate Limiting",brief:"Token/leaky bucket, sliding window, 429s, Redis counters."},
+  {title:"Consistent Hashing",brief:"Hash ring + virtual nodes so scaling moves little data."},
+  {title:"Monolith vs Microservices",brief:"Architecture trade-offs; data ownership and when to split."},
+  {title:"API Design & Gateway",brief:"REST design, versioning, pagination, and the API gateway's role."},
+  {title:"Proxies - Forward & Reverse",brief:"Forward vs reverse proxies; TLS, caching, load balancing."},
+  {title:"Blob / Object Storage",brief:"Storing large files (S3/GCS); metadata in DB, presigned URLs, CDN."},
+  {title:"Search - Elasticsearch",brief:"Inverted index, full-text search, keeping the index in sync."},
+  {title:"Reliability & Observability",brief:"Monitoring/logging/tracing; retries, timeouts, circuit breakers, SLOs."},
+  {title:"Case Study & Review",brief:"End-to-end design (e.g. URL shortener); bottlenecks and full review."},
 ];
 function CoursePlanner(){
   const [course,setCourse]=useState("Complete Agentic AI Course In 10 Hours — LangChain, LangGraph, RAG, Vectorless RAG, Guardrails, Evals (Krish Naik)");
