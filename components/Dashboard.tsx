@@ -78,7 +78,7 @@ export default function Dashboard({ onSignOut, name }: { onSignOut: ()=>void; na
               <button className="btn ghost sm" onClick={()=>setSelDate(today())}>Today</button>
             </>}
             <span className="in" style={{ padding:"6px 12px" }}>{clock}</span>
-            <span style={{ fontSize:10, color:"var(--mut2)" }} title="build marker — bump this to verify a deploy went live">build&nbsp;66</span>
+            <span style={{ fontSize:10, color:"var(--mut2)" }} title="build marker — bump this to verify a deploy went live">build&nbsp;67</span>
           </div>
         </div>
         <div className="content"><Boundary key={view}>
@@ -549,6 +549,21 @@ function PRow({ icon, tint, title, action, children }: any){ return <div classNa
 const OPT = { background:"#0f172a", color:"#E7ECF3" } as any;
 const uid=()=>Math.random().toString(36).slice(2,9);
 const firstUrl=(s:string)=>{ const m=String(s||"").match(/https?:\/\/\S+/); return m?m[0]:""; };
+function mdToHtml(md:string){ const escc=(s:string)=>s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  const inline=(t:string)=> escc(t).replace(/\*\*(.+?)\*\*/g,"<b>$1</b>").replace(/`(.+?)`/g,'<code>$1</code>');
+  const lines=String(md||"").split(/\r?\n/); let html=""; let ul=false;
+  for(const raw of lines){ const l=raw.trim();
+    if(/^#{1,6}\s/.test(l)){ if(ul){html+="</ul>";ul=false;} const lvl=(l.match(/^#+/)||["#"])[0].length; const txt=l.replace(/^#+\s/,""); html+=`<h${lvl<=2?4:5} style="font-size:${lvl<=2?17:15}px;margin:16px 0 6px;color:#c4b5fd">${inline(txt)}</h${lvl<=2?4:5}>`; continue; }
+    if(/^([-*]|\d+\.)\s/.test(l)){ if(!ul){html+="<ul style='margin:6px 0 6px 18px'>";ul=true;} html+=`<li style="margin:3px 0">${inline(l.replace(/^([-*]|\d+\.)\s/,""))}</li>`; continue; }
+    if(ul){html+="</ul>";ul=false;}
+    if(l==="") continue;
+    html+=`<p style="margin:6px 0;line-height:1.7">${inline(l)}</p>`;
+  }
+  if(ul) html+="</ul>"; return html;
+}
+function printNotes(title:string, html:string){ const w=window.open("","_blank"); if(!w) return;
+  w.document.write(`<html><head><title>${title}</title><style>body{font-family:Georgia,serif;max-width:760px;margin:32px auto;padding:0 24px;color:#111;line-height:1.7}h1{font-size:22px}h4{color:#4338ca;margin:16px 0 6px}h5{color:#4338ca}code{background:#f2f2f2;padding:1px 4px;border-radius:4px}ul{margin:6px 0 6px 18px}</style></head><body><h1>${title}</h1>${html}<script>window.onload=function(){window.print()}<\/script></body></html>`); w.document.close();
+}
 const COURSE_RES=[
   "Course video: https://www.youtube.com/watch?v=rV3HJ4LEZ7k",
   "LangChain: https://github.com/krishnaik06/Langchain-V1-Crash-Course",
@@ -710,7 +725,11 @@ function GoalPlanner({ sett }: any) {
   const [exTab,setExTab]=useState(""); const [studyTab,setStudyTab]=useState("");
   const [mealDraft,setMealDraft]=useState<any>({breakfast:{time:"",food:""},lunch:{time:"",food:""},dinner:{time:"",food:""}});
   const [studyDraft,setStudyDraft]=useState<any>({label:"",hours:""});
-  const [exPrompt,setExPrompt]=useState(""); const [exEditBusy,setExEditBusy]=useState(false); const [planInfo,setPlanInfo]=useState<string|null>(null);
+  const [exPrompt,setExPrompt]=useState(""); const [exEditBusy,setExEditBusy]=useState(false); const [planInfo,setPlanInfo]=useState<string|null>(null); const [notesBusy,setNotesBusy]=useState("");
+  const genNotes=async(subj:any)=>{ setNotesBusy(subj.id);
+    try{ const topic=(subj.label||"").replace(/^.*?:\s*/,""); const r=await fetch("/api/notes",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({course:subj.label,topic,brief:subj.brief,videos:subj.video})}); const d=await r.json();
+      if(d.notes){ save({studyList:(p.studyList||[]).map((s:any)=>s.id===subj.id?{...s,notes:d.notes}:s)}); } else alert(d.error||"Failed to generate notes."); }
+    catch(e){ alert("Failed — check your AI key."); } setNotesBusy(""); };
   useEffect(()=>{ const pl=loadPlan(sel); setP(pl); setFixMsg(""); setSaved("");
     setExTab((pl.exSessions[0]||{}).id||""); setStudyTab((pl.studyList[0]||{}).id||"");
     setMealDraft({breakfast:{time:"",food:""},lunch:{time:"",food:""},dinner:{time:"",food:""}}); setStudyDraft({label:"",hours:""}); },[sel]);
@@ -876,8 +895,20 @@ function GoalPlanner({ sett }: any) {
         {(curSubj.video||curSubj.resource||curSubj.courseVideo) && <div style={{marginTop:8,padding:"10px 12px",borderRadius:10,background:"rgba(255,255,255,.04)",fontSize:12,lineHeight:1.8}}>
           {curSubj.video && <div className="muted">📺 {curSubj.video}{curSubj.courseVideo && <> · <a href={curSubj.courseVideo} target="_blank" rel="noopener" style={{color:"#7dd3fc",fontWeight:600}}>▶ open at this time</a></>}</div>}
           {curSubj.resource && <div>🔗 Study material: <a href={firstUrl(curSubj.resource)||curSubj.resource} target="_blank" rel="noopener" style={{color:"#7dd3fc",wordBreak:"break-all"}}>{firstUrl(curSubj.resource)||curSubj.resource}</a></div>}
-          {curSubj.pdf && <div>📄 Detailed notes: <a href={curSubj.pdf} target="_blank" rel="noopener" style={{color:"#fcd34d",fontWeight:600}}>Open day PDF</a></div>}
+          {curSubj.pdf && <div>📄 Syllabus PDF: <a href={curSubj.pdf} target="_blank" rel="noopener" style={{color:"#fcd34d",fontWeight:600}}>Open day PDF</a></div>}
         </div>}
+        <div style={{marginTop:12}}>
+          {!curSubj.notes && <button className="btn sm" onClick={()=>genNotes(curSubj)} disabled={notesBusy===curSubj.id}>{notesBusy===curSubj.id?"🤖 Writing detailed notes…":"📖 Generate detailed notes (theory · scenarios · Q&A)"}</button>}
+          {curSubj.notes && <div className="card" style={{background:"rgba(255,255,255,.03)"}}>
+            <div className="between" style={{flexWrap:"wrap",gap:8}}><strong style={{fontSize:14}}>📖 Detailed notes</strong>
+              <div className="row" style={{gap:8}}>
+                <button className="btn ghost sm" onClick={()=>printNotes(curSubj.label, mdToHtml(curSubj.notes))}>🖨 Save as PDF</button>
+                <button className="btn ghost sm" onClick={()=>genNotes(curSubj)} disabled={notesBusy===curSubj.id}>{notesBusy===curSubj.id?"🤖…":"↻ Regenerate"}</button>
+              </div>
+            </div>
+            <div style={{marginTop:8,fontSize:13,color:"#d5dbe6"}} dangerouslySetInnerHTML={{__html:mdToHtml(curSubj.notes)}}/>
+          </div>}
+        </div>
         {(curSubj.plan||[]).length>0? <div style={{overflowX:"auto",marginTop:10}}><table style={{width:"100%",borderCollapse:"collapse",minWidth:360}}>
           <thead><tr>{["","Time","Focus"].map((h,hi)=><th key={hi} style={{textAlign:"left",fontSize:10,textTransform:"uppercase",color:"#5b6577",padding:"6px",borderBottom:"1px solid rgba(255,255,255,.09)"}}>{h}</th>)}</tr></thead>
           <tbody>{curSubj.plan.map((x:any,i:number)=><tr key={i} style={{borderBottom:"1px solid rgba(255,255,255,.05)"}}><td onClick={()=>toggleStudyTask(curSubj.id,i)} style={{padding:"7px 6px",cursor:"pointer",fontSize:15}}>{x.done?"✅":"⬜"}</td><td style={{padding:"7px 6px",fontSize:12,whiteSpace:"nowrap",color:"#c4b5fd",fontWeight:600,textDecoration:x.done?"line-through":"none"}}>{x.time}</td><td style={{padding:"7px 6px",fontSize:13,textDecoration:x.done?"line-through":"none",opacity:x.done?.6:1}}>{x.task}</td></tr>)}</tbody>
