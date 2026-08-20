@@ -78,7 +78,7 @@ export default function Dashboard({ onSignOut, name }: { onSignOut: ()=>void; na
               <button className="btn ghost sm" onClick={()=>setSelDate(today())}>Today</button>
             </>}
             <span className="in" style={{ padding:"6px 12px" }}>{clock}</span>
-            <span style={{ fontSize:10, color:"var(--mut2)" }} title="build marker — bump this to verify a deploy went live">build&nbsp;56</span>
+            <span style={{ fontSize:10, color:"var(--mut2)" }} title="build marker — bump this to verify a deploy went live">build&nbsp;59</span>
           </div>
         </div>
         <div className="content"><Boundary key={view}>
@@ -492,6 +492,7 @@ function Goals({ sett, tick }: any) {
       <div className="val" style={{fontSize:30,fontWeight:770,marginTop:10}}>{pct}%</div><Bar v={pct} goal={100} color="linear-gradient(90deg,var(--pink),var(--indigo))"/>
       <div className="muted" style={{marginTop:6}}>Day {dayNo} of {sett.planDays} · started {sett.planStart}</div>
     </div>
+    <CoursePlanner/>
     <GoalPlanner sett={sett}/>
     <PlanCalendar sett={sett}/>
   </>;
@@ -511,6 +512,61 @@ function PRow({ icon, tint, title, action, children }: any){ return <div classNa
   <div className="between" style={{gap:10,marginBottom:10,flexWrap:"wrap"}}><div className="row" style={{gap:10}}><Chip tint={tint}>{icon}</Chip><strong style={{fontSize:15}}>{title}</strong></div>{action}</div>{children}</div>; }
 const OPT = { background:"#0f172a", color:"#E7ECF3" } as any;
 const uid=()=>Math.random().toString(36).slice(2,9);
+const firstUrl=(s:string)=>{ const m=String(s||"").match(/https?:\/\/\S+/); return m?m[0]:""; };
+const COURSE_RES=[
+  "Course video: https://www.youtube.com/watch?v=rV3HJ4LEZ7k",
+  "LangChain: https://github.com/krishnaik06/Langchain-V1-Crash-Course",
+  "LangGraph: https://github.com/krishnaik06/Agentic-LanggraphCrash-course",
+  "RAG / Vectorless RAG: https://github.com/krishnaik06/RAG-Tutorials",
+  "Guardrails: https://github.com/krishnaik06/Langchain-V1-Crash-Course/blob/main/updatedlangchain/langchain_guardrails_crash_course.ipynb",
+  "LLM Evals: https://github.com/krishnaik06/RAG-Tutorials/blob/main/1-rag_evaluation.ipynb",
+  "Agentic AI Roadmap: https://github.com/krishnaik06/Roadmap-To-Learn-Agentic-AI",
+].join("\n");
+function CoursePlanner(){
+  const [course,setCourse]=useState("Complete Agentic AI Course In 10 Hours — LangChain, LangGraph, RAG, Vectorless RAG, Guardrails, Evals (Krish Naik)");
+  const [startD,setStartD]=useState(today());
+  const [days,setDays]=useState("15"); const [hrs,setHrs]=useState("1.5");
+  const [video,setVideo]=useState("https://www.youtube.com/watch?v=rV3HJ4LEZ7k");
+  const [res,setRes]=useState(COURSE_RES);
+  const [busy,setBusy]=useState(false); const [preview,setPreview]=useState<any[]|null>(null); const [msg,setMsg]=useState("");
+  const gen=async()=>{ setBusy(true); setMsg(""); setPreview(null);
+    try{ const r=await fetch("/api/course-plan",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({course,days:+days||15,hoursPerDay:+hrs||1.5,videoUrl:video,resources:res})}); const d=await r.json();
+      if(Array.isArray(d.days)&&d.days.length) setPreview(d.days); else setMsg(d.error||"No plan returned."); }catch(e){ setMsg("Failed — check your AI key."); } setBusy(false); };
+  const addToGoals=()=>{ if(!preview) return; const st=new Date(startD);
+    preview.forEach((day:any,i:number)=>{ const d=new Date(st); d.setDate(d.getDate()+i); const ds=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+      const key=planKey(ds); const cur:any=LS(key,{}); const list=Array.isArray(cur.studyList)?cur.studyList:[];
+      list.push({id:uid(),label:`Day ${i+1}: ${day.title}`,hours:hrs,plan:(day.tasks||[]).map((t:any)=>({time:t.time,task:t.task})),next:[],video:day.video||"",resource:day.resource||"",courseVideo:video});
+      SS(key,{...cur,studyList:list}); });
+    const end=new Date(st); end.setDate(end.getDate()+preview.length-1); const es=`${end.getFullYear()}-${String(end.getMonth()+1).padStart(2,"0")}-${String(end.getDate()).padStart(2,"0")}`;
+    setMsg(`✓ Added ${preview.length}-day plan to Goals: ${startD} → ${es}. Open each day's Study section to see topics, links & video timing.`);
+  };
+  return <div className="card" style={{marginBottom:16,background:"linear-gradient(120deg,rgba(168,85,247,.12),rgba(59,130,246,.08))"}}>
+    <div className="row" style={{gap:8}}><Chip tint="purple">🎓</Chip><strong>Course Planner — spread a course across days</strong></div>
+    <div className="muted" style={{fontSize:12,marginTop:4}}>Give a course + video + resource links. AI builds a day-by-day study plan and drops it into your Goals.</div>
+    <input className="in" value={course} onChange={e=>setCourse(e.target.value)} placeholder="Course name" style={{width:"100%",marginTop:10}}/>
+    <div className="row" style={{gap:8,marginTop:8,flexWrap:"wrap"}}>
+      <input className="in" type="date" value={startD} onChange={e=>setStartD(e.target.value)} style={{width:150}} title="Start date"/>
+      <input className="in" type="number" value={days} onChange={e=>setDays(e.target.value)} placeholder="Days" style={{width:80}} title="Days"/>
+      <input className="in" type="number" step="0.5" value={hrs} onChange={e=>setHrs(e.target.value)} placeholder="Hrs/day" style={{width:90}} title="Hours per day"/>
+      <input className="in" value={video} onChange={e=>setVideo(e.target.value)} placeholder="Course video URL" style={{flex:1,minWidth:180}}/>
+    </div>
+    <textarea className="in" value={res} onChange={e=>setRes(e.target.value)} placeholder="Resource links (one per line)" style={{width:"100%",minHeight:90,marginTop:8,fontSize:12}}/>
+    <div className="row" style={{gap:8,marginTop:10,flexWrap:"wrap"}}>
+      <button className="btn" onClick={gen} disabled={busy}>{busy?"🤖 Building plan…":"✨ Generate day-by-day plan"}</button>
+      {preview && <button className="btn" onClick={addToGoals} style={{background:"linear-gradient(100deg,var(--emerald),var(--blue))"}}>➕ Add all {preview.length} days to Goals</button>}
+    </div>
+    {msg && <div style={{fontSize:12,marginTop:8,color:msg[0]==="✓"?"#6ee7b7":"#f9a8d4"}}>{msg}</div>}
+    {preview && <div style={{marginTop:12,maxHeight:340,overflowY:"auto"}}>
+      {preview.map((day:any,i:number)=>{ const st=new Date(startD); st.setDate(st.getDate()+i); const ds=st.toLocaleDateString(undefined,{month:"short",day:"numeric"});
+        return <div key={i} style={{padding:"10px 0",borderTop:i?"1px solid rgba(255,255,255,.07)":"none"}}>
+          <div className="between"><strong style={{fontSize:13}}>Day {i+1} · {ds} — {day.title}</strong></div>
+          {day.video && <div className="muted" style={{fontSize:12,marginTop:3}}>📺 {day.video}</div>}
+          {day.resource && <div style={{fontSize:12,marginTop:2}}>🔗 <a href={firstUrl(day.resource)||day.resource} target="_blank" rel="noopener" style={{color:"#7dd3fc"}}>{day.resource}</a></div>}
+          <ul className="list" style={{marginTop:4}}>{(day.tasks||[]).map((t:any,ti:number)=><li key={ti} style={{fontSize:12,padding:"3px 0"}}><b style={{color:"#c4b5fd"}}>{t.time}</b> — {t.task}</li>)}</ul>
+        </div>; })}
+    </div>}
+  </div>;
+}
 function GoalPlanner({ sett }: any) {
   const days=sett.planDays||120;
   const [sel,setSel]=useState(today());
@@ -630,7 +686,7 @@ function GoalPlanner({ sett }: any) {
           {(curS.selected||[]).length>0 && <div style={{overflowX:"auto",marginTop:12}}><table style={{width:"100%",borderCollapse:"collapse",minWidth:520}}>
             <thead><tr>{["Exercise","Sets","Reps","Weight (kg)","Note",""].map(h=><th key={h} style={{textAlign:"left",fontSize:10,textTransform:"uppercase",color:"#5b6577",padding:"6px",borderBottom:"1px solid rgba(255,255,255,.09)"}}>{h}</th>)}</tr></thead>
             <tbody>{(curS.selected||[]).map((o:any,i:number)=><tr key={i} style={{borderBottom:"1px solid rgba(255,255,255,.05)"}}>
-              <td onClick={()=>setSessExField(curS.id,o.name,"done",!o.done)} style={{padding:"6px",fontSize:13,fontWeight:600,cursor:"pointer",textDecoration:o.done?"line-through":"none",color:o.done?"#6ee7b7":undefined}}>{o.done?"✅ ":"⬜ "}{o.name}</td>
+              <td style={{padding:"6px",fontSize:13,fontWeight:600}}><span onClick={()=>setSessExField(curS.id,o.name,"done",!o.done)} style={{cursor:"pointer",textDecoration:o.done?"line-through":"none",color:o.done?"#6ee7b7":undefined}}>{o.done?"✅ ":"⬜ "}{o.name}</span> <a href={demoLink(o.name)} target="_blank" rel="noopener" title="Watch demo" style={{marginLeft:6,fontSize:11,color:"#7dd3fc",textDecoration:"none"}}>📺</a></td>
               <td style={{padding:"6px"}}><input className="in" value={o.sets||""} onChange={e=>setSessExField(curS.id,o.name,"sets",e.target.value)} style={{width:56}}/></td>
               <td style={{padding:"6px"}}><input className="in" value={o.reps||""} onChange={e=>setSessExField(curS.id,o.name,"reps",e.target.value)} style={{width:56}}/></td>
               <td style={{padding:"6px"}}><input className="in" value={o.weight||""} onChange={e=>setSessExField(curS.id,o.name,"weight",e.target.value)} placeholder="opt" style={{width:70}}/></td>
@@ -683,6 +739,10 @@ function GoalPlanner({ sett }: any) {
       </div>}
       {curSubj? <div style={{marginTop:12,paddingTop:12,borderTop:"1px solid rgba(255,255,255,.07)"}}>
         <div className="between" style={{flexWrap:"wrap",gap:8}}><strong style={{fontSize:14}}>{curSubj.label}{curSubj.hours?` · ${curSubj.hours}h`:""}</strong><button className="btn ghost sm" onClick={()=>delSubject(curSubj.id)}>🗑 Remove</button></div>
+        {(curSubj.video||curSubj.resource||curSubj.courseVideo) && <div style={{marginTop:8,padding:"8px 10px",borderRadius:10,background:"rgba(255,255,255,.04)",fontSize:12}}>
+          {curSubj.video && <div className="muted" style={{marginBottom:4}}>📺 {curSubj.video}{curSubj.courseVideo && <> · <a href={curSubj.courseVideo} target="_blank" rel="noopener" style={{color:"#7dd3fc"}}>open video</a></>}</div>}
+          {curSubj.resource && <div>🔗 <a href={firstUrl(curSubj.resource)||curSubj.resource} target="_blank" rel="noopener" style={{color:"#7dd3fc",wordBreak:"break-all"}}>{curSubj.resource}</a></div>}
+        </div>}
         {(curSubj.plan||[]).length>0? <div style={{overflowX:"auto",marginTop:10}}><table style={{width:"100%",borderCollapse:"collapse",minWidth:360}}>
           <thead><tr>{["","Time","Focus"].map((h,hi)=><th key={hi} style={{textAlign:"left",fontSize:10,textTransform:"uppercase",color:"#5b6577",padding:"6px",borderBottom:"1px solid rgba(255,255,255,.09)"}}>{h}</th>)}</tr></thead>
           <tbody>{curSubj.plan.map((x:any,i:number)=><tr key={i} style={{borderBottom:"1px solid rgba(255,255,255,.05)"}}><td onClick={()=>toggleStudyTask(curSubj.id,i)} style={{padding:"7px 6px",cursor:"pointer",fontSize:15}}>{x.done?"✅":"⬜"}</td><td style={{padding:"7px 6px",fontSize:12,whiteSpace:"nowrap",color:"#c4b5fd",fontWeight:600,textDecoration:x.done?"line-through":"none"}}>{x.time}</td><td style={{padding:"7px 6px",fontSize:13,textDecoration:x.done?"line-through":"none",opacity:x.done?.6:1}}>{x.task}</td></tr>)}</tbody>

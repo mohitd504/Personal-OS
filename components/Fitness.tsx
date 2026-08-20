@@ -227,6 +227,14 @@ function WorkoutPage({ type, list, refresh }: { type:string; list:string[]; refr
   const [rep, setRep] = useState<any>(null); const [repBusy, setRepBusy] = useState(false);
   const [schedDate, setSchedDate] = useState(""); const [schedMsg, setSchedMsg] = useState("");
   const [repPrompt, setRepPrompt] = useState(""); const [repEditBusy, setRepEditBusy] = useState(false); const [infoEx, setInfoEx] = useState<string|null>(null);
+  const [nextPrompt, setNextPrompt] = useState(""); const [optBusy, setOptBusy] = useState(false); const [optGroups, setOptGroups] = useState<any[]|null>(null); const [optSel, setOptSel] = useState<string[]>([]);
+  const getOptions = async () => { if (!nextPrompt.trim()) return; setOptBusy(true); setOptGroups(null); setOptSel([]);
+    try { const r = await fetch("/api/workout-options", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ type, prompt: nextPrompt }) }); const d = await r.json();
+      if (Array.isArray(d.groups)) setOptGroups(d.groups); else if (d.error) alert(d.error); } catch (e) { alert("Couldn't get options — check your AI key."); } setOptBusy(false); };
+  const toggleOpt = (name:string) => setOptSel(s => s.includes(name) ? s.filter(x=>x!==name) : [...s, name]);
+  const buildFromOptions = () => { if (!optSel.length) { alert("Pick at least one exercise."); return; }
+    setRep((x:any)=>({ ...(x||{}), nextFocus: x&&x.nextFocus ? x.nextFocus : nextPrompt, next: optSel.map(n=>{ const prev=(x&&x.next||[]).find((e:any)=>e.name===n); return prev||{ name:n, sets:3, reps:10, weight:"" }; }) }));
+    setOptGroups(null); };
   const editNextAI = async () => { if (!rep || !repPrompt.trim()) return; setRepEditBusy(true);
     try { const r = await fetch("/api/edit-workout", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ type, exercises: rep.next, prompt: repPrompt }) }); const d = await r.json();
       if (Array.isArray(d.exercises)) setRep((x:any)=>({ ...x, next: d.exercises })); setRepPrompt(""); } catch (e) {} setRepEditBusy(false); };
@@ -335,9 +343,25 @@ function WorkoutPage({ type, list, refresh }: { type:string; list:string[]; refr
       <div className="muted" style={{fontSize:11,marginTop:8}}>Each exercise you submit is saved to today&apos;s session automatically. Tap the green button for a full report and your next {type} workout.</div>
     </div>
 
+    <div className="card" style={{marginTop:16}}>
+      <div className="row" style={{gap:8}}><span>💬</span><strong>Plan your next {type} workout</strong></div>
+      <div className="muted" style={{fontSize:12,marginTop:4}}>Describe the split you want — e.g. “4 shoulder, 2 chest, 2 triceps”. Then pick from the exercise options.</div>
+      <div className="row" style={{gap:8,marginTop:10,flexWrap:"wrap"}}>
+        <input className="in" value={nextPrompt} onChange={e=>setNextPrompt(e.target.value)} placeholder="e.g. 4 shoulder, 2 chest, 2 triceps" style={{flex:1,minWidth:220}} onKeyDown={e=>{ if(e.key==="Enter") getOptions(); }}/>
+        <button className="btn" onClick={getOptions} disabled={optBusy}>{optBusy?"🤖 Finding…":"✨ Get exercise options"}</button>
+      </div>
+      {optGroups && <div style={{marginTop:14}}>
+        {optGroups.map((g:any,gi:number)=><div key={gi} style={{marginBottom:14}}>
+          <div className="muted" style={{fontSize:12,marginBottom:6}}><b style={{color:"#E7ECF3"}}>{g.muscle}</b> — pick {g.pick||1} ({(g.options||[]).filter((o:string)=>optSel.includes(o)).length} selected)</div>
+          <div className="row" style={{flexWrap:"wrap",gap:10}}>{(g.options||[]).map((o:string)=>{ const on=optSel.includes(o); return <span key={o} className="row" style={{gap:3}}><button className={"btn "+(on?"":"ghost")+" sm"} onClick={()=>toggleOpt(o)} style={{fontWeight:500}}>{on?"✓ ":""}{o}</button><a href={demoLink(o)} target="_blank" rel="noopener" title="Watch demo" style={{fontSize:12,textDecoration:"none"}}>📺</a></span>; })}</div>
+        </div>)}
+        <button className="btn" onClick={buildFromOptions} disabled={!optSel.length} style={{marginTop:4}}>Use these {optSel.length} exercise{optSel.length===1?"":"s"} →</button>
+      </div>}
+    </div>
+
     {rep && <div className="card" style={{marginTop:16,borderColor:"rgba(16,185,129,.4)"}}>
-      <div className="row" style={{gap:8,marginBottom:8}}><span>📋</span><strong style={{fontSize:16}}>Today&apos;s {type} Report</strong></div>
-      <div style={{whiteSpace:"pre-wrap",fontSize:13,lineHeight:1.7,color:"#c9d3e0",background:"rgba(255,255,255,.03)",border:"1px solid var(--stroke)",borderRadius:12,padding:14}}>{rep.report}</div>
+      {rep.report && <><div className="row" style={{gap:8,marginBottom:8}}><span>📋</span><strong style={{fontSize:16}}>Today&apos;s {type} Report</strong></div>
+      <div style={{whiteSpace:"pre-wrap",fontSize:13,lineHeight:1.7,color:"#c9d3e0",background:"rgba(255,255,255,.03)",border:"1px solid var(--stroke)",borderRadius:12,padding:14}}>{rep.report}</div></>}
       <div className="row" style={{gap:8,margin:"16px 0 8px"}}><span>🎯</span><strong style={{fontSize:15}}>Next {type} workout{rep.nextFocus?` — ${rep.nextFocus} focus`:""}</strong></div>
       {rep.note && <div className="muted" style={{fontSize:12,marginBottom:8}}>{rep.note}</div>}
       <div style={{overflowX:"auto"}}><table style={{width:"100%",borderCollapse:"collapse",minWidth:460}}>
@@ -347,7 +371,7 @@ function WorkoutPage({ type, list, refresh }: { type:string; list:string[]; refr
           <td style={{padding:"6px"}}><input className="in" value={x.sets??""} onChange={e=>setNextField(i,"sets",e.target.value)} style={{width:52}}/></td>
           <td style={{padding:"6px"}}><input className="in" value={x.reps??""} onChange={e=>setNextField(i,"reps",e.target.value)} style={{width:52}}/></td>
           <td style={{padding:"6px"}}><input className="in" value={x.weight??""} onChange={e=>setNextField(i,"weight",e.target.value)} style={{width:70}}/></td>
-          <td style={{padding:"6px",whiteSpace:"nowrap"}}><span className="btn ghost sm" style={{cursor:"pointer",marginRight:4}} title="How to do this" onClick={()=>setInfoEx(infoEx===x.name?null:x.name)}>ⓘ</span><span className="btn ghost sm" style={{cursor:"pointer"}} onClick={()=>delNext(i)}>✕</span></td>
+          <td style={{padding:"6px",whiteSpace:"nowrap"}}><a href={demoLink(x.name)} target="_blank" rel="noopener" title="Watch demo" style={{marginRight:6,textDecoration:"none"}}>📺</a><span className="btn ghost sm" style={{cursor:"pointer",marginRight:4}} title="How to do this" onClick={()=>setInfoEx(infoEx===x.name?null:x.name)}>ⓘ</span><span className="btn ghost sm" style={{cursor:"pointer"}} onClick={()=>delNext(i)}>✕</span></td>
         </tr>)}</tbody>
       </table></div>
       {infoEx && <div className="muted" style={{fontSize:13,lineHeight:1.6,margin:"10px 0 0",padding:12,borderRadius:12,background:"rgba(255,255,255,.03)",border:"1px solid var(--stroke)"}}>
