@@ -78,7 +78,7 @@ export default function Dashboard({ onSignOut, name }: { onSignOut: ()=>void; na
               <button className="btn ghost sm" onClick={()=>setSelDate(today())}>Today</button>
             </>}
             <span className="in" style={{ padding:"6px 12px" }}>{clock}</span>
-            <span style={{ fontSize:10, color:"var(--mut2)" }} title="build marker — bump this to verify a deploy went live">build&nbsp;63</span>
+            <span style={{ fontSize:10, color:"var(--mut2)" }} title="build marker — bump this to verify a deploy went live">build&nbsp;64</span>
           </div>
         </div>
         <div className="content"><Boundary key={view}>
@@ -510,6 +510,17 @@ function Goals({ sett, tick }: any) {
     });
     SS("pos_seed_sysdesign","v1");
   },[]);
+  useEffect(()=>{ if(LS("pos_seed_dsa","")==="v1") return;
+    const s0=new Date(2026,7,20);
+    DSA_COURSE.forEach((day,i)=>{ const d=new Date(s0); d.setDate(d.getDate()+i); const ds=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+      const key=planKey(ds); const cur:any=LS(key,{}); const list=(Array.isArray(cur.studyList)?cur.studyList:[]).filter((x:any)=>x.courseId!=="dsa");
+      list.push({ id:uid(), courseId:"dsa", label:`DSA Day ${i+1}: ${day.title}`, hours:"1.5", brief:day.brief, resource:DSA_PLAYLIST,
+        pdf:`/course/dsa-day-${String(i+1).padStart(2,"0")}.pdf`, video:`▶ Playlist lectures on: ${day.title}`, courseVideo:DSA_PLAYLIST,
+        plan:[{time:"45 min",task:`Watch the Abdul Bari playlist lecture(s) on ${day.title}`},{time:"35 min",task:"Read the PDF notes and code the example in C/C++ or your language"},{time:"10 min",task:"Note complexity & solve one practice problem"}], next:[] });
+      SS(key,{...cur,studyList:list});
+    });
+    SS("pos_seed_dsa","v1");
+  },[]);
   return <>
     <Head t="Goals" p={`${sett.planDays}-day transformation`} />
     <div className="card" style={{background:"linear-gradient(120deg,rgba(236,72,153,.15),rgba(99,102,241,.12))"}}>
@@ -594,6 +605,54 @@ const SYSDESIGN_COURSE=[
   {title:"Search - Elasticsearch",brief:"Inverted index, full-text search, keeping the index in sync."},
   {title:"Reliability & Observability",brief:"Monitoring/logging/tracing; retries, timeouts, circuit breakers, SLOs."},
   {title:"Case Study & Review",brief:"End-to-end design (e.g. URL shortener); bottlenecks and full review."},
+];
+const DSA_PLAYLIST="https://www.youtube.com/playlist?list=PLsr8vTgyLdy_YndxNcI4WkH5Vorj5qvrv";
+const DSA_COURSE=[
+  {title:"Introduction to DSA",brief:"Why data structures & algorithms matter and how to think about problems."},
+  {title:"Time & Space Complexity (Big-O)",brief:"Measure how an algorithm scales; O(1), O(log n), O(n), O(n log n), O(n^2)."},
+  {title:"Asymptotic Notations",brief:"Big-O, Omega, Theta; best/worst/average case; amortised analysis."},
+  {title:"Recursion - Basics",brief:"Base case + recursive case; the call stack; solving smaller subproblems."},
+  {title:"Recursion - Advanced",brief:"Tree/tail recursion, stack depth, and the need for memoisation."},
+  {title:"Arrays - Basics",brief:"Contiguous memory, O(1) indexing, static vs dynamic arrays."},
+  {title:"Arrays - Techniques",brief:"Two pointers, prefix sums, and sliding window."},
+  {title:"Strings",brief:"Character arrays; reverse, palindrome, anagram, pattern matching."},
+  {title:"Searching - Linear & Binary",brief:"Linear O(n) vs binary O(log n) on sorted data."},
+  {title:"Binary Search - Problems",brief:"First/last occurrence, rotated arrays, binary search on the answer."},
+  {title:"Sorting - Bubble & Selection",brief:"Simple O(n^2) sorts; stability and swaps."},
+  {title:"Sorting - Insertion",brief:"Insert into the sorted prefix; fast on nearly-sorted data."},
+  {title:"Sorting - Merge Sort",brief:"Divide & conquer, stable O(n log n), the merge step."},
+  {title:"Sorting - Quick Sort",brief:"Partition around a pivot; average O(n log n), worst O(n^2)."},
+  {title:"Sorting - Heap Sort",brief:"Build a heap, extract max; O(n log n) in place."},
+  {title:"Counting, Radix & Bucket Sort",brief:"Non-comparison sorts for special integer ranges."},
+  {title:"Linked List - Singly",brief:"Nodes + next pointer; O(1) head insert, O(n) search."},
+  {title:"Linked List - Doubly & Circular",brief:"Two-way links and circular lists; easier deletes."},
+  {title:"Linked List - Problems",brief:"Reverse, cycle detection (Floyd's), find middle."},
+  {title:"Stacks",brief:"LIFO; push/pop/peek O(1); parsing and undo."},
+  {title:"Stack - Problems",brief:"Next greater element, infix->postfix, expression eval."},
+  {title:"Queues & Deque",brief:"FIFO, circular queue, double-ended queue; BFS uses a queue."},
+  {title:"Hashing - Hash Tables",brief:"Hash function, collisions (chaining/open addressing), load factor."},
+  {title:"Hashing - Problems",brief:"Frequency counts, two-sum in O(n), group anagrams."},
+  {title:"Backtracking",brief:"Try/recurse/undo; N-Queens, subsets, permutations."},
+  {title:"Trees - Introduction",brief:"Root/parent/child/leaf, height, depth; binary trees."},
+  {title:"Binary Tree Traversals",brief:"Inorder, preorder, postorder (DFS) and level-order (BFS)."},
+  {title:"Binary Search Tree (BST)",brief:"Ordered tree; search/insert/delete O(h)."},
+  {title:"BST - Operations & Problems",brief:"Delete cases, inorder successor, validate BST."},
+  {title:"AVL Trees (Balancing)",brief:"Balance factor and LL/RR/LR/RL rotations to stay O(log n)."},
+  {title:"Heaps / Priority Queue",brief:"Complete tree with heap order; insert/extract O(log n)."},
+  {title:"Trie (Prefix Tree)",brief:"Store strings by prefix; fast autocomplete/prefix search."},
+  {title:"Advanced Trees (Segment / Fenwick)",brief:"Range queries & updates in O(log n)."},
+  {title:"Graphs - Representation",brief:"Adjacency list vs matrix; directed/weighted; degree/path/cycle."},
+  {title:"Graph Traversal - BFS",brief:"Level-by-level with a queue; shortest path in unweighted graphs."},
+  {title:"Graph Traversal - DFS",brief:"Go deep with recursion/stack; components & cycle detection."},
+  {title:"Topological Sort",brief:"Order a DAG; Kahn's algorithm or DFS-based; scheduling."},
+  {title:"Shortest Path - Dijkstra",brief:"Greedy shortest paths with a priority queue (non-negative)."},
+  {title:"Bellman-Ford & Floyd-Warshall",brief:"Negative weights and all-pairs shortest paths."},
+  {title:"Minimum Spanning Tree",brief:"Prim's and Kruskal's (with union-find)."},
+  {title:"Greedy Algorithms",brief:"Locally best choices; activity selection, Huffman coding."},
+  {title:"Divide & Conquer",brief:"Split/solve/combine; master theorem for recurrences."},
+  {title:"Dynamic Programming - Intro",brief:"Overlapping subproblems; memoisation vs tabulation."},
+  {title:"DP - Classic Problems",brief:"0/1 Knapsack, LCS, LIS."},
+  {title:"Revision & Mock Problems",brief:"Consolidate, re-implement key algorithms, build a complexity cheat sheet."},
 ];
 function CoursePlanner(){
   const [course,setCourse]=useState("Complete Agentic AI Course In 10 Hours — LangChain, LangGraph, RAG, Vectorless RAG, Guardrails, Evals (Krish Naik)");
