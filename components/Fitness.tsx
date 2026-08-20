@@ -1290,10 +1290,11 @@ function PlanWorkout({ refresh }: { refresh:()=>void }) {
   const delRow=(ex:string,i:number)=>{ const e=act[ex]||{sets:[]}; const sets=(e.sets||[]).filter((_:any,x:number)=>x!==i); saveAct({...act,[ex]:{...e,sets:sets.length?sets:[{w:"",r:""}]}}); };
   const toggleDone=(ex:string)=>{ const e=act[ex]||{sets:[]}; saveAct({...act,[ex]:{...e,done:!e.done}}); };
 
+  const shiftFrom=(n:number)=>{ const dates:string[]=[]; for(let i=0;i<200;i++){ const d=addDays(t,i); const c=LS(pKey(d),null); if(c&&Array.isArray(c.exSessions)&&c.exSessions.length) dates.push(d); }
+    dates.sort().reverse().forEach(d=>{ const c=LS(pKey(d),{}); const tgt=addDays(d,n); const tc=LS(pKey(tgt),{}); const ts=Array.isArray(tc.exSessions)?tc.exSessions:[]; SS(pKey(tgt),{...tc,exSessions:[...ts,...c.exSessions]}); SS(pKey(d),{...c,exSessions:[]}); }); };
+  const skipToday=()=>{ if(!confirm("Make today ("+t+") a REST day and push today's workout + everything after it forward by 1 day?")) return; shiftFrom(1); refresh(); setSplit(""); alert("✓ Today is now a rest day. Your workout and the rest of the schedule shifted forward 1 day."); };
   const moveForward=()=>{ const raw=prompt("Can't train today? Move today's workout AND everything after it forward by how many days?","1"); const n=parseInt(raw||"0"); if(!n||n<1) return;
-    const dates:string[]=[]; for(let i=0;i<200;i++){ const d=addDays(t,i); const c=LS(pKey(d),null); if(c&&Array.isArray(c.exSessions)&&c.exSessions.length) dates.push(d); }
-    dates.sort().reverse().forEach(d=>{ const c=LS(pKey(d),{}); const tgt=addDays(d,n); const tc=LS(pKey(tgt),{}); const ts=Array.isArray(tc.exSessions)?tc.exSessions:[]; SS(pKey(tgt),{...tc,exSessions:[...ts,...c.exSessions]}); SS(pKey(d),{...c,exSessions:[]}); });
-    refresh(); setSplit(""); alert("✓ Moved everything from "+t+" forward by "+n+" day(s). The rest of the schedule shifted too.");
+    shiftFrom(n); refresh(); setSplit(""); alert("✓ Moved everything from "+t+" forward by "+n+" day(s). The rest of the schedule shifted too.");
   };
 
   const submit=async()=>{
@@ -1344,8 +1345,11 @@ function PlanWorkout({ refresh }: { refresh:()=>void }) {
       </div>
       {!todays.length && <div className="card" style={{marginTop:16}}><strong>😌 Rest day</strong><div className="muted" style={{fontSize:13,marginTop:6}}>No Push/Pull/Legs is planned in Goals for today ({t}). Add today&apos;s session in <b>Goals → Exercise</b>, or move a workout here.</div></div>}
       <div className="card" style={{marginTop:16}}><div className="between" style={{flexWrap:"wrap",gap:8}}>
-        <div><strong>Can&apos;t train today?</strong><div className="muted" style={{fontSize:12,marginTop:2}}>Move today&apos;s workout and everything after it forward — the whole schedule shifts to keep your Push→Pull→Legs→gap rhythm.</div></div>
-        <button className="btn ghost sm" onClick={moveForward}>➡ Move workout forward</button>
+        <div><strong>Can&apos;t train today?</strong><div className="muted" style={{fontSize:12,marginTop:2}}>Skip today (it becomes a rest day) or move forward by several days. Either way the whole schedule shifts to keep your Push→Pull→Legs→gap rhythm.</div></div>
+        <div className="row" style={{gap:8,flexWrap:"wrap"}}>
+          <button className="btn ghost sm" onClick={skipToday}>😴 Skip today — make it rest</button>
+          <button className="btn ghost sm" onClick={moveForward}>➡ Move forward…</button>
+        </div>
       </div></div>
     </>;
   }
