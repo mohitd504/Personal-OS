@@ -78,7 +78,7 @@ export default function Dashboard({ onSignOut, name }: { onSignOut: ()=>void; na
               <button className="btn ghost sm" onClick={()=>setSelDate(today())}>Today</button>
             </>}
             <span className="in" style={{ padding:"6px 12px" }}>{clock}</span>
-            <span style={{ fontSize:10, color:"var(--mut2)" }} title="build marker — bump this to verify a deploy went live">build&nbsp;67</span>
+            <span style={{ fontSize:10, color:"var(--mut2)" }} title="build marker — bump this to verify a deploy went live">build&nbsp;68</span>
           </div>
         </div>
         <div className="content"><Boundary key={view}>
@@ -725,7 +725,8 @@ function GoalPlanner({ sett }: any) {
   const [exTab,setExTab]=useState(""); const [studyTab,setStudyTab]=useState("");
   const [mealDraft,setMealDraft]=useState<any>({breakfast:{time:"",food:""},lunch:{time:"",food:""},dinner:{time:"",food:""}});
   const [studyDraft,setStudyDraft]=useState<any>({label:"",hours:""});
-  const [exPrompt,setExPrompt]=useState(""); const [exEditBusy,setExEditBusy]=useState(false); const [planInfo,setPlanInfo]=useState<string|null>(null); const [notesBusy,setNotesBusy]=useState("");
+  const [exPrompt,setExPrompt]=useState(""); const [exEditBusy,setExEditBusy]=useState(false); const [planInfo,setPlanInfo]=useState<string|null>(null); const [notesBusy,setNotesBusy]=useState(""); const [askText,setAskText]=useState("");
+  const askClaude=(subj:any)=>{ const topic=(subj.label||"").replace(/^.*?:\s*/,""); const q=`I'm studying "${topic}"${subj.video?` (lectures: ${String(subj.video).replace(/^▶\s*/,"")})`:""}. ${askText.trim()||"Explain this topic in detail with theory, examples and common interview questions."}`; window.open("https://claude.ai/new?q="+encodeURIComponent(q),"_blank"); };
   const genNotes=async(subj:any)=>{ setNotesBusy(subj.id);
     try{ const topic=(subj.label||"").replace(/^.*?:\s*/,""); const r=await fetch("/api/notes",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({course:subj.label,topic,brief:subj.brief,videos:subj.video})}); const d=await r.json();
       if(d.notes){ save({studyList:(p.studyList||[]).map((s:any)=>s.id===subj.id?{...s,notes:d.notes}:s)}); } else alert(d.error||"Failed to generate notes."); }
@@ -908,6 +909,14 @@ function GoalPlanner({ sett }: any) {
             </div>
             <div style={{marginTop:8,fontSize:13,color:"#d5dbe6"}} dangerouslySetInnerHTML={{__html:mdToHtml(curSubj.notes)}}/>
           </div>}
+        </div>
+        <div style={{marginTop:12,padding:12,borderRadius:12,background:"rgba(59,130,246,.08)",border:"1px solid rgba(59,130,246,.25)"}}>
+          <div className="row" style={{gap:8}}><span>💬</span><strong style={{fontSize:13}}>Ask Claude about this topic</strong></div>
+          <div className="row" style={{gap:8,marginTop:8,flexWrap:"wrap"}}>
+            <input className="in" value={askText} onChange={e=>setAskText(e.target.value)} placeholder="Type a question… (leave blank for a full explanation)" style={{flex:1,minWidth:220}} onKeyDown={e=>{ if(e.key==="Enter") askClaude(curSubj); }}/>
+            <button className="btn sm" onClick={()=>askClaude(curSubj)}>💬 Ask Claude ↗</button>
+          </div>
+          <div className="muted" style={{fontSize:11,marginTop:6}}>Opens claude.ai in a new tab with your question and this topic as context.</div>
         </div>
         {(curSubj.plan||[]).length>0? <div style={{overflowX:"auto",marginTop:10}}><table style={{width:"100%",borderCollapse:"collapse",minWidth:360}}>
           <thead><tr>{["","Time","Focus"].map((h,hi)=><th key={hi} style={{textAlign:"left",fontSize:10,textTransform:"uppercase",color:"#5b6577",padding:"6px",borderBottom:"1px solid rgba(255,255,255,.09)"}}>{h}</th>)}</tr></thead>
