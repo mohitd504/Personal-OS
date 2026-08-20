@@ -78,7 +78,7 @@ export default function Dashboard({ onSignOut, name }: { onSignOut: ()=>void; na
               <button className="btn ghost sm" onClick={()=>setSelDate(today())}>Today</button>
             </>}
             <span className="in" style={{ padding:"6px 12px" }}>{clock}</span>
-            <span style={{ fontSize:10, color:"var(--mut2)" }} title="build marker — bump this to verify a deploy went live">build&nbsp;59</span>
+            <span style={{ fontSize:10, color:"var(--mut2)" }} title="build marker — bump this to verify a deploy went live">build&nbsp;60</span>
           </div>
         </div>
         <div className="content"><Boundary key={view}>
@@ -485,6 +485,19 @@ function PlanCalendar({ sett }: any) {
 /* ---------- GOALS ---------- */
 function Goals({ sett, tick }: any) {
   const start=new Date(sett.planStart); const dayNo=Math.max(0,Math.floor((Date.now()-start.getTime())/86400000)); const pct=Math.min(100,Math.round(dayNo/sett.planDays*100));
+  useEffect(()=>{ if(LS("pos_seed_agentic","")==="v1") return;
+    const s0=new Date(2026,7,20); // 20 Aug 2026
+    AGENTIC_COURSE.forEach((day,i)=>{ const d=new Date(s0); d.setDate(d.getDate()+i); const ds=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+      const key=planKey(ds); const cur:any=LS(key,{}); const list=Array.isArray(cur.studyList)?cur.studyList:[];
+      if(list.some((x:any)=>x.courseId==="agentic")) return;
+      const [mm,ss]=day.timing.split("–")[0].split(":"); const sec=(+mm)*60+(+ss||0);
+      list.push({ id:uid(), courseId:"agentic", label:`Day ${i+1}: ${day.title}`, hours:"1.5", brief:day.brief, resource:day.link,
+        video:`▶ ${day.timing} of the 10h video`, courseVideo:`${YT}&t=${sec}s`,
+        plan:[{time:"40 min",task:`Watch the course video ${day.timing} — ${day.title}`},{time:"40 min",task:"Code along in the GitHub notebook / build the example"},{time:"10 min",task:"Write notes & commit your code"}], next:[] });
+      SS(key,{...cur,studyList:list});
+    });
+    SS("pos_seed_agentic","v1");
+  },[]);
   return <>
     <Head t="Goals" p={`${sett.planDays}-day transformation`} />
     <div className="card" style={{background:"linear-gradient(120deg,rgba(236,72,153,.15),rgba(99,102,241,.12))"}}>
@@ -492,7 +505,6 @@ function Goals({ sett, tick }: any) {
       <div className="val" style={{fontSize:30,fontWeight:770,marginTop:10}}>{pct}%</div><Bar v={pct} goal={100} color="linear-gradient(90deg,var(--pink),var(--indigo))"/>
       <div className="muted" style={{marginTop:6}}>Day {dayNo} of {sett.planDays} · started {sett.planStart}</div>
     </div>
-    <CoursePlanner/>
     <GoalPlanner sett={sett}/>
     <PlanCalendar sett={sett}/>
   </>;
@@ -522,6 +534,31 @@ const COURSE_RES=[
   "LLM Evals: https://github.com/krishnaik06/RAG-Tutorials/blob/main/1-rag_evaluation.ipynb",
   "Agentic AI Roadmap: https://github.com/krishnaik06/Roadmap-To-Learn-Agentic-AI",
 ].join("\n");
+const YT="https://www.youtube.com/watch?v=rV3HJ4LEZ7k";
+const GH_LC="https://github.com/krishnaik06/Langchain-V1-Crash-Course";
+const GH_LG="https://github.com/krishnaik06/Agentic-LanggraphCrash-course";
+const GH_RAG="https://github.com/krishnaik06/RAG-Tutorials";
+const GH_GUARD="https://github.com/krishnaik06/Langchain-V1-Crash-Course/blob/main/updatedlangchain/langchain_guardrails_crash_course.ipynb";
+const GH_EVAL="https://github.com/krishnaik06/RAG-Tutorials/blob/main/1-rag_evaluation.ipynb";
+const GH_ROAD="https://github.com/krishnaik06/Roadmap-To-Learn-Agentic-AI";
+/* 15-day Agentic AI course plan (Krish Naik, 10h video) — 1.5h/day, ~40min video + practice */
+const AGENTIC_COURSE=[
+  {title:"LangChain setup & intro",brief:"Install LangChain v1, understand chat models, messages, and your first chain.",link:GH_LC,timing:"0:00–0:40"},
+  {title:"Prompts, LCEL & output parsers",brief:"Prompt templates, the LangChain Expression Language (|) and structured output parsers.",link:GH_LC,timing:"0:40–1:20"},
+  {title:"Memory, tools & tool-calling",brief:"Add conversation memory and let the model call tools/functions.",link:GH_LC,timing:"1:20–2:00"},
+  {title:"LangGraph basics — state, nodes, edges",brief:"Model an app as a graph: state, nodes and edges; run your first graph.",link:GH_LG,timing:"2:00–2:40"},
+  {title:"LangGraph — conditional edges, cycles, checkpoints",brief:"Branching, loops and persistence so agents can reason over multiple steps.",link:GH_LG,timing:"2:40–3:20"},
+  {title:"Building agents with LangGraph (ReAct)",brief:"Assemble a tool-using ReAct agent with LangGraph.",link:GH_LG,timing:"3:20–4:00"},
+  {title:"RAG fundamentals — loaders & chunking",brief:"Document loaders and text splitting/chunking for retrieval.",link:GH_RAG,timing:"4:00–4:40"},
+  {title:"Embeddings & vector stores",brief:"Turn chunks into embeddings and store/query them in a vector DB.",link:GH_RAG,timing:"4:40–5:20"},
+  {title:"Retrievers & full RAG pipeline",brief:"Wire retriever + LLM into an end-to-end RAG question-answering chain.",link:GH_RAG,timing:"5:20–6:00"},
+  {title:"Vectorless RAG",brief:"Retrieval without a vector database — when and how to use it.",link:GH_RAG,timing:"6:00–6:40"},
+  {title:"Deep Agents (planning / multi-step)",brief:"Deep/multi-agent patterns for complex planning tasks.",link:GH_LG,timing:"6:40–7:20"},
+  {title:"Guardrails",brief:"Add input/output guardrails for safe, reliable LLM apps.",link:GH_GUARD,timing:"7:20–8:00"},
+  {title:"LLM Evaluation",brief:"Evaluate RAG/agent quality — metrics and running evals.",link:GH_EVAL,timing:"8:00–8:40"},
+  {title:"LLM Gateways & putting it together",brief:"Gateways/routing and integrating everything into one app.",link:GH_ROAD,timing:"8:40–9:20"},
+  {title:"Capstone project & review",brief:"Build a small end-to-end agentic RAG app and review the whole course.",link:GH_ROAD,timing:"9:20–10:00"},
+];
 function CoursePlanner(){
   const [course,setCourse]=useState("Complete Agentic AI Course In 10 Hours — LangChain, LangGraph, RAG, Vectorless RAG, Guardrails, Evals (Krish Naik)");
   const [startD,setStartD]=useState(today());
@@ -739,9 +776,10 @@ function GoalPlanner({ sett }: any) {
       </div>}
       {curSubj? <div style={{marginTop:12,paddingTop:12,borderTop:"1px solid rgba(255,255,255,.07)"}}>
         <div className="between" style={{flexWrap:"wrap",gap:8}}><strong style={{fontSize:14}}>{curSubj.label}{curSubj.hours?` · ${curSubj.hours}h`:""}</strong><button className="btn ghost sm" onClick={()=>delSubject(curSubj.id)}>🗑 Remove</button></div>
-        {(curSubj.video||curSubj.resource||curSubj.courseVideo) && <div style={{marginTop:8,padding:"8px 10px",borderRadius:10,background:"rgba(255,255,255,.04)",fontSize:12}}>
-          {curSubj.video && <div className="muted" style={{marginBottom:4}}>📺 {curSubj.video}{curSubj.courseVideo && <> · <a href={curSubj.courseVideo} target="_blank" rel="noopener" style={{color:"#7dd3fc"}}>open video</a></>}</div>}
-          {curSubj.resource && <div>🔗 <a href={firstUrl(curSubj.resource)||curSubj.resource} target="_blank" rel="noopener" style={{color:"#7dd3fc",wordBreak:"break-all"}}>{curSubj.resource}</a></div>}
+        {curSubj.brief && <div style={{fontSize:13,lineHeight:1.6,marginTop:8}}>{curSubj.brief}</div>}
+        {(curSubj.video||curSubj.resource||curSubj.courseVideo) && <div style={{marginTop:8,padding:"10px 12px",borderRadius:10,background:"rgba(255,255,255,.04)",fontSize:12,lineHeight:1.8}}>
+          {curSubj.video && <div className="muted">📺 {curSubj.video}{curSubj.courseVideo && <> · <a href={curSubj.courseVideo} target="_blank" rel="noopener" style={{color:"#7dd3fc",fontWeight:600}}>▶ open at this time</a></>}</div>}
+          {curSubj.resource && <div>🔗 Study material: <a href={firstUrl(curSubj.resource)||curSubj.resource} target="_blank" rel="noopener" style={{color:"#7dd3fc",wordBreak:"break-all"}}>{firstUrl(curSubj.resource)||curSubj.resource}</a></div>}
         </div>}
         {(curSubj.plan||[]).length>0? <div style={{overflowX:"auto",marginTop:10}}><table style={{width:"100%",borderCollapse:"collapse",minWidth:360}}>
           <thead><tr>{["","Time","Focus"].map((h,hi)=><th key={hi} style={{textAlign:"left",fontSize:10,textTransform:"uppercase",color:"#5b6577",padding:"6px",borderBottom:"1px solid rgba(255,255,255,.09)"}}>{h}</th>)}</tr></thead>
