@@ -78,7 +78,7 @@ export default function Dashboard({ onSignOut, name }: { onSignOut: ()=>void; na
               <button className="btn ghost sm" onClick={()=>setSelDate(today())}>Today</button>
             </>}
             <span className="in" style={{ padding:"6px 12px" }}>{clock}</span>
-            <span style={{ fontSize:10, color:"var(--mut2)" }} title="build marker — bump this to verify a deploy went live">build&nbsp;60</span>
+            <span style={{ fontSize:10, color:"var(--mut2)" }} title="build marker — bump this to verify a deploy went live">build&nbsp;61</span>
           </div>
         </div>
         <div className="content"><Boundary key={view}>
@@ -485,18 +485,18 @@ function PlanCalendar({ sett }: any) {
 /* ---------- GOALS ---------- */
 function Goals({ sett, tick }: any) {
   const start=new Date(sett.planStart); const dayNo=Math.max(0,Math.floor((Date.now()-start.getTime())/86400000)); const pct=Math.min(100,Math.round(dayNo/sett.planDays*100));
-  useEffect(()=>{ if(LS("pos_seed_agentic","")==="v1") return;
+  useEffect(()=>{ if(LS("pos_seed_agentic","")==="v2") return;
     const s0=new Date(2026,7,20); // 20 Aug 2026
     AGENTIC_COURSE.forEach((day,i)=>{ const d=new Date(s0); d.setDate(d.getDate()+i); const ds=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
-      const key=planKey(ds); const cur:any=LS(key,{}); const list=Array.isArray(cur.studyList)?cur.studyList:[];
-      if(list.some((x:any)=>x.courseId==="agentic")) return;
-      const [mm,ss]=day.timing.split("–")[0].split(":"); const sec=(+mm)*60+(+ss||0);
+      const key=planKey(ds); const cur:any=LS(key,{}); const list=(Array.isArray(cur.studyList)?cur.studyList:[]).filter((x:any)=>x.courseId!=="agentic");
+      const [mm,ss]=day.timing.replace("–","-").split("-")[0].split(":"); const sec=(+mm)*60+(+ss||0);
       list.push({ id:uid(), courseId:"agentic", label:`Day ${i+1}: ${day.title}`, hours:"1.5", brief:day.brief, resource:day.link,
+        pdf:`/course/day-${String(i+1).padStart(2,"0")}.pdf`,
         video:`▶ ${day.timing} of the 10h video`, courseVideo:`${YT}&t=${sec}s`,
         plan:[{time:"40 min",task:`Watch the course video ${day.timing} — ${day.title}`},{time:"40 min",task:"Code along in the GitHub notebook / build the example"},{time:"10 min",task:"Write notes & commit your code"}], next:[] });
       SS(key,{...cur,studyList:list});
     });
-    SS("pos_seed_agentic","v1");
+    SS("pos_seed_agentic","v2");
   },[]);
   return <>
     <Head t="Goals" p={`${sett.planDays}-day transformation`} />
@@ -780,6 +780,7 @@ function GoalPlanner({ sett }: any) {
         {(curSubj.video||curSubj.resource||curSubj.courseVideo) && <div style={{marginTop:8,padding:"10px 12px",borderRadius:10,background:"rgba(255,255,255,.04)",fontSize:12,lineHeight:1.8}}>
           {curSubj.video && <div className="muted">📺 {curSubj.video}{curSubj.courseVideo && <> · <a href={curSubj.courseVideo} target="_blank" rel="noopener" style={{color:"#7dd3fc",fontWeight:600}}>▶ open at this time</a></>}</div>}
           {curSubj.resource && <div>🔗 Study material: <a href={firstUrl(curSubj.resource)||curSubj.resource} target="_blank" rel="noopener" style={{color:"#7dd3fc",wordBreak:"break-all"}}>{firstUrl(curSubj.resource)||curSubj.resource}</a></div>}
+          {curSubj.pdf && <div>📄 Detailed notes: <a href={curSubj.pdf} target="_blank" rel="noopener" style={{color:"#fcd34d",fontWeight:600}}>Open day PDF</a></div>}
         </div>}
         {(curSubj.plan||[]).length>0? <div style={{overflowX:"auto",marginTop:10}}><table style={{width:"100%",borderCollapse:"collapse",minWidth:360}}>
           <thead><tr>{["","Time","Focus"].map((h,hi)=><th key={hi} style={{textAlign:"left",fontSize:10,textTransform:"uppercase",color:"#5b6577",padding:"6px",borderBottom:"1px solid rgba(255,255,255,.09)"}}>{h}</th>)}</tr></thead>
