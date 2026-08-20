@@ -78,7 +78,7 @@ export default function Dashboard({ onSignOut, name }: { onSignOut: ()=>void; na
               <button className="btn ghost sm" onClick={()=>setSelDate(today())}>Today</button>
             </>}
             <span className="in" style={{ padding:"6px 12px" }}>{clock}</span>
-            <span style={{ fontSize:10, color:"var(--mut2)" }} title="build marker — bump this to verify a deploy went live">build&nbsp;65</span>
+            <span style={{ fontSize:10, color:"var(--mut2)" }} title="build marker — bump this to verify a deploy went live">build&nbsp;66</span>
           </div>
         </div>
         <div className="content"><Boundary key={view}>
@@ -510,16 +510,17 @@ function Goals({ sett, tick }: any) {
     });
     SS("pos_seed_sysdesign","v1");
   },[]);
-  useEffect(()=>{ if(LS("pos_seed_dsa","")==="v1") return;
+  useEffect(()=>{ if(LS("pos_seed_dsa","")==="v2") return;
     const s0=new Date(2026,7,20);
-    DSA_COURSE.forEach((day,i)=>{ const d=new Date(s0); d.setDate(d.getDate()+i); const ds=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+    DSA_COURSE.forEach((day:any,i:number)=>{ const d=new Date(s0); d.setDate(d.getDate()+i); const ds=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
       const key=planKey(ds); const cur:any=LS(key,{}); const list=(Array.isArray(cur.studyList)?cur.studyList:[]).filter((x:any)=>x.courseId!=="dsa");
+      const vids=(day.videos||[]);
       list.push({ id:uid(), courseId:"dsa", label:`DSA Day ${i+1}: ${day.title}`, hours:"1.5", brief:day.brief, resource:DSA_PLAYLIST,
-        pdf:`/course/dsa-day-${String(i+1).padStart(2,"0")}.pdf`, video:`▶ Playlist lectures on: ${day.title}`, courseVideo:DSA_PLAYLIST,
-        plan:[{time:"45 min",task:`Watch the Abdul Bari playlist lecture(s) on ${day.title}`},{time:"35 min",task:"Read the PDF notes and code the example in C/C++ or your language"},{time:"10 min",task:"Note complexity & solve one practice problem"}], next:[] });
+        pdf:`/course/dsa-day-${String(i+1).padStart(2,"0")}.pdf`, video:`▶ Watch (${vids.length}): ${vids.join("  •  ")}`, courseVideo:DSA_PLAYLIST,
+        plan:[{time:"45 min",task:`Watch: ${vids.join("; ")}`},{time:"35 min",task:"Read the PDF notes & code the algorithm"},{time:"10 min",task:"Note complexity & solve one practice problem"}], next:[] });
       SS(key,{...cur,studyList:list});
     });
-    SS("pos_seed_dsa","v1");
+    SS("pos_seed_dsa","v2");
   },[]);
   return <>
     <Head t="Goals" p={`${sett.planDays}-day transformation`} />
@@ -606,53 +607,53 @@ const SYSDESIGN_COURSE=[
   {title:"Reliability & Observability",brief:"Monitoring/logging/tracing; retries, timeouts, circuit breakers, SLOs."},
   {title:"Case Study & Review",brief:"End-to-end design (e.g. URL shortener); bottlenecks and full review."},
 ];
-const DSA_PLAYLIST="https://www.youtube.com/playlist?list=PLsr8vTgyLdy_YndxNcI4WkH5Vorj5qvrv";
+const DSA_PLAYLIST="https://www.youtube.com/playlist?list=PLDN4rrl48XKpZkf03iYFl-O29szjTrs_O";
 const DSA_COURSE=[
-  {title:"Introduction to DSA",brief:"Why data structures & algorithms matter and how to think about problems."},
-  {title:"Time & Space Complexity (Big-O)",brief:"Measure how an algorithm scales; O(1), O(log n), O(n), O(n log n), O(n^2)."},
-  {title:"Asymptotic Notations",brief:"Big-O, Omega, Theta; best/worst/average case; amortised analysis."},
-  {title:"Recursion - Basics",brief:"Base case + recursive case; the call stack; solving smaller subproblems."},
-  {title:"Recursion - Advanced",brief:"Tree/tail recursion, stack depth, and the need for memoisation."},
-  {title:"Arrays - Basics",brief:"Contiguous memory, O(1) indexing, static vs dynamic arrays."},
-  {title:"Arrays - Techniques",brief:"Two pointers, prefix sums, and sliding window."},
-  {title:"Strings",brief:"Character arrays; reverse, palindrome, anagram, pattern matching."},
-  {title:"Searching - Linear & Binary",brief:"Linear O(n) vs binary O(log n) on sorted data."},
-  {title:"Binary Search - Problems",brief:"First/last occurrence, rotated arrays, binary search on the answer."},
-  {title:"Sorting - Bubble & Selection",brief:"Simple O(n^2) sorts; stability and swaps."},
-  {title:"Sorting - Insertion",brief:"Insert into the sorted prefix; fast on nearly-sorted data."},
-  {title:"Sorting - Merge Sort",brief:"Divide & conquer, stable O(n log n), the merge step."},
-  {title:"Sorting - Quick Sort",brief:"Partition around a pivot; average O(n log n), worst O(n^2)."},
-  {title:"Sorting - Heap Sort",brief:"Build a heap, extract max; O(n log n) in place."},
-  {title:"Counting, Radix & Bucket Sort",brief:"Non-comparison sorts for special integer ranges."},
-  {title:"Linked List - Singly",brief:"Nodes + next pointer; O(1) head insert, O(n) search."},
-  {title:"Linked List - Doubly & Circular",brief:"Two-way links and circular lists; easier deletes."},
-  {title:"Linked List - Problems",brief:"Reverse, cycle detection (Floyd's), find middle."},
-  {title:"Stacks",brief:"LIFO; push/pop/peek O(1); parsing and undo."},
-  {title:"Stack - Problems",brief:"Next greater element, infix->postfix, expression eval."},
-  {title:"Queues & Deque",brief:"FIFO, circular queue, double-ended queue; BFS uses a queue."},
-  {title:"Hashing - Hash Tables",brief:"Hash function, collisions (chaining/open addressing), load factor."},
-  {title:"Hashing - Problems",brief:"Frequency counts, two-sum in O(n), group anagrams."},
-  {title:"Backtracking",brief:"Try/recurse/undo; N-Queens, subsets, permutations."},
-  {title:"Trees - Introduction",brief:"Root/parent/child/leaf, height, depth; binary trees."},
-  {title:"Binary Tree Traversals",brief:"Inorder, preorder, postorder (DFS) and level-order (BFS)."},
-  {title:"Binary Search Tree (BST)",brief:"Ordered tree; search/insert/delete O(h)."},
-  {title:"BST - Operations & Problems",brief:"Delete cases, inorder successor, validate BST."},
-  {title:"AVL Trees (Balancing)",brief:"Balance factor and LL/RR/LR/RL rotations to stay O(log n)."},
-  {title:"Heaps / Priority Queue",brief:"Complete tree with heap order; insert/extract O(log n)."},
-  {title:"Trie (Prefix Tree)",brief:"Store strings by prefix; fast autocomplete/prefix search."},
-  {title:"Advanced Trees (Segment / Fenwick)",brief:"Range queries & updates in O(log n)."},
-  {title:"Graphs - Representation",brief:"Adjacency list vs matrix; directed/weighted; degree/path/cycle."},
-  {title:"Graph Traversal - BFS",brief:"Level-by-level with a queue; shortest path in unweighted graphs."},
-  {title:"Graph Traversal - DFS",brief:"Go deep with recursion/stack; components & cycle detection."},
-  {title:"Topological Sort",brief:"Order a DAG; Kahn's algorithm or DFS-based; scheduling."},
-  {title:"Shortest Path - Dijkstra",brief:"Greedy shortest paths with a priority queue (non-negative)."},
-  {title:"Bellman-Ford & Floyd-Warshall",brief:"Negative weights and all-pairs shortest paths."},
-  {title:"Minimum Spanning Tree",brief:"Prim's and Kruskal's (with union-find)."},
-  {title:"Greedy Algorithms",brief:"Locally best choices; activity selection, Huffman coding."},
-  {title:"Divide & Conquer",brief:"Split/solve/combine; master theorem for recurrences."},
-  {title:"Dynamic Programming - Intro",brief:"Overlapping subproblems; memoisation vs tabulation."},
-  {title:"DP - Classic Problems",brief:"0/1 Knapsack, LCS, LIS."},
-  {title:"Revision & Mock Problems",brief:"Consolidate, re-implement key algorithms, build a complexity cheat sheet."},
+  {title:"Introduction & Algorithm Basics",brief:"What an algorithm is, priori analysis vs posteriori testing, and its characteristics.",videos:["1. Introduction to Algorithms","1.1 Priori Analysis and Posteriori Testing","1.2 Characteristics of Algorithm"]},
+  {title:"Writing & Analysing Algorithms",brief:"How to write an algorithm and the frequency-count method for analysis.",videos:["1.3 How Write and Analyze Algorithm","1.4 Frequency Count Method"]},
+  {title:"Time Complexity",brief:"Deriving time complexity of loops, nested loops, while and if.",videos:["1.5.1 Time Complexity #1","1.5.2 Time Complexity Example #2","1.5.3 Time Complexity of While and if #3"]},
+  {title:"Classes of Functions",brief:"Orders of growth and comparing classes of functions.",videos:["1.6 Classes of functions","1.7 Compare Class of Functions"]},
+  {title:"Asymptotic Notations",brief:"Big-O, Omega, Theta and their properties.",videos:["1.8.1 Asymptotic Notations Big Oh - Omega - Theta #1","1.8.2 Asymptotic Notations #2","1.9 Properties of Asymptotic Notations"]},
+  {title:"Function Comparison & Case Analysis",brief:"Comparing functions and best/worst/average case analysis.",videos:["1.10.1 Comparison of Functions #1","1.10.2 Comparison of Functions #2","1.11 Best Worst and Average Case Analysis"]},
+  {title:"Disjoint Sets (Union-Find)",brief:"Disjoint set data structure with weighted union and collapsing find.",videos:["1.12 Disjoint Sets Data Structure - Weighted Union and Collapsing Find"]},
+  {title:"Divide & Conquer + Recurrences I",brief:"Divide & conquer idea and decreasing-function recurrences.",videos:["2 Divide And Conquer","2.1.1 Recurrence Relation (T(n)= T(n-1) + 1) #1","2.1.2 Recurrence Relation (T(n)= T(n-1) + n) #2"]},
+  {title:"Recurrences II + Master (Decreasing)",brief:"More decreasing recurrences and the master theorem for decreasing functions.",videos:["2.1.3 Recurrence Relation (T(n)= T(n-1) + log n) #3","2.1.4 Recurrence Relation T(n)=2 T(n-1)+1 #4","2.2 Masters Theorem Decreasing Function"]},
+  {title:"Recurrences III (Dividing)",brief:"Dividing-function recurrences by substitution.",videos:["2.3.1 Recurrence Relation Dividing Function T(n)=T(n/2)+1 #1","2.3.2 Recurrence Relation Dividing [ T(n)=T(n/2)+ n]. #2","2.3.3 Recurrence Relation [ T(n)= 2T(n/2) +n] #3"]},
+  {title:"Master Theorem (Dividing) + Root",brief:"Master theorem for dividing functions and root-function recurrences.",videos:["2.4.1 Masters Theorem in Algorithms for Dividing Function #1","2.4.2 Examples for Master Theorem #2","2.5 Root function (Recurrence Relation)"]},
+  {title:"Binary Search",brief:"Binary search - iterative and recursive.",videos:["2.6.1 Binary Search Iterative Method","2.6.2 Binary Search Recursive Method"]},
+  {title:"Heap, Heap Sort & Priority Queue",brief:"Heaps, heapify, heap sort and priority queues (long lecture).",videos:["2.6.3 Heap - Heap Sort - Heapify - Priority Queues"]},
+  {title:"Merge Sort",brief:"Two-way merge sort, the algorithm and its analysis.",videos:["2.7.1 Two Way MergeSort - Iterative method","2.7.2. Merge Sort Algorithm","2.7.3 MergeSort in-depth Analysis"]},
+  {title:"Quick Sort",brief:"Quick sort algorithm and analysis.",videos:["2.8.1 QuickSort Algorithm","2.8.2 QuickSort Analysis"]},
+  {title:"Strassen's Matrix Multiplication",brief:"Faster matrix multiplication via divide & conquer.",videos:["2.9 Strassens Matrix Multiplication"]},
+  {title:"Greedy Method + Fractional Knapsack",brief:"Greedy strategy and the fractional knapsack problem.",videos:["3. Greedy Method - Introduction","3.1 Knapsack Problem - Greedy Method"]},
+  {title:"Job Sequencing & Optimal Merge",brief:"Job sequencing with deadlines and optimal merge patterns.",videos:["3.2 Job Sequencing with Deadlines - Greedy Method","3.3 Optimal Merge Pattern - Greedy Method"]},
+  {title:"Huffman Coding",brief:"Greedy Huffman coding for compression.",videos:["3.4 Huffman Coding - Greedy Method"]},
+  {title:"MST - Prim's & Kruskal's",brief:"Minimum spanning trees via Prim's and Kruskal's.",videos:["3.5 Prims and Kruskals Algorithms - Greedy Method"]},
+  {title:"Dijkstra's Shortest Path",brief:"Single-source shortest path (non-negative weights).",videos:["3.6 Dijkstra Algorithm - Single Source Shortest Path - Greedy Method"]},
+  {title:"DP Intro + Multistage Graph",brief:"Principle of optimality and multistage graph DP.",videos:["4 Principle of Optimality - Dynamic Programming introduction","4.1 MultiStage Graph - Dynamic Programming","4.1.1 MultiStage Graph (Program) - Dynamic Programming"]},
+  {title:"Floyd-Warshall (All Pairs)",brief:"All-pairs shortest paths via DP.",videos:["4.2 All Pairs Shortest Path (Floyd-Warshall) - Dynamic Programming"]},
+  {title:"Matrix Chain Multiplication",brief:"MCM via DP - problem and program.",videos:["4.3 Matrix Chain Multiplication - Dynamic Programming","4.3.1 Matrix Chain Multiplication (Program) - Dynamic Programming"]},
+  {title:"Matrix Chain - Formula (Deep)",brief:"MCM using the DP formula, in depth (long lecture).",videos:["[New] Matrix Chain Multiplication using Dynamic Programming Formula"]},
+  {title:"Bellman-Ford",brief:"Single-source shortest path with negative edges.",videos:["4.4 Bellman Ford Algorithm - Single Source Shortest Path - Dynamic Programming"]},
+  {title:"0/1 Knapsack (DP)",brief:"0/1 knapsack by DP - two methods and program.",videos:["4.5 0/1 Knapsack - Two Methods - Dynamic Programming","4.5.1 0/1 Knapsack Problem (Program) - Dynamic Programming"]},
+  {title:"Optimal Binary Search Tree",brief:"OBST for successful search via DP.",videos:["4.6 Optimal Binary Search Tree (Successful Search Only) - Dynamic Programming"]},
+  {title:"OBST - Successful & Unsuccessful",brief:"OBST including unsuccessful search probabilities (long lecture).",videos:["4.6.2 [New] Optimal Binary Search Tree Successful and Unsuccessful Probability - Dynamic Programming"]},
+  {title:"Traveling Salesman (DP)",brief:"TSP via dynamic programming.",videos:["4.7 [New] Traveling Salesman Problem - Dynamic Programming using Formula"]},
+  {title:"Reliability Design",brief:"DP for reliability design.",videos:["4.8 Reliability Design - Dynamic Programming"]},
+  {title:"Longest Common Subsequence",brief:"LCS by recursion and DP.",videos:["4.9 Longest Common Subsequence (LCS) - Recursion and Dynamic Programming"]},
+  {title:"Graph Traversals - BFS & DFS",brief:"Breadth-first and depth-first search.",videos:["5.1 Graph Traversals - BFS & DFS -Breadth First Search and Depth First Search"]},
+  {title:"Articulation Points & Biconnected",brief:"Articulation points and biconnected components.",videos:["5.2 Articulation Point and Biconnected Components"]},
+  {title:"Backtracking + N-Queens",brief:"Backtracking approach and the N-Queens problem.",videos:["6 Introduction to Backtracking - Brute Force Approach","6.1 N Queens Problem using Backtracking"]},
+  {title:"Sum of Subsets",brief:"Sum-of-subsets via backtracking.",videos:["6.2 Sum Of Subsets Problem - Backtracking"]},
+  {title:"Graph Coloring",brief:"m-coloring via backtracking.",videos:["6.3 Graph Coloring Problem - Backtracking"]},
+  {title:"Hamiltonian Cycle",brief:"Hamiltonian cycle via backtracking.",videos:["6.4 Hamiltonian Cycle - Backtracking"]},
+  {title:"Branch & Bound + Job Sequencing",brief:"Branch and bound intro and job sequencing.",videos:["7 Branch and Bound Introduction","7.1 Job Sequencing with Deadline - Branch and Bound"]},
+  {title:"0/1 Knapsack (Branch & Bound)",brief:"0/1 knapsack solved with branch and bound.",videos:["7.2 0/1 Knapsack using Branch and Bound"]},
+  {title:"Traveling Salesman (Branch & Bound)",brief:"TSP via branch and bound.",videos:["7.3 Traveling Salesman Problem - Branch and Bound"]},
+  {title:"NP-Hard & NP-Complete",brief:"Complexity classes P, NP, NP-Hard, NP-Complete.",videos:["8. NP-Hard and NP-Complete Problems","8.1 NP-Hard Graph Problem - Clique Decision Problem"]},
+  {title:"KMP String Matching",brief:"Knuth-Morris-Pratt pattern matching.",videos:["9.1 Knuth-Morris-Pratt KMP String Matching Algorithm"]},
+  {title:"Rabin-Karp + AVL Trees",brief:"Rabin-Karp hashing match and AVL tree rotations.",videos:["9.2 Rabin-Karp String Matching Algorithm","10.1 AVL Tree - Insertion and Rotations"]},
+  {title:"B/B+ Trees + Hashing + Review",brief:"B and B+ trees, hashing technique, and full-course review.",videos:["10.2 B Trees and B+ Trees. How they are useful in Databases","Hashing Technique - Simplified"]},
 ];
 function CoursePlanner(){
   const [course,setCourse]=useState("Complete Agentic AI Course In 10 Hours — LangChain, LangGraph, RAG, Vectorless RAG, Guardrails, Evals (Krish Naik)");
