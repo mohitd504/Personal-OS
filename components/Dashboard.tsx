@@ -78,7 +78,7 @@ export default function Dashboard({ onSignOut, name }: { onSignOut: ()=>void; na
               <button className="btn ghost sm" onClick={()=>setSelDate(today())}>Today</button>
             </>}
             <span className="in" style={{ padding:"6px 12px" }}>{clock}</span>
-            <span style={{ fontSize:10, color:"var(--mut2)" }} title="build marker — bump this to verify a deploy went live">build&nbsp;72</span>
+            <span style={{ fontSize:10, color:"var(--mut2)" }} title="build marker — bump this to verify a deploy went live">build&nbsp;73</span>
           </div>
         </div>
         <div className="content"><Boundary key={view}>
@@ -673,6 +673,19 @@ const DSA_COURSE=[
   {title:"Rabin-Karp + AVL Trees",brief:"Rabin-Karp hashing match and AVL tree rotations.",videos:["9.2 Rabin-Karp String Matching Algorithm","10.1 AVL Tree - Insertion and Rotations"]},
   {title:"B/B+ Trees + Hashing + Review",brief:"B and B+ trees, hashing technique, and full-course review.",videos:["10.2 B Trees and B+ Trees. How they are useful in Databases","Hashing Technique - Simplified"]},
 ];
+function seedAllCourses(){
+  const s0=seedStart(); const fmt=(m:number)=>`${Math.floor(m/60)}:${String(m%60).padStart(2,"0")}`;
+  const setDay=(i:number,rec:any)=>{ const d=new Date(s0); d.setDate(d.getDate()+i); const ds=dstrD(d); const key=planKey(ds); const cur:any=LS(key,{}); const list=(Array.isArray(cur.studyList)?cur.studyList:[]).filter((x:any)=>x.courseId!==rec.courseId); list.push(rec); SS(key,{...cur,studyList:list}); };
+  purgeCourse("agentic");
+  AGENTIC_COURSE.forEach((day:any,i:number)=>{ const [mm,ss]=day.timing.replace("–","-").split("-")[0].split(":"); const sec=(+mm)*60+(+ss||0);
+    setDay(i,{ id:uid(), courseId:"agentic", label:`Day ${i+1}: ${day.title}`, hours:"1.5", brief:day.brief, resource:day.link, pdf:`/course/day-${String(i+1).padStart(2,"0")}.pdf`, video:`▶ ${day.timing} of the 10h video`, courseVideo:`${YT}&t=${sec}s`, plan:[{time:"40 min",task:`Watch the course video ${day.timing} — ${day.title}`},{time:"40 min",task:"Code along in the GitHub notebook / build the example"},{time:"10 min",task:"Write notes & commit your code"}], next:[] }); });
+  purgeCourse("sysdesign");
+  SYSDESIGN_COURSE.forEach((day:any,i:number)=>{ const startMin=i*15; const timing=`${fmt(startMin)}-${fmt(startMin+15)}`; const sec=startMin*60;
+    setDay(i,{ id:uid(), courseId:"sysdesign", label:`SD Day ${i+1}: ${day.title}`, hours:"1.5", brief:day.brief, resource:SD_DOCS, pdf:`/course/sd-day-${String(i+1).padStart(2,"0")}.pdf`, video:`▶ ${timing} of the 5h video`, courseVideo:`${SD_VIDEO}&t=${sec}s`, plan:[{time:"25 min",task:`Watch the course video ${timing} — ${day.title}`},{time:"45 min",task:"Read the PDF notes + Telusko docs; draw the architecture diagram"},{time:"20 min",task:"Write your own notes"}], next:[] }); });
+  purgeCourse("dsa");
+  DSA_COURSE.forEach((day:any,i:number)=>{ const vids=(day.videos||[]);
+    setDay(i,{ id:uid(), courseId:"dsa", label:`DSA Day ${i+1}: ${day.title}`, hours:"1.5", brief:day.brief, resource:DSA_PLAYLIST, pdf:`/course/dsa-day-${String(i+1).padStart(2,"0")}.pdf`, video:`▶ Watch (${vids.length}): ${vids.join("  •  ")}`, courseVideo:DSA_PLAYLIST, plan:[{time:"45 min",task:`Watch: ${vids.join("; ")}`},{time:"35 min",task:"Read the PDF notes & code the algorithm"},{time:"10 min",task:"Note complexity & solve one practice problem"}], next:[] }); });
+}
 function CoursePlanner(){
   const [course,setCourse]=useState("Complete Agentic AI Course In 10 Hours — LangChain, LangGraph, RAG, Vectorless RAG, Guardrails, Evals (Krish Naik)");
   const [startD,setStartD]=useState(today());
@@ -727,6 +740,7 @@ function GoalPlanner({ sett }: any) {
   const [mealBusy,setMealBusy]=useState(""); const [studyBusy,setStudyBusy]=useState(false); const [saved,setSaved]=useState(""); const [undoSnap,setUndoSnap]=useState<any>(null);
   const snap=(label:string)=>{ setUndoSnap({date:sel,label,data:JSON.parse(JSON.stringify(LS(planKey(sel),{})))}); };
   const doUndo=()=>{ if(!undoSnap) return; SS(planKey(undoSnap.date),undoSnap.data); if(undoSnap.date===sel) setP(loadPlan(sel)); const lbl=undoSnap.label; setUndoSnap(null); setT((x:number)=>x+1); refresh(); setSaved("↩ Restored: "+lbl); };
+  const restoreCourses=()=>{ if(confirm("Restore all 3 study courses (Agentic AI, System Design, DSA) starting today? This re-adds any deleted course days. Your own subjects, workouts, meals & journals stay; progress ticks on course days reset.")){ seedAllCourses(); setP(loadPlan(sel)); setT((x:number)=>x+1); refresh(); setSaved("✓ Course study plans restored from today."); } };
   const [exTab,setExTab]=useState(""); const [studyTab,setStudyTab]=useState("");
   const [mealDraft,setMealDraft]=useState<any>({breakfast:{time:"",food:""},lunch:{time:"",food:""},dinner:{time:"",food:""}});
   const [studyDraft,setStudyDraft]=useState<any>({label:"",hours:""});
@@ -903,7 +917,7 @@ function GoalPlanner({ sett }: any) {
       </div>:null}
     </PRow>
 
-    <PRow icon="📚" tint="purple" title="Study — add subjects, AI builds a timed plan for each" action={actBtns(skipStudy,clearStudy)}>
+    <PRow icon="📚" tint="purple" title="Study — add subjects, AI builds a timed plan for each" action={<div className="row" style={{gap:8,flexWrap:"wrap"}}><button className="btn ghost sm" onClick={restoreCourses}>↻ Restore courses</button><button className="btn ghost sm" onClick={skipStudy}>😴 Skip/Rest</button><button className="btn ghost sm" onClick={clearStudy}>🗑 Clear</button></div>}>
       <div className="row" style={{flexWrap:"wrap",gap:8}}>
         <input className="in" value={studyDraft.label} onChange={e=>setStudyDraft((s:any)=>({...s,label:e.target.value}))} placeholder="e.g. 2 hour data structures" style={{flex:1,minWidth:200}} onKeyDown={e=>{ if(e.key==="Enter") addSubject(); }}/>
         <input className="in" type="number" value={studyDraft.hours} onChange={e=>setStudyDraft((s:any)=>({...s,hours:e.target.value}))} placeholder="Hours" style={{width:90}}/>
