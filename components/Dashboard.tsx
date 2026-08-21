@@ -78,7 +78,7 @@ export default function Dashboard({ onSignOut, name }: { onSignOut: ()=>void; na
               <button className="btn ghost sm" onClick={()=>setSelDate(today())}>Today</button>
             </>}
             <span className="in" style={{ padding:"6px 12px" }}>{clock}</span>
-            <span style={{ fontSize:10, color:"var(--mut2)" }} title="build marker — bump this to verify a deploy went live">build&nbsp;69</span>
+            <span style={{ fontSize:10, color:"var(--mut2)" }} title="build marker — bump this to verify a deploy went live">build&nbsp;70</span>
           </div>
         </div>
         <div className="content"><Boundary key={view}>
@@ -745,15 +745,22 @@ function GoalPlanner({ sett }: any) {
   const clearJournal=()=>{ if(confirm("Clear the journal for this day?")) save({journal:""}); };
   const clearDay=()=>{ if(confirm("Clear the WHOLE plan for "+sel+"?")){ const blank=JSON.parse(JSON.stringify(PLAN_DEF)); setP(blank); SS(planKey(sel),blank); setT(x=>x+1); setSaved(""); setExTab(""); setStudyTab(""); } };
   const clearBtn=(fn:()=>void)=><button className="btn ghost sm" onClick={fn}>🗑 Clear</button>;
+  const actBtns=(skipFn:()=>void,clearFn:()=>void)=><div className="row" style={{gap:8}}><button className="btn ghost sm" onClick={skipFn}>😴 Skip/Rest</button><button className="btn ghost sm" onClick={clearFn}>🗑 Clear</button></div>;
   const shift=(n:number)=>{ const d=new Date(sel); d.setDate(d.getDate()+n); setSel(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`); };
   const addDaysD=(ds:string,n:number)=>{ const [y,m,dd]=ds.split("-").map(Number); return dstrD(new Date(y,m-1,dd+n)); };
-  const shiftAllForward=(fromDs:string,n:number)=>{ const dates:string[]=[]; for(let i=0;i<250;i++){ const ds=addDaysD(fromDs,i); const c:any=LS(planKey(ds),null); const hasMeal=c&&c.meals&&((c.meals.breakfast||[]).length||(c.meals.lunch||[]).length||(c.meals.dinner||[]).length); if(c&&((Array.isArray(c.exSessions)&&c.exSessions.length)||(Array.isArray(c.studyList)&&c.studyList.length)||hasMeal)) dates.push(ds); }
-    dates.sort().reverse().forEach(ds=>{ const c:any=LS(planKey(ds),{}); const tgt=addDaysD(ds,n); const tc:any=LS(planKey(tgt),{}); const cm=c.meals||{}; const tm=tc.meals||{};
-      SS(planKey(tgt),{...tc, exSessions:[...(Array.isArray(tc.exSessions)?tc.exSessions:[]),...(Array.isArray(c.exSessions)?c.exSessions:[])], studyList:[...(Array.isArray(tc.studyList)?tc.studyList:[]),...(Array.isArray(c.studyList)?c.studyList:[])], meals:{breakfast:[...(tm.breakfast||[]),...(cm.breakfast||[])],lunch:[...(tm.lunch||[]),...(cm.lunch||[])],dinner:[...(tm.dinner||[]),...(cm.dinner||[])]}});
-      SS(planKey(ds),{...c, exSessions:[], studyList:[], meals:{breakfast:[],lunch:[],dinner:[]}});
+  const emptyMeals=()=>({breakfast:[],lunch:[],dinner:[]});
+  const hasCat=(c:any,cat:string)=> cat==="meals" ? !!(c&&c.meals&&((c.meals.breakfast||[]).length||(c.meals.lunch||[]).length||(c.meals.dinner||[]).length)) : !!(c&&Array.isArray(c[cat])&&c[cat].length);
+  const shiftCategory=(fromDs:string,cat:string,n:number)=>{ const dates:string[]=[]; for(let i=0;i<250;i++){ const ds=addDaysD(fromDs,i); const c:any=LS(planKey(ds),null); if(hasCat(c,cat)) dates.push(ds); }
+    dates.sort().reverse().forEach(ds=>{ const c:any=LS(planKey(ds),{}); const tgt=addDaysD(ds,n); const tc:any=LS(planKey(tgt),{});
+      if(cat==="meals"){ const cm=c.meals||emptyMeals(); const tm=tc.meals||emptyMeals(); SS(planKey(tgt),{...tc,meals:{breakfast:[...(tm.breakfast||[]),...(cm.breakfast||[])],lunch:[...(tm.lunch||[]),...(cm.lunch||[])],dinner:[...(tm.dinner||[]),...(cm.dinner||[])]}}); SS(planKey(ds),{...c,meals:emptyMeals()}); }
+      else { SS(planKey(tgt),{...tc,[cat]:[...(Array.isArray(tc[cat])?tc[cat]:[]),...(Array.isArray(c[cat])?c[cat]:[])]}); SS(planKey(ds),{...c,[cat]:[]}); }
     });
   };
-  const skipRestDay=()=>{ if(!confirm("Make "+sel+" a REST day and push this day + everything after it (exercise, meals & study) forward by 1 day?")) return; shiftAllForward(sel,1); setT(x=>x+1); refresh(); setP(loadPlan(sel)); alert("✓ "+sel+" is now a rest day. Everything from here shifted forward 1 day."); };
+  const afterShift=(msg:string)=>{ setT(x=>x+1); refresh(); setP(loadPlan(sel)); alert(msg); };
+  const skipExercise=()=>{ if(!confirm("Rest from EXERCISE on "+sel+"? Your exercise plan from here shifts forward 1 day (nothing lost).")) return; shiftCategory(sel,"exSessions",1); afterShift("✓ Exercise rested on "+sel+" — exercise plan shifted forward 1 day."); };
+  const skipMeals=()=>{ if(!confirm("Skip MEALS plan on "+sel+"? Your meal plan from here shifts forward 1 day.")) return; shiftCategory(sel,"meals",1); afterShift("✓ Meals shifted forward 1 day from "+sel+"."); };
+  const skipStudy=()=>{ if(!confirm("Rest from STUDY on "+sel+"? Your study plan from here shifts forward 1 day (no day is lost).")) return; shiftCategory(sel,"studyList",1); afterShift("✓ Study rested on "+sel+" — study plan shifted forward 1 day."); };
+  const skipRestDay=()=>{ if(!confirm("Full REST day on "+sel+"? Exercise, meals AND study all shift forward 1 day.")) return; shiftCategory(sel,"exSessions",1); shiftCategory(sel,"meals",1); shiftCategory(sel,"studyList",1); afterShift("✓ "+sel+" is a full rest day — everything shifted forward 1 day."); };
   const filled=(d:string)=>{ const x=loadPlan(d); const meals=(x.meals?.breakfast||[]).length+(x.meals?.lunch||[]).length+(x.meals?.dinner||[]).length; return !!((x.exSessions||[]).length||meals||(x.studyList||[]).length||x.journal); };
   const start=new Date(sett.planStart);
   const cells=[]; for(let i=0;i<days;i++){ const d=new Date(start); d.setDate(d.getDate()+i); const ds=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; const f=filled(ds);
@@ -832,7 +839,7 @@ function GoalPlanner({ sett }: any) {
       </div>
     </div>
 
-    <PRow icon="🏋️" tint="blue" title="Exercise — add each session (e.g. 6 AM walk, 1 PM gym)" action={clearBtn(clearEx)}>
+    <PRow icon="🏋️" tint="blue" title="Exercise — add each session (e.g. 6 AM walk, 1 PM gym)" action={actBtns(skipExercise,clearEx)}>
       <div className="row" style={{flexWrap:"wrap",gap:8,alignItems:"center"}}>
         {(p.exSessions||[]).map((s:any)=><button key={s.id} className={"btn "+(curS&&curS.id===s.id?"":"ghost")+" sm"} onClick={()=>setExTab(s.id)}>{s.done?"✅ ":""}{s.time||"—"} · {s.type}</button>)}
         <button className="btn ghost sm" onClick={addSession}>+ Add session</button>
@@ -872,7 +879,7 @@ function GoalPlanner({ sett }: any) {
       </div> : <div className="muted" style={{fontSize:12,marginTop:10}}>No sessions yet — tap “+ Add session”. Add one for your morning walk and another for the gym.</div>}
     </PRow>
 
-    <PRow icon="🍎" tint="emerald" title="Meals — add items with times, AI counts each" action={clearBtn(clearMeals)}>
+    <PRow icon="🍎" tint="emerald" title="Meals — add items with times, AI counts each" action={actBtns(skipMeals,clearMeals)}>
       {["breakfast","lunch","dinner"].map((key)=>{ const items=p.meals[key]||[]; const gt=groupTot(key); const lbl=key.charAt(0).toUpperCase()+key.slice(1); const dr=mealDraft[key]||{time:"",food:""};
         return <div key={key} style={{marginBottom:14,paddingBottom:14,borderBottom:key!=="dinner"?"1px solid rgba(255,255,255,.06)":"none"}}>
           <strong style={{fontSize:13}}>{key==="breakfast"?"🌅":key==="lunch"?"🥗":"🌙"} {lbl}{gt.cal?` — ${Math.round(gt.cal)} kcal · P ${Math.round(gt.protein)}g`:""}</strong>
@@ -893,7 +900,7 @@ function GoalPlanner({ sett }: any) {
       </div>:null}
     </PRow>
 
-    <PRow icon="📚" tint="purple" title="Study — add subjects, AI builds a timed plan for each" action={clearBtn(clearStudy)}>
+    <PRow icon="📚" tint="purple" title="Study — add subjects, AI builds a timed plan for each" action={actBtns(skipStudy,clearStudy)}>
       <div className="row" style={{flexWrap:"wrap",gap:8}}>
         <input className="in" value={studyDraft.label} onChange={e=>setStudyDraft((s:any)=>({...s,label:e.target.value}))} placeholder="e.g. 2 hour data structures" style={{flex:1,minWidth:200}} onKeyDown={e=>{ if(e.key==="Enter") addSubject(); }}/>
         <input className="in" type="number" value={studyDraft.hours} onChange={e=>setStudyDraft((s:any)=>({...s,hours:e.target.value}))} placeholder="Hours" style={{width:90}}/>
