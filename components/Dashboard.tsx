@@ -78,7 +78,7 @@ export default function Dashboard({ onSignOut, name }: { onSignOut: ()=>void; na
               <button className="btn ghost sm" onClick={()=>setSelDate(today())}>Today</button>
             </>}
             <span className="in" style={{ padding:"6px 12px" }}>{clock}</span>
-            <span style={{ fontSize:10, color:"var(--mut2)" }} title="build marker — bump this to verify a deploy went live">build&nbsp;71</span>
+            <span style={{ fontSize:10, color:"var(--mut2)" }} title="build marker — bump this to verify a deploy went live">build&nbsp;72</span>
           </div>
         </div>
         <div className="content"><Boundary key={view}>
@@ -724,7 +724,9 @@ function GoalPlanner({ sett }: any) {
   const [p,setP]=useState<any>(loadPlan(today()));
   const [,setT]=useState(0);
   const [fixBusy,setFixBusy]=useState(false); const [fixMsg,setFixMsg]=useState("");
-  const [mealBusy,setMealBusy]=useState(""); const [studyBusy,setStudyBusy]=useState(false); const [saved,setSaved]=useState("");
+  const [mealBusy,setMealBusy]=useState(""); const [studyBusy,setStudyBusy]=useState(false); const [saved,setSaved]=useState(""); const [undoSnap,setUndoSnap]=useState<any>(null);
+  const snap=(label:string)=>{ setUndoSnap({date:sel,label,data:JSON.parse(JSON.stringify(LS(planKey(sel),{})))}); };
+  const doUndo=()=>{ if(!undoSnap) return; SS(planKey(undoSnap.date),undoSnap.data); if(undoSnap.date===sel) setP(loadPlan(sel)); const lbl=undoSnap.label; setUndoSnap(null); setT((x:number)=>x+1); refresh(); setSaved("↩ Restored: "+lbl); };
   const [exTab,setExTab]=useState(""); const [studyTab,setStudyTab]=useState("");
   const [mealDraft,setMealDraft]=useState<any>({breakfast:{time:"",food:""},lunch:{time:"",food:""},dinner:{time:"",food:""}});
   const [studyDraft,setStudyDraft]=useState<any>({label:"",hours:""});
@@ -739,11 +741,11 @@ function GoalPlanner({ sett }: any) {
     setMealDraft({breakfast:{time:"",food:""},lunch:{time:"",food:""},dinner:{time:"",food:""}}); setStudyDraft({label:"",hours:""}); },[sel]);
   const save=(patch:any)=>{ const n={...p,...patch}; setP(n); SS(planKey(sel),n); setT(x=>x+1); setSaved(""); };
   const doSave=()=>{ SS(planKey(sel),p); setSaved("✓ Saved "+new Date().toLocaleTimeString(undefined,{hour:"numeric",minute:"2-digit"})+" — synced for the future"); };
-  const clearEx=()=>{ if(confirm("Clear all exercise sessions for this day?")) save({exSessions:[]}); };
-  const clearMeals=()=>{ if(confirm("Clear all meals for this day?")) save({meals:{breakfast:[],lunch:[],dinner:[]}}); };
-  const clearStudy=()=>{ if(confirm("Clear all study subjects for this day?")) save({studyList:[]}); };
-  const clearJournal=()=>{ if(confirm("Clear the journal for this day?")) save({journal:""}); };
-  const clearDay=()=>{ if(confirm("Clear the WHOLE plan for "+sel+"?")){ const blank=JSON.parse(JSON.stringify(PLAN_DEF)); setP(blank); SS(planKey(sel),blank); setT(x=>x+1); setSaved(""); setExTab(""); setStudyTab(""); } };
+  const clearEx=()=>{ if(confirm("Clear all exercise sessions for this day?")){ snap("Exercise cleared"); save({exSessions:[]}); } };
+  const clearMeals=()=>{ if(confirm("Clear all meals for this day?")){ snap("Meals cleared"); save({meals:{breakfast:[],lunch:[],dinner:[]}}); } };
+  const clearStudy=()=>{ if(confirm("Clear all study subjects for this day?")){ snap("Study cleared"); save({studyList:[]}); } };
+  const clearJournal=()=>{ if(confirm("Clear the journal for this day?")){ snap("Journal cleared"); save({journal:""}); } };
+  const clearDay=()=>{ if(confirm("Clear the WHOLE plan for "+sel+"?")){ snap("Whole day cleared"); const blank=JSON.parse(JSON.stringify(PLAN_DEF)); setP(blank); SS(planKey(sel),blank); setT(x=>x+1); setSaved(""); setExTab(""); setStudyTab(""); } };
   const clearBtn=(fn:()=>void)=><button className="btn ghost sm" onClick={fn}>🗑 Clear</button>;
   const actBtns=(skipFn:()=>void,clearFn:()=>void)=><div className="row" style={{gap:8}}><button className="btn ghost sm" onClick={skipFn}>😴 Skip/Rest</button><button className="btn ghost sm" onClick={clearFn}>🗑 Clear</button></div>;
   const shift=(n:number)=>{ const d=new Date(sel); d.setDate(d.getDate()+n); setSel(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`); };
@@ -813,7 +815,7 @@ function GoalPlanner({ sett }: any) {
     save({studyList:[...(p.studyList||[]),subj]}); setStudyTab(id); setStudyDraft({label:"",hours:""}); setStudyBusy(true);
     try{ const r=await fetch("/api/study-path",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text:label,hours:subj.hours})}); const d=await r.json();
       setP((prev:any)=>{ const n={...prev,studyList:(prev.studyList||[]).map((s:any)=>s.id===id?{...s,plan:d.plan||[],next:d.next||[]}:s)}; SS(planKey(sel),n); return n; }); }catch(e){} setStudyBusy(false); };
-  const delSubject=(id:string)=>{ const list=(p.studyList||[]).filter((s:any)=>s.id!==id); save({studyList:list}); if(studyTab===id) setStudyTab((list[0]||{}).id||""); };
+  const delSubject=(id:string)=>{ snap("Study subject removed"); const list=(p.studyList||[]).filter((s:any)=>s.id!==id); save({studyList:list}); if(studyTab===id) setStudyTab((list[0]||{}).id||""); };
   const curSubj=(p.studyList||[]).find((s:any)=>s.id===studyTab)||(p.studyList||[])[0];
   const fixGrammar=async()=>{ if(!(p.journal||"").trim()){ setFixMsg("Write something in the journal first."); return; } setFixBusy(true); setFixMsg("");
     try{ const r=await fetch("/api/proofread",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text:p.journal})}); const d=await r.json();
@@ -831,6 +833,7 @@ function GoalPlanner({ sett }: any) {
           <button className="btn sm" onClick={doSave}>💾 Save day</button>
           <button className="btn ghost sm" onClick={skipRestDay}>😴 Skip / Rest day</button>
           <button className="btn ghost sm" onClick={clearDay}>🗑 Clear day</button>
+          {undoSnap && <button className="btn sm" onClick={doUndo} style={{background:"linear-gradient(100deg,var(--orange),var(--pink))"}}>↩ Undo ({undoSnap.label})</button>}
         </div>
       </div>
       <div className="between" style={{flexWrap:"wrap",gap:8,marginTop:10}}>
