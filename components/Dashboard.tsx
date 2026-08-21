@@ -78,7 +78,7 @@ export default function Dashboard({ onSignOut, name }: { onSignOut: ()=>void; na
               <button className="btn ghost sm" onClick={()=>setSelDate(today())}>Today</button>
             </>}
             <span className="in" style={{ padding:"6px 12px" }}>{clock}</span>
-            <span style={{ fontSize:10, color:"var(--mut2)" }} title="build marker — bump this to verify a deploy went live">build&nbsp;68</span>
+            <span style={{ fontSize:10, color:"var(--mut2)" }} title="build marker — bump this to verify a deploy went live">build&nbsp;69</span>
           </div>
         </div>
         <div className="content"><Boundary key={view}>
@@ -485,8 +485,8 @@ function PlanCalendar({ sett }: any) {
 /* ---------- GOALS ---------- */
 function Goals({ sett, tick }: any) {
   const start=new Date(sett.planStart); const dayNo=Math.max(0,Math.floor((Date.now()-start.getTime())/86400000)); const pct=Math.min(100,Math.round(dayNo/sett.planDays*100));
-  useEffect(()=>{ if(LS("pos_seed_agentic","")==="v2") return;
-    const s0=new Date(2026,7,20); // 20 Aug 2026
+  useEffect(()=>{ if(LS("pos_seed_agentic","")==="v3") return; purgeCourse("agentic");
+    const s0=seedStart();
     AGENTIC_COURSE.forEach((day,i)=>{ const d=new Date(s0); d.setDate(d.getDate()+i); const ds=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
       const key=planKey(ds); const cur:any=LS(key,{}); const list=(Array.isArray(cur.studyList)?cur.studyList:[]).filter((x:any)=>x.courseId!=="agentic");
       const [mm,ss]=day.timing.replace("–","-").split("-")[0].split(":"); const sec=(+mm)*60+(+ss||0);
@@ -496,10 +496,10 @@ function Goals({ sett, tick }: any) {
         plan:[{time:"40 min",task:`Watch the course video ${day.timing} — ${day.title}`},{time:"40 min",task:"Code along in the GitHub notebook / build the example"},{time:"10 min",task:"Write notes & commit your code"}], next:[] });
       SS(key,{...cur,studyList:list});
     });
-    SS("pos_seed_agentic","v2");
+    SS("pos_seed_agentic","v3");
   },[]);
-  useEffect(()=>{ if(LS("pos_seed_sysdesign","")==="v1") return;
-    const s0=new Date(2026,7,20); const fmt=(m:number)=>`${Math.floor(m/60)}:${String(m%60).padStart(2,"0")}`;
+  useEffect(()=>{ if(LS("pos_seed_sysdesign","")==="v2") return; purgeCourse("sysdesign");
+    const s0=seedStart(); const fmt=(m:number)=>`${Math.floor(m/60)}:${String(m%60).padStart(2,"0")}`;
     SYSDESIGN_COURSE.forEach((day,i)=>{ const d=new Date(s0); d.setDate(d.getDate()+i); const ds=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
       const key=planKey(ds); const cur:any=LS(key,{}); const list=(Array.isArray(cur.studyList)?cur.studyList:[]).filter((x:any)=>x.courseId!=="sysdesign");
       const startMin=i*15; const timing=`${fmt(startMin)}-${fmt(startMin+15)}`; const sec=startMin*60;
@@ -508,10 +508,10 @@ function Goals({ sett, tick }: any) {
         plan:[{time:"25 min",task:`Watch the course video ${timing} — ${day.title}`},{time:"45 min",task:"Read the PDF notes + Telusko docs; draw the architecture diagram"},{time:"20 min",task:"Write your own notes / answer the day's tasks"}], next:[] });
       SS(key,{...cur,studyList:list});
     });
-    SS("pos_seed_sysdesign","v1");
+    SS("pos_seed_sysdesign","v2");
   },[]);
-  useEffect(()=>{ if(LS("pos_seed_dsa","")==="v2") return;
-    const s0=new Date(2026,7,20);
+  useEffect(()=>{ if(LS("pos_seed_dsa","")==="v3") return; purgeCourse("dsa");
+    const s0=seedStart();
     DSA_COURSE.forEach((day:any,i:number)=>{ const d=new Date(s0); d.setDate(d.getDate()+i); const ds=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
       const key=planKey(ds); const cur:any=LS(key,{}); const list=(Array.isArray(cur.studyList)?cur.studyList:[]).filter((x:any)=>x.courseId!=="dsa");
       const vids=(day.videos||[]);
@@ -520,7 +520,7 @@ function Goals({ sett, tick }: any) {
         plan:[{time:"45 min",task:`Watch: ${vids.join("; ")}`},{time:"35 min",task:"Read the PDF notes & code the algorithm"},{time:"10 min",task:"Note complexity & solve one practice problem"}], next:[] });
       SS(key,{...cur,studyList:list});
     });
-    SS("pos_seed_dsa","v2");
+    SS("pos_seed_dsa","v3");
   },[]);
   return <>
     <Head t="Goals" p={`${sett.planDays}-day transformation`} />
@@ -535,13 +535,16 @@ function Goals({ sett, tick }: any) {
 }
 /* ---------- 120-day daily goal planner ---------- */
 function planKey(d:string){ return "pos_plan_"+d; }
+const dstrD=(d:Date)=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+function seedStart(){ const d=new Date(); d.setHours(0,0,0,0); return d; }
+function purgeCourse(cid:string){ const base=new Date(); for(let i=-90;i<=200;i++){ const d=new Date(base); d.setDate(d.getDate()+i); const ds=dstrD(d); const c:any=LS(planKey(ds),null); if(c&&Array.isArray(c.studyList)&&c.studyList.some((x:any)=>x.courseId===cid)) SS(planKey(ds),{...c,studyList:c.studyList.filter((x:any)=>x.courseId!==cid)}); } }
 const PLAN_DEF:any={exSessions:[],meals:{breakfast:[],lunch:[],dinner:[]},studyList:[],journal:""};
 function loadPlan(d:string){ const raw:any=LS(planKey(d),{}); const mealArr=(g:string)=>Array.isArray(raw.meals?.[g])?raw.meals[g]:[];
   return {...PLAN_DEF, ...raw, exSessions:Array.isArray(raw.exSessions)?raw.exSessions:[], studyList:Array.isArray(raw.studyList)?raw.studyList:[], meals:{breakfast:mealArr("breakfast"),lunch:mealArr("lunch"),dinner:mealArr("dinner")}, journal:raw.journal||""}; }
 const EX_TYPES=["Rest","Push","Pull","Legs","Cardio","Walk","HIIT","Yoga"];
-const P_PUSH=["Bench Press","Incline Dumbbell Press","Machine Chest Press","Cable Fly","Shoulder Press","Lateral Raise","Rear Delt Fly","Tricep Pushdown","Overhead Tricep Extension","Dips"];
-const P_PULL=["Deadlift","Lat Pulldown","Pull-ups","Barbell Row","Seated Cable Row","Single Arm Row","Face Pull","Barbell Curl","Hammer Curl","Preacher Curl"];
-const P_LEGS=["Squat","Romanian Deadlift","Leg Press","Walking Lunges","Leg Extension","Hamstring Curl","Bulgarian Split Squat","Standing Calf Raise","Hip Thrust","Glute Bridge"];
+const P_PUSH=["Bench Press","Incline Bench Press","Decline Bench Press","Flat Dumbbell Press","Incline Dumbbell Press","Machine Chest Press","Cable Fly","Incline Cable Fly","Pec Deck Fly","Push-ups","Dips","Overhead Shoulder Press","Seated Dumbbell Shoulder Press","Arnold Press","Military Press","Lateral Raise","Cable Lateral Raise","Front Raise","Rear Delt Fly","Upright Row","Tricep Pushdown","Rope Pushdown","Overhead Tricep Extension","Skull Crushers","Close-Grip Bench Press"];
+const P_PULL=["Deadlift","Barbell Row","Pendlay Row","T-Bar Row","Seated Cable Row","Single Arm Dumbbell Row","Lat Pulldown","Wide-Grip Lat Pulldown","Close-Grip Pulldown","Pull-ups","Chin-ups","Face Pull","Straight-Arm Pulldown","Shrugs","Barbell Curl","Dumbbell Curl","Hammer Curl","Preacher Curl","Incline Dumbbell Curl","Concentration Curl","Cable Curl","Reverse Curl","Spider Curl","Farmer Walk"];
+const P_LEGS=["Squat","Front Squat","Hack Squat","Leg Press","Bulgarian Split Squat","Walking Lunges","Reverse Lunges","Goblet Squat","Leg Extension","Romanian Deadlift","Stiff-Leg Deadlift","Lying Hamstring Curl","Seated Leg Curl","Hip Thrust","Glute Bridge","Cable Glute Kickback","Sumo Deadlift","Standing Calf Raise","Seated Calf Raise","Step-ups","Adductor Machine","Abductor Machine","Box Jumps"];
 const EX_LIB:Record<string,string[]>={Push:P_PUSH,Pull:P_PULL,Legs:P_LEGS};
 const COURSES=["AI / ML","Interview Prep","Data Structures & Algorithms","System Design","DevOps","Cloud","Frontend","Other"];
 function PRow({ icon, tint, title, action, children }: any){ return <div className="card" style={{marginBottom:14}}>
@@ -743,6 +746,14 @@ function GoalPlanner({ sett }: any) {
   const clearDay=()=>{ if(confirm("Clear the WHOLE plan for "+sel+"?")){ const blank=JSON.parse(JSON.stringify(PLAN_DEF)); setP(blank); SS(planKey(sel),blank); setT(x=>x+1); setSaved(""); setExTab(""); setStudyTab(""); } };
   const clearBtn=(fn:()=>void)=><button className="btn ghost sm" onClick={fn}>🗑 Clear</button>;
   const shift=(n:number)=>{ const d=new Date(sel); d.setDate(d.getDate()+n); setSel(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`); };
+  const addDaysD=(ds:string,n:number)=>{ const [y,m,dd]=ds.split("-").map(Number); return dstrD(new Date(y,m-1,dd+n)); };
+  const shiftAllForward=(fromDs:string,n:number)=>{ const dates:string[]=[]; for(let i=0;i<250;i++){ const ds=addDaysD(fromDs,i); const c:any=LS(planKey(ds),null); const hasMeal=c&&c.meals&&((c.meals.breakfast||[]).length||(c.meals.lunch||[]).length||(c.meals.dinner||[]).length); if(c&&((Array.isArray(c.exSessions)&&c.exSessions.length)||(Array.isArray(c.studyList)&&c.studyList.length)||hasMeal)) dates.push(ds); }
+    dates.sort().reverse().forEach(ds=>{ const c:any=LS(planKey(ds),{}); const tgt=addDaysD(ds,n); const tc:any=LS(planKey(tgt),{}); const cm=c.meals||{}; const tm=tc.meals||{};
+      SS(planKey(tgt),{...tc, exSessions:[...(Array.isArray(tc.exSessions)?tc.exSessions:[]),...(Array.isArray(c.exSessions)?c.exSessions:[])], studyList:[...(Array.isArray(tc.studyList)?tc.studyList:[]),...(Array.isArray(c.studyList)?c.studyList:[])], meals:{breakfast:[...(tm.breakfast||[]),...(cm.breakfast||[])],lunch:[...(tm.lunch||[]),...(cm.lunch||[])],dinner:[...(tm.dinner||[]),...(cm.dinner||[])]}});
+      SS(planKey(ds),{...c, exSessions:[], studyList:[], meals:{breakfast:[],lunch:[],dinner:[]}});
+    });
+  };
+  const skipRestDay=()=>{ if(!confirm("Make "+sel+" a REST day and push this day + everything after it (exercise, meals & study) forward by 1 day?")) return; shiftAllForward(sel,1); setT(x=>x+1); refresh(); setP(loadPlan(sel)); alert("✓ "+sel+" is now a rest day. Everything from here shifted forward 1 day."); };
   const filled=(d:string)=>{ const x=loadPlan(d); const meals=(x.meals?.breakfast||[]).length+(x.meals?.lunch||[]).length+(x.meals?.dinner||[]).length; return !!((x.exSessions||[]).length||meals||(x.studyList||[]).length||x.journal); };
   const start=new Date(sett.planStart);
   const cells=[]; for(let i=0;i<days;i++){ const d=new Date(start); d.setDate(d.getDate()+i); const ds=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; const f=filled(ds);
@@ -811,11 +822,12 @@ function GoalPlanner({ sett }: any) {
           <button className="btn ghost sm" onClick={()=>shift(1)}>Next ›</button>
           <button className="btn ghost sm" onClick={()=>setSel(today())}>Today</button>
           <button className="btn sm" onClick={doSave}>💾 Save day</button>
+          <button className="btn ghost sm" onClick={skipRestDay}>😴 Skip / Rest day</button>
           <button className="btn ghost sm" onClick={clearDay}>🗑 Clear day</button>
         </div>
       </div>
       <div className="between" style={{flexWrap:"wrap",gap:8,marginTop:10}}>
-        <div className="muted" style={{fontSize:12}}>Planning for <b style={{color:"#E7ECF3"}}>{new Date(sel).toLocaleDateString(undefined,{weekday:"long",day:"numeric",month:"long",year:"numeric"})}</b> · scheduled workout: <b style={{color:"#E7ECF3"}}>{PPL[new Date(sel).getDay()]}</b></div>
+        <div className="muted" style={{fontSize:12}}>Planning for <b style={{color:"#E7ECF3"}}>{new Date(sel).toLocaleDateString(undefined,{weekday:"long",day:"numeric",month:"long",year:"numeric"})}</b></div>
         {saved && <span style={{fontSize:12,color:"#6ee7b7"}}>{saved}</span>}
       </div>
     </div>

@@ -1289,6 +1289,9 @@ function PlanWorkout({ refresh }: { refresh:()=>void }) {
   const addRow=(ex:string)=>{ const e=act[ex]||{sets:[]}; saveAct({...act,[ex]:{...e,sets:[...(e.sets||[]),{w:"",r:""}]}}); };
   const delRow=(ex:string,i:number)=>{ const e=act[ex]||{sets:[]}; const sets=(e.sets||[]).filter((_:any,x:number)=>x!==i); saveAct({...act,[ex]:{...e,sets:sets.length?sets:[{w:"",r:""}]}}); };
   const toggleDone=(ex:string)=>{ const e=act[ex]||{sets:[]}; saveAct({...act,[ex]:{...e,done:!e.done}}); };
+  const saveExercise=(ex:string)=>{ const e=act[ex]||{sets:[]}; const filled=(e.sets||[]).filter((s:any)=>s.w||s.r); if(!filled.length){ alert("Enter at least one set for "+ex+"."); return; } saveAct({...act,[ex]:{...e,saved:true,done:true}}); };
+  const editExercise=(ex:string)=>{ const e=act[ex]||{}; saveAct({...act,[ex]:{...e,saved:false}}); };
+  const deleteExercise=(ex:string)=>{ if(!confirm("Clear the logged sets for "+ex+"?")) return; saveAct({...act,[ex]:{sets:[{w:"",r:""}],done:false,saved:false}}); };
 
   const shiftFrom=(n:number)=>{ const dates:string[]=[]; for(let i=0;i<200;i++){ const d=addDays(t,i); const c=LS(pKey(d),null); if(c&&Array.isArray(c.exSessions)&&c.exSessions.length) dates.push(d); }
     dates.sort().reverse().forEach(d=>{ const c=LS(pKey(d),{}); const tgt=addDays(d,n); const tc=LS(pKey(tgt),{}); const ts=Array.isArray(tc.exSessions)?tc.exSessions:[]; SS(pKey(tgt),{...tc,exSessions:[...ts,...c.exSessions]}); SS(pKey(d),{...c,exSessions:[]}); }); };
@@ -1364,14 +1367,27 @@ function PlanWorkout({ refresh }: { refresh:()=>void }) {
   return <>
     <div className="head"><h1>🏋️ {split} — {t}</h1><p>Log the actual sets you did against your plan, then submit for AI analysis &amp; your next workout.</p></div>
     <div className="row" style={{gap:8,marginBottom:12,flexWrap:"wrap"}}><button className="btn ghost sm" onClick={()=>setSplit("")}>‹ Back</button>{session.done && <span className="in" style={{padding:"4px 10px",color:"#6ee7b7"}}>✅ Completed</span>}</div>
-    {planned.map((e:any,ei:number)=>{ const a=act[e.name]||{sets:[{w:"",r:""}]}; const sets=a.sets||[{w:"",r:""}]; return (
-      <div className="card" key={ei} style={{marginBottom:12,borderColor:a.done?"rgba(16,185,129,.4)":undefined}}>
-        <div className="between" style={{flexWrap:"wrap",gap:8}}>
-          <div><div style={{fontSize:15,fontWeight:650}}>{exEmoji(e.name)} {e.name} <a href={demoLink(e.name)} target="_blank" rel="noopener" style={{fontSize:11,color:"#7dd3fc",textDecoration:"none"}}>📺</a> <span onClick={()=>setPInfo(pInfo===e.name?null:e.name)} style={{fontSize:11,color:"#a5b4fc",cursor:"pointer"}}>ⓘ</span></div>
-            <div className="muted" style={{fontSize:12,marginTop:2}}>Plan: {e.sets}×{e.reps} @ {e.weight||"—"}kg</div></div>
-          <button className={"btn "+(a.done?"":"ghost")+" sm"} onClick={()=>toggleDone(e.name)}>{a.done?"✅ Done":"⬜ Mark done"}</button>
+    {planned.map((e:any,ei:number)=>{ const a=act[e.name]||{sets:[{w:"",r:""}]}; const sets=a.sets||[{w:"",r:""}];
+      const doneSets=(a.sets||[]).filter((s:any)=>s.w||s.r); const top=doneSets.length?Math.max(0,...doneSets.map((s:any)=>+s.w||0)):0;
+      if(a.saved){ return (
+        <div className="card" key={ei} style={{marginBottom:10,borderColor:"rgba(16,185,129,.45)"}}>
+          <div className="between" style={{flexWrap:"wrap",gap:8}}>
+            <div><span style={{fontSize:14,fontWeight:650}}>✅ {exEmoji(e.name)} {e.name}</span>
+              <div className="muted" style={{fontSize:12,marginTop:2}}>{doneSets.length} set{doneSets.length===1?"":"s"} · {doneSets.map((s:any)=>`${s.w||0}×${s.r||0}`).join(", ")} · best {top}kg</div></div>
+            <div className="row" style={{gap:8}}>
+              <button className="btn ghost sm" onClick={()=>editExercise(e.name)}>✎ Edit</button>
+              <button className="btn ghost sm" onClick={()=>deleteExercise(e.name)}>🗑</button>
+            </div>
+          </div>
         </div>
-        {pInfo===e.name && <div className="muted" style={{fontSize:12,lineHeight:1.6,marginTop:8}}>{HOWTO[e.name]||"Controlled form, full range of motion."}</div>}
+      ); }
+      return (
+      <div className="card" key={ei} style={{marginBottom:12}}>
+        <div className="between" style={{flexWrap:"wrap",gap:8}}>
+          <div><div style={{fontSize:15,fontWeight:650}}>{exEmoji(e.name)} {e.name} <a href={demoLink(e.name)} target="_blank" rel="noopener" style={{fontSize:11,color:"#7dd3fc",textDecoration:"none"}}>📺 Demo</a> <span onClick={()=>setPInfo(pInfo===e.name?null:e.name)} style={{fontSize:11,color:"#a5b4fc",cursor:"pointer"}}>ⓘ How to</span></div>
+            <div className="muted" style={{fontSize:12,marginTop:2}}>Plan: {e.sets}×{e.reps} @ {e.weight||"—"}kg</div></div>
+        </div>
+        {pInfo===e.name && <div className="muted" style={{fontSize:12,lineHeight:1.6,marginTop:8}}>{HOWTO[e.name]||"Controlled form, full range of motion — tap Demo to watch it."}</div>}
         <table style={{width:"100%",borderCollapse:"collapse",marginTop:10}}>
           <thead><tr>{["Set","Weight (kg)","Reps",""].map(h=><th key={h} style={{textAlign:"left",fontSize:10,textTransform:"uppercase",color:"#5b6577",padding:"5px"}}>{h}</th>)}</tr></thead>
           <tbody>{sets.map((s:any,i:number)=><tr key={i}>
@@ -1381,7 +1397,10 @@ function PlanWorkout({ refresh }: { refresh:()=>void }) {
             <td style={{padding:"5px"}}>{sets.length>1 && <span className="btn ghost sm" style={{cursor:"pointer"}} onClick={()=>delRow(e.name,i)}>✕</span>}</td>
           </tr>)}</tbody>
         </table>
-        <button className="btn ghost sm" style={{marginTop:8}} onClick={()=>addRow(e.name)}>+ Add set</button>
+        <div className="row" style={{gap:8,marginTop:8,flexWrap:"wrap"}}>
+          <button className="btn ghost sm" onClick={()=>addRow(e.name)}>+ Add set</button>
+          <button className="btn sm" onClick={()=>saveExercise(e.name)} style={{background:"linear-gradient(100deg,var(--emerald),var(--blue))"}}>✅ Save exercise</button>
+        </div>
       </div>
     ); })}
     <div className="card"><button className="btn" onClick={submit} disabled={busy} style={{background:"linear-gradient(100deg,var(--emerald),var(--blue))"}}>{busy?"🤖 Analysing…":"✅ Submit workout & get AI analysis + next plan"}</button>
