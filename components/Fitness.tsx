@@ -1274,6 +1274,8 @@ function PlanWorkout({ refresh }: { refresh:()=>void }) {
   const [proposal,setProposal]=useState<any>(null);
   const [nextDate,setNextDate]=useState(addDays(t,4));
   const [pPrompt,setPPrompt]=useState(""); const [pBusy,setPBusy]=useState(false); const [edited,setEdited]=useState(false); const [pInfo,setPInfo]=useState<string|null>(null);
+  const [histOpen,setHistOpen]=useState<string|null>(null);
+  const delHistory=(id:string)=>{ if(!confirm("Delete this saved workout?")) return; SS("pos_workouts", LS("pos_workouts",[]).filter((w:any)=>w.id!==id)); refresh(); setTick(x=>x+1); };
   const daySessions=(LS(pKey(t),{}).exSessions||[]) as any[];
   const session=split? daySessions.find((s:any)=>s.type===split): null;
   const hasSplit=(sp:string)=> daySessions.some((s:any)=>s.type===sp);
@@ -1354,6 +1356,26 @@ function PlanWorkout({ refresh }: { refresh:()=>void }) {
           <button className="btn ghost sm" onClick={moveForward}>➡ Move forward…</button>
         </div>
       </div></div>
+      {(()=>{ const hist=LS("pos_workouts",[]).slice(0,60); return <div className="card" style={{marginTop:16}}>
+        <strong>📚 Workout history</strong>
+        <div className="muted" style={{fontSize:12,marginTop:2,marginBottom:8}}>Your past sessions — tap one to see every exercise, set &amp; weight.</div>
+        {hist.length? <ul className="list">{hist.map((w:any)=>{ const open=histOpen===w.id; const plannedMap:any={}; (w.planned||[]).forEach((pl:any)=>plannedMap[pl.name]=pl);
+          return <li key={w.id} style={{padding:"8px 0",borderTop:"1px solid rgba(255,255,255,.06)"}}>
+            <div className="between" style={{cursor:"pointer",gap:8}} onClick={()=>setHistOpen(open?null:w.id)}>
+              <span style={{fontSize:13}}><b>{open?"▾":"▸"} {w.date}</b> · {w.type}</span>
+              <span className="muted" style={{fontSize:12}}>{w.volume||0}kg{w.completion!=null?` · ${w.completion}%`:""}{w.calories?` · ${w.calories}kcal`:""}</span>
+            </div>
+            {open && <div style={{marginTop:8,paddingLeft:6}}>
+              {(w.exercises||[]).length? (w.exercises||[]).map((e:any,i:number)=>{ const sets=(e.sets||[]).map((s:any)=>`${s.w||0}×${s.r||0}`).join(", ")||"—"; const pl=plannedMap[e.name]; return (
+                <div key={i} style={{padding:"5px 0",fontSize:13}}>
+                  <b>{exEmoji(e.name)} {e.name}</b> <a href={demoLink(e.name)} target="_blank" rel="noopener" style={{fontSize:11,color:"#7dd3fc",textDecoration:"none"}}>📺</a>
+                  <div className="muted" style={{fontSize:12}}>Did: {sets}{e.topWeight?` · best ${e.topWeight}kg`:""}{pl?` · plan ${pl.sets}×${pl.reps}@${pl.weight||"—"}kg`:""}{e.missedSets?` · ⚠ ${e.missedSets} set(s) missed`:""}</div>
+                </div>
+              ); }) : <div className="muted" style={{fontSize:12}}>{w.notes||"No per-exercise detail saved."}</div>}
+              <button className="btn ghost sm" style={{marginTop:6}} onClick={()=>delHistory(w.id)}>🗑 Delete</button>
+            </div>}
+          </li>; })}</ul> : <div className="muted" style={{fontSize:13}}>No workouts logged yet. Complete one from the split buttons above and it&apos;ll appear here.</div>}
+      </div>; })()}
     </>;
   }
   if(!session){
