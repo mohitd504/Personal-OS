@@ -78,7 +78,7 @@ export default function Dashboard({ onSignOut, name }: { onSignOut: ()=>void; na
               <button className="btn ghost sm" onClick={()=>setSelDate(today())}>Today</button>
             </>}
             <span className="in" style={{ padding:"6px 12px" }}>{clock}</span>
-            <span style={{ fontSize:10, color:"var(--mut2)" }} title="build marker — bump this to verify a deploy went live">build&nbsp;73</span>
+            <span style={{ fontSize:10, color:"var(--mut2)" }} title="build marker — bump this to verify a deploy went live">build&nbsp;74</span>
           </div>
         </div>
         <div className="content"><Boundary key={view}>
@@ -373,10 +373,31 @@ function Study({ refresh, tick, date }: any) {
       <PieCard title="Study split (today)" data={[{name:"AI",value:s.ai||0},{name:"DevOps",value:s.devops||0},{name:"System",value:s.system||0}]}/>
       <BarCard title="Study — last 7 days (hrs)" color="#A855F7" data={last7().map(x=>({name:x.name,value:Math.round(studyTotal(x.ds)/60*10)/10}))}/>
     </div>
+    {(()=>{ const pr=studyProgress(); const rows=[pr.courses.agentic,pr.courses.sysdesign,pr.courses.dsa,pr.courses.other].filter((c:any)=>c.total>0);
+      return <div className="card" style={{marginTop:16}}>
+        <div className="between" style={{flexWrap:"wrap",gap:8}}><strong>📚 Study Plan Progress</strong><span className="muted" style={{fontSize:12}}>{pr.tasksDone}/{pr.tasksTotal} tasks done · from your Goals plan</span></div>
+        {rows.length? rows.map((c:any)=>{ const pct=c.total?Math.round(c.done/c.total*100):0; return <div key={c.label} style={{marginTop:12}}>
+          <div className="between" style={{fontSize:13,marginBottom:4}}><span>{c.label}</span><b>{c.done}/{c.total} days · {pct}%</b></div>
+          <Bar v={c.done} goal={c.total} color="var(--purple)"/>
+        </div>; }) : <div className="muted" style={{fontSize:13,marginTop:8}}>No study plan yet — add subjects or courses in Goals, tick tasks done, and progress shows here.</div>}
+        {pr.recent.length>0 && <div style={{marginTop:16}}><div className="muted" style={{fontSize:11,textTransform:"uppercase",letterSpacing:.5,marginBottom:6}}>Recently completed</div>
+          <ul className="list">{pr.recent.map((r:any,i:number)=><li className="li" key={i}><span className="dot" style={{background:"var(--emerald)"}}/><div style={{flex:1}} className="between"><span style={{fontSize:13}}>✅ {r.label}</span><span className="muted" style={{fontSize:11}}>{r.date}</span></div></li>)}</ul>
+        </div>}
+      </div>; })()}
     <Curriculum />
   </>;
 }
 function weekStudy(){let t=0;const d=new Date();for(let i=0;i<7;i++){const ds=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;t+=studyTotal(ds);d.setDate(d.getDate()-1);}return t;}
+function studyProgress(){
+  const courses:any={agentic:{label:"🤖 Agentic AI",done:0,total:0},sysdesign:{label:"🗄️ System Design",done:0,total:0},dsa:{label:"🧩 DSA (Abdul Bari)",done:0,total:0},other:{label:"📚 Other subjects",done:0,total:0}};
+  let tasksDone=0, tasksTotal=0; const recent:any[]=[]; const base=new Date();
+  for(let i=-200;i<=260;i++){ const d=new Date(base); d.setDate(d.getDate()+i); const ds=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+    const pl:any=LS("pos_plan_"+ds,null); if(!pl||!Array.isArray(pl.studyList)) continue;
+    pl.studyList.forEach((s:any)=>{ const cid=courses[s.courseId]?s.courseId:"other"; courses[cid].total++; const tasks=s.plan||[]; tasksTotal+=tasks.length; const dn=tasks.filter((t:any)=>t.done).length; tasksDone+=dn; const complete=tasks.length>0 && dn===tasks.length; if(complete){ courses[cid].done++; recent.push({date:ds,label:s.label}); } });
+  }
+  recent.sort((a,b)=> a.date<b.date?1:-1);
+  return { courses, tasksDone, tasksTotal, recent:recent.slice(0,12) };
+}
 function seedCurr(){const mk=(a:string[])=>a.map((topic,i)=>({topic,date:"",status:"todo"}));return{
   ai:mk(["Python & math foundations","ML fundamentals","Deep Learning (NN/CNN/RNN)","NLP & Transformers","LLMs & fine-tuning","RAG","Agents & tool use","MLOps & deployment","Capstone"]),
   devops:mk(["Linux & shell","Git & CI/CD","Docker","Kubernetes","Terraform/IaC","Observability","Cloud (AWS/GCP)","Security","Capstone"]),
