@@ -78,7 +78,7 @@ export default function Dashboard({ onSignOut, name }: { onSignOut: ()=>void; na
               <button className="btn ghost sm" onClick={()=>setSelDate(today())}>Today</button>
             </>}
             <span className="in" style={{ padding:"6px 12px" }}>{clock}</span>
-            <span style={{ fontSize:10, color:"var(--mut2)" }} title="build marker — bump this to verify a deploy went live">build&nbsp;78</span>
+            <span style={{ fontSize:10, color:"var(--mut2)" }} title="build marker — bump this to verify a deploy went live">build&nbsp;79</span>
           </div>
         </div>
         <div className="content"><Boundary key={view}>
@@ -774,6 +774,17 @@ function GoalPlanner({ sett }: any) {
   const copyCode=(code:string)=>{ try{ (navigator as any).clipboard.writeText(code); alert("Code copied ✓"); }catch(e){ alert("Copy failed — select & copy manually."); } };
   const downloadCode=(cf:any)=>{ try{ const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([cf.code],{type:"text/plain"})); a.download=cf.filename||"code.txt"; a.click(); }catch(e){} };
   const vscodeRepo=(url:string)=>{ const m=String(url||"").match(/github\.com\/([^\/]+)\/([^\/#?]+)/); return m?`https://vscode.dev/github/${m[1]}/${m[2]}`:""; };
+  const [exChat,setExChat]=useState(""); const [stChat,setStChat]=useState(""); const [chatBusy,setChatBusy]=useState("");
+  const applyExerciseChat=async()=>{ if(!exChat.trim())return; setChatBusy("ex"); snap("Exercise 10-day edit");
+    const days:any[]=[]; for(let i=0;i<10;i++){ const ds=addDaysD(today(),i); const c:any=LS(planKey(ds),{}); days.push({date:ds,sessions:(c.exSessions||[]).map((s:any)=>({type:s.type,time:s.time||"",exercises:(s.selected||[]).map((x:any)=>({name:x.name,sets:+x.sets||0,reps:+x.reps||0,weight:+x.weight||0}))}))}); }
+    try{ const r=await fetch("/api/plan-edit",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({kind:"exercise",days,prompt:exChat})}); const d=await r.json();
+      if(Array.isArray(d.days)){ d.days.forEach((dd:any)=>{ if(!dd.date)return; const c:any=LS(planKey(dd.date),{}); const exSessions=(dd.sessions||[]).map((s:any)=>({id:uid(),time:s.time||"",type:s.type||"Workout",done:false,steps:"",distance:"",duration:"",detail:"",selected:(s.exercises||[]).map((x:any)=>({name:x.name,sets:String(x.sets||3),reps:String(x.reps||10),weight:String(x.weight||""),note:""}))})); SS(planKey(dd.date),{...c,exSessions}); }); setExChat(""); setP(loadPlan(sel)); setT((x:number)=>x+1); refresh(); setSaved("✓ Exercise 10-day plan updated."); } else alert(d.error||"Failed"); }
+    catch(e){ alert("Failed — check your AI key."); } setChatBusy(""); };
+  const applyStudyChat=async()=>{ if(!stChat.trim())return; setChatBusy("st"); snap("Study 10-day edit");
+    const pool:any={}; const days:any[]=[]; for(let i=0;i<10;i++){ const ds=addDaysD(today(),i); const c:any=LS(planKey(ds),{}); (c.studyList||[]).forEach((s:any)=>{ if(!pool[s.label]) pool[s.label]=s; }); days.push({date:ds,subjects:(c.studyList||[]).map((s:any)=>({label:s.label,brief:s.brief||""}))}); }
+    try{ const r=await fetch("/api/plan-edit",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({kind:"study",days,prompt:stChat})}); const d=await r.json();
+      if(Array.isArray(d.days)){ d.days.forEach((dd:any)=>{ if(!dd.date)return; const c:any=LS(planKey(dd.date),{}); const studyList=(dd.subjects||[]).map((it:any)=>{ const ex=pool[it.label]; return ex? {...ex, brief: it.brief||ex.brief} : {id:uid(),label:it.label,brief:it.brief||"",plan:[],next:[]}; }); SS(planKey(dd.date),{...c,studyList}); }); setStChat(""); setP(loadPlan(sel)); setT((x:number)=>x+1); refresh(); setSaved("✓ Study 10-day plan updated."); } else alert(d.error||"Failed"); }
+    catch(e){ alert("Failed — check your AI key."); } setChatBusy(""); };
   const askClaude=(subj:any)=>{ const topic=(subj.label||"").replace(/^.*?:\s*/,""); const q=`I'm studying "${topic}"${subj.video?` (lectures: ${String(subj.video).replace(/^▶\s*/,"")})`:""}. ${askText.trim()||"Explain this topic in detail with theory, examples and common interview questions."}`; window.open("https://claude.ai/new?q="+encodeURIComponent(q),"_blank"); };
   const genNotes=async(subj:any)=>{ setNotesBusy(subj.id);
     try{ const topic=(subj.label||"").replace(/^.*?:\s*/,""); const r=await fetch("/api/notes",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({course:subj.label,topic,brief:subj.brief,videos:subj.video})}); const d=await r.json();
@@ -947,6 +958,13 @@ function GoalPlanner({ sett }: any) {
           </div>; })}
       </div>
       <div className="muted" style={{fontSize:11,marginTop:8}}>Tap a day to open and edit it. Empty days are rest / unplanned.</div>
+      <div style={{marginTop:10,padding:12,borderRadius:12,background:"rgba(59,130,246,.08)",border:"1px solid rgba(59,130,246,.25)"}}>
+        <div className="row" style={{gap:8}}><span>💬</span><strong style={{fontSize:13}}>Change the 10-day exercise plan with AI</strong></div>
+        <div className="row" style={{gap:8,marginTop:8,flexWrap:"wrap"}}>
+          <input className="in" value={exChat} onChange={e=>setExChat(e.target.value)} placeholder="e.g. swap day 3 and day 5, add a rest day after day 4, add cardio on empty days" style={{flex:1,minWidth:220}} onKeyDown={e=>{ if(e.key==="Enter") applyExerciseChat(); }}/>
+          <button className="btn sm" onClick={applyExerciseChat} disabled={chatBusy==="ex"}>{chatBusy==="ex"?"🤖…":"✨ Apply"}</button>
+        </div>
+      </div>
     </div>
 
     <PRow icon="🍎" tint="emerald" title="Meals — add items with times, AI counts each" action={actBtns(skipMeals,clearMeals)}>
@@ -1061,6 +1079,14 @@ function GoalPlanner({ sett }: any) {
           </div>; })}
       </div>
       <div className="muted" style={{fontSize:11,marginTop:8}}>Tap a day to open it. ✅ = all that day&apos;s tasks ticked.</div>
+      <div style={{marginTop:10,padding:12,borderRadius:12,background:"rgba(168,85,247,.08)",border:"1px solid rgba(168,85,247,.25)"}}>
+        <div className="row" style={{gap:8}}><span>💬</span><strong style={{fontSize:13}}>Change the 10-day study plan with AI</strong></div>
+        <div className="row" style={{gap:8,marginTop:8,flexWrap:"wrap"}}>
+          <input className="in" value={stChat} onChange={e=>setStChat(e.target.value)} placeholder="e.g. move DSA to mornings, swap day 2 and 4, add a revision day after day 5" style={{flex:1,minWidth:220}} onKeyDown={e=>{ if(e.key==="Enter") applyStudyChat(); }}/>
+          <button className="btn sm" onClick={applyStudyChat} disabled={chatBusy==="st"}>{chatBusy==="st"?"🤖…":"✨ Apply"}</button>
+        </div>
+        <div className="muted" style={{fontSize:11,marginTop:6}}>Course links, PDFs &amp; notes are kept when a subject isn&apos;t renamed.</div>
+      </div>
     </div>
 
     <PRow icon="📓" tint="orange" title="Daily Journal" action={clearBtn(clearJournal)}>
