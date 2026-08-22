@@ -78,7 +78,7 @@ export default function Dashboard({ onSignOut, name }: { onSignOut: ()=>void; na
               <button className="btn ghost sm" onClick={()=>setSelDate(today())}>Today</button>
             </>}
             <span className="in" style={{ padding:"6px 12px" }}>{clock}</span>
-            <span style={{ fontSize:10, color:"var(--mut2)" }} title="build marker — bump this to verify a deploy went live">build&nbsp;79</span>
+            <span style={{ fontSize:10, color:"var(--mut2)" }} title="build marker — bump this to verify a deploy went live">build&nbsp;80</span>
           </div>
         </div>
         <div className="content"><Boundary key={view}>
@@ -777,14 +777,18 @@ function GoalPlanner({ sett }: any) {
   const [exChat,setExChat]=useState(""); const [stChat,setStChat]=useState(""); const [chatBusy,setChatBusy]=useState("");
   const applyExerciseChat=async()=>{ if(!exChat.trim())return; setChatBusy("ex"); snap("Exercise 10-day edit");
     const days:any[]=[]; for(let i=0;i<10;i++){ const ds=addDaysD(today(),i); const c:any=LS(planKey(ds),{}); days.push({date:ds,sessions:(c.exSessions||[]).map((s:any)=>({type:s.type,time:s.time||"",exercises:(s.selected||[]).map((x:any)=>({name:x.name,sets:+x.sets||0,reps:+x.reps||0,weight:+x.weight||0}))}))}); }
-    try{ const r=await fetch("/api/plan-edit",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({kind:"exercise",days,prompt:exChat})}); const d=await r.json();
-      if(Array.isArray(d.days)){ d.days.forEach((dd:any)=>{ if(!dd.date)return; const c:any=LS(planKey(dd.date),{}); const exSessions=(dd.sessions||[]).map((s:any)=>({id:uid(),time:s.time||"",type:s.type||"Workout",done:false,steps:"",distance:"",duration:"",detail:"",selected:(s.exercises||[]).map((x:any)=>({name:x.name,sets:String(x.sets||3),reps:String(x.reps||10),weight:String(x.weight||""),note:""}))})); SS(planKey(dd.date),{...c,exSessions}); }); setExChat(""); setP(loadPlan(sel)); setT((x:number)=>x+1); refresh(); setSaved("✓ Exercise 10-day plan updated."); } else alert(d.error||"Failed"); }
-    catch(e){ alert("Failed — check your AI key."); } setChatBusy(""); };
+    try{ const r=await fetch("/api/plan-edit",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({kind:"exercise",days,prompt:exChat})});
+      if(!r.ok){ alert(r.status===404?"Update not live yet — deploy the latest build (this feature needs the new /api/plan-edit route).":`Server error ${r.status} — the AI edit may have timed out. Try a shorter prompt.`); setChatBusy(""); return; }
+      const d=await r.json();
+      if(Array.isArray(d.days)){ d.days.forEach((dd:any)=>{ if(!dd.date)return; const c:any=LS(planKey(dd.date),{}); const exSessions=(dd.sessions||[]).map((s:any)=>({id:uid(),time:s.time||"",type:s.type||"Workout",done:false,steps:"",distance:"",duration:"",detail:"",selected:(s.exercises||[]).map((x:any)=>({name:x.name,sets:String(x.sets||3),reps:String(x.reps||10),weight:String(x.weight||""),note:""}))})); SS(planKey(dd.date),{...c,exSessions}); }); setExChat(""); setP(loadPlan(sel)); setT((x:number)=>x+1); refresh(); setSaved("✓ Exercise 10-day plan updated."); } else alert(d.error||"Couldn't apply that change."); }
+    catch(e:any){ alert("Network error: "+(e?.message||"request failed")+". Check you're online and on the latest build."); } setChatBusy(""); };
   const applyStudyChat=async()=>{ if(!stChat.trim())return; setChatBusy("st"); snap("Study 10-day edit");
     const pool:any={}; const days:any[]=[]; for(let i=0;i<10;i++){ const ds=addDaysD(today(),i); const c:any=LS(planKey(ds),{}); (c.studyList||[]).forEach((s:any)=>{ if(!pool[s.label]) pool[s.label]=s; }); days.push({date:ds,subjects:(c.studyList||[]).map((s:any)=>({label:s.label,brief:s.brief||""}))}); }
-    try{ const r=await fetch("/api/plan-edit",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({kind:"study",days,prompt:stChat})}); const d=await r.json();
-      if(Array.isArray(d.days)){ d.days.forEach((dd:any)=>{ if(!dd.date)return; const c:any=LS(planKey(dd.date),{}); const studyList=(dd.subjects||[]).map((it:any)=>{ const ex=pool[it.label]; return ex? {...ex, brief: it.brief||ex.brief} : {id:uid(),label:it.label,brief:it.brief||"",plan:[],next:[]}; }); SS(planKey(dd.date),{...c,studyList}); }); setStChat(""); setP(loadPlan(sel)); setT((x:number)=>x+1); refresh(); setSaved("✓ Study 10-day plan updated."); } else alert(d.error||"Failed"); }
-    catch(e){ alert("Failed — check your AI key."); } setChatBusy(""); };
+    try{ const r=await fetch("/api/plan-edit",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({kind:"study",days,prompt:stChat})});
+      if(!r.ok){ alert(r.status===404?"Update not live yet — deploy the latest build (this feature needs the new /api/plan-edit route).":`Server error ${r.status} — the AI edit may have timed out. Try a shorter prompt.`); setChatBusy(""); return; }
+      const d=await r.json();
+      if(Array.isArray(d.days)){ d.days.forEach((dd:any)=>{ if(!dd.date)return; const c:any=LS(planKey(dd.date),{}); const studyList=(dd.subjects||[]).map((it:any)=>{ const ex=pool[it.label]; return ex? {...ex, brief: it.brief||ex.brief} : {id:uid(),label:it.label,brief:it.brief||"",plan:[],next:[]}; }); SS(planKey(dd.date),{...c,studyList}); }); setStChat(""); setP(loadPlan(sel)); setT((x:number)=>x+1); refresh(); setSaved("✓ Study 10-day plan updated."); } else alert(d.error||"Couldn't apply that change."); }
+    catch(e:any){ alert("Network error: "+(e?.message||"request failed")+". Check you're online and on the latest build."); } setChatBusy(""); };
   const askClaude=(subj:any)=>{ const topic=(subj.label||"").replace(/^.*?:\s*/,""); const q=`I'm studying "${topic}"${subj.video?` (lectures: ${String(subj.video).replace(/^▶\s*/,"")})`:""}. ${askText.trim()||"Explain this topic in detail with theory, examples and common interview questions."}`; window.open("https://claude.ai/new?q="+encodeURIComponent(q),"_blank"); };
   const genNotes=async(subj:any)=>{ setNotesBusy(subj.id);
     try{ const topic=(subj.label||"").replace(/^.*?:\s*/,""); const r=await fetch("/api/notes",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({course:subj.label,topic,brief:subj.brief,videos:subj.video})}); const d=await r.json();
