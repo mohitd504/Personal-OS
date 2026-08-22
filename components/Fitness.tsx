@@ -572,7 +572,7 @@ function StravaView({ refresh, appOnly }: { refresh: () => void; appOnly?: boole
 
 /* ---------- Fitbit via Google Health API (steps) ---------- */
 function GoogleHealthCard({ refresh }: { refresh: () => void }) {
-  const [msg, setMsg] = useState(""); const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState(""); const [busy, setBusy] = useState(false); const [syncDate, setSyncDate] = useState(today());
   useEffect(() => {
     const p = new URLSearchParams(window.location.search).get("ghealth");
     if (p === "connected") setMsg("✓ Google Health connected — click 'Sync steps'.");
@@ -580,14 +580,14 @@ function GoogleHealthCard({ refresh }: { refresh: () => void }) {
     else if (p === "error") setMsg("Google Health authorization failed — check the callback URL in that project's OAuth client.");
     else if (p === "signin") setMsg("Please sign in first.");
   }, []);
-  const doSync = async (debug:boolean) => { setBusy(true); setMsg("");
+  const doSync = async (debug:boolean, date?:string) => { setBusy(true); setMsg(""); const day = date || today();
     try {
-      const r = await fetch("/api/ghealth/steps" + (debug?"?debug=1":"")); const d = await r.json();
+      const r = await fetch("/api/ghealth/steps?date=" + day + (debug?"&debug=1":"")); const d = await r.json();
       if (d.ok) {
-        const h = LS("pos_health", {});
-        h.steps = d.steps; h.distance = d.distance; h.caloriesBurned = d.calories; h.azm = d.activeMin; h.floors = d.floors;
-        if (d.restingHR) h.restingHR = d.restingHR; if (d.avgHR) h.hrAvg = d.avgHR; if (d.maxHR) h.hrMax = d.maxHR; if (d.minHR) h.hrMin = d.minHR; if (d.sleepH) h.sleepH = d.sleepH;
-        SS("pos_health", h);
+        if (day === today()) { const h = LS("pos_health", {});
+          h.steps = d.steps; h.distance = d.distance; h.caloriesBurned = d.calories; h.azm = d.activeMin; h.floors = d.floors;
+          if (d.restingHR) h.restingHR = d.restingHR; if (d.avgHR) h.hrAvg = d.avgHR; if (d.maxHR) h.hrMax = d.maxHR; if (d.minHR) h.hrMin = d.minHR; if (d.sleepH) h.sleepH = d.sleepH;
+          SS("pos_health", h); }
         const hist = LS("pos_ghealth", []); const i = hist.findIndex((x:any)=>x.date===d.date);
         const rec = { date: d.date, steps:d.steps, distance:d.distance, cal:d.calories, activeMin:d.activeMin, floors:d.floors, restingHR:d.restingHR, avgHR:d.avgHR, maxHR:d.maxHR, minHR:d.minHR, sleepH:d.sleepH };
         if (i>=0) hist[i]=rec; else hist.push(rec); hist.sort((a:any,b:any)=>a.date<b.date?1:-1); SS("pos_ghealth", hist);
@@ -643,7 +643,13 @@ function GoogleHealthCard({ refresh }: { refresh: () => void }) {
         <button className="btn sm" onClick={sync} disabled={busy}>{busy ? "Syncing…" : "Sync from watch"}</button>
       </div>
     </div>
-    <div className="muted" style={{ fontSize: 12, marginTop: 8, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{msg || "Connect once (separate from your Gmail login), then Sync to pull today's watch data. Fitbit must be linked to that Google account."}</div>
+    <div className="row" style={{ gap: 8, marginTop: 10, flexWrap: "wrap", alignItems: "center" }}>
+      <span className="muted" style={{ fontSize: 12 }}>Sync a past day:</span>
+      <input className="in" type="date" value={syncDate} max={today()} min={addDays(today(),-15)} onChange={e=>setSyncDate(e.target.value)} style={{ width: 150 }}/>
+      <button className="btn ghost sm" onClick={()=>doSync(false,syncDate)} disabled={busy}>⤓ Sync {syncDate===today()?"today":syncDate}</button>
+      <button className="btn ghost sm" onClick={()=>doSync(false,addDays(today(),-1))} disabled={busy}>Sync yesterday</button>
+    </div>
+    <div className="muted" style={{ fontSize: 12, marginTop: 8, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{msg || "Connect once, then Sync. Use 'Sync from watch' for today, or pick a past day (up to 15 days back) to backfill. Fitbit must be linked to that Google account."}</div>
     <div style={{ marginTop: 6 }}><span className="muted" style={{ fontSize: 10, cursor: "pointer", textDecoration: "underline" }} onClick={()=>doSync(true)}>Debug (show raw watch data)</span></div>
   </div>;
 }

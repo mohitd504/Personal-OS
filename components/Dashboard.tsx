@@ -78,7 +78,7 @@ export default function Dashboard({ onSignOut, name }: { onSignOut: ()=>void; na
               <button className="btn ghost sm" onClick={()=>setSelDate(today())}>Today</button>
             </>}
             <span className="in" style={{ padding:"6px 12px" }}>{clock}</span>
-            <span style={{ fontSize:10, color:"var(--mut2)" }} title="build marker — bump this to verify a deploy went live">build&nbsp;74</span>
+            <span style={{ fontSize:10, color:"var(--mut2)" }} title="build marker — bump this to verify a deploy went live">build&nbsp;75</span>
           </div>
         </div>
         <div className="content"><Boundary key={view}>
@@ -764,6 +764,7 @@ function GoalPlanner({ sett }: any) {
   const restoreCourses=()=>{ if(confirm("Restore all 3 study courses (Agentic AI, System Design, DSA) starting today? This re-adds any deleted course days. Your own subjects, workouts, meals & journals stay; progress ticks on course days reset.")){ seedAllCourses(); setP(loadPlan(sel)); setT((x:number)=>x+1); refresh(); setSaved("✓ Course study plans restored from today."); } };
   const [exTab,setExTab]=useState(""); const [studyTab,setStudyTab]=useState("");
   const [mealDraft,setMealDraft]=useState<any>({breakfast:{time:"",food:""},lunch:{time:"",food:""},dinner:{time:"",food:""}});
+  const [mealPrev,setMealPrev]=useState<any>({}); const [mealMod,setMealMod]=useState<any>({});
   const [studyDraft,setStudyDraft]=useState<any>({label:"",hours:""});
   const [exPrompt,setExPrompt]=useState(""); const [exEditBusy,setExEditBusy]=useState(false); const [planInfo,setPlanInfo]=useState<string|null>(null); const [notesBusy,setNotesBusy]=useState(""); const [askText,setAskText]=useState("");
   const askClaude=(subj:any)=>{ const topic=(subj.label||"").replace(/^.*?:\s*/,""); const q=`I'm studying "${topic}"${subj.video?` (lectures: ${String(subj.video).replace(/^▶\s*/,"")})`:""}. ${askText.trim()||"Explain this topic in detail with theory, examples and common interview questions."}`; window.open("https://claude.ai/new?q="+encodeURIComponent(q),"_blank"); };
@@ -841,6 +842,11 @@ function GoalPlanner({ sett }: any) {
     else { m.meals=m.meals.filter((x:any)=>x.planId!==planId); }
     SS(nutKey(sel),m); };
   const delMealItem=(group:string,idx:number)=>{ const it=(p.meals[group]||[])[idx]; if(it&&it.done) syncMealToNutrition(it,false); save({meals:{...p.meals,[group]:(p.meals[group]||[]).filter((_:any,i:number)=>i!==idx)}}); };
+  const analyzeMeal=async(group:string)=>{ const g=mealDraft[group]||{}; if(!(g.food||"").trim())return; setMealBusy(group);
+    try{ const r=await fetch("/api/plan-nutrition",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({menu:g.food})}); const d=await r.json(); setMealPrev((s:any)=>({...s,[group]:{text:g.food,time:g.time||"",total:d.total||{},items:d.items||[]}})); }catch(e){} setMealBusy(""); };
+  const modifyMeal=async(group:string)=>{ const prev=mealPrev[group]; const chg=(mealMod[group]||"").trim(); if(!prev||!chg)return; setMealBusy(group);
+    try{ const r=await fetch("/api/plan-nutrition",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({menu:`${prev.text}. Adjustment: ${chg}`})}); const d=await r.json(); setMealPrev((s:any)=>({...s,[group]:{...prev,text:`${prev.text} (${chg})`,total:d.total||{},items:d.items||[]}})); setMealMod((s:any)=>({...s,[group]:""})); }catch(e){} setMealBusy(""); };
+  const confirmMeal=(group:string)=>{ const prev=mealPrev[group]; if(!prev)return; const tt=prev.total||{}; const entry={id:uid(),time:prev.time||"",name:prev.text,cal:Math.round(tt.cal||0),protein:Math.round(tt.protein||0),carbs:Math.round(tt.carbs||0),fat:Math.round(tt.fat||0),fiber:Math.round(tt.fiber||0)}; save({meals:{...p.meals,[group]:[...(p.meals[group]||[]),entry]}}); setMealPrev((s:any)=>({...s,[group]:null})); setMealDraft((s:any)=>({...s,[group]:{time:"",food:""}})); };
   const toggleMealDone=(group:string,idx:number)=>{ const it=(p.meals[group]||[])[idx]; const nowDone=!it.done; syncMealToNutrition(it,nowDone); save({meals:{...p.meals,[group]:(p.meals[group]||[]).map((x:any,i:number)=>i===idx?{...x,done:nowDone}:x)}}); };
   const toggleStudyTask=(id:string,idx:number)=> save({studyList:(p.studyList||[]).map((s:any)=>s.id===id?{...s,plan:(s.plan||[]).map((r:any,i:number)=>i===idx?{...r,done:!r.done}:r)}:s)});
   const groupTot=(group:string)=>{ const t={cal:0,protein:0,carbs:0,fat:0,fiber:0}; (p.meals[group]||[]).forEach((it:any)=>{t.cal+=+it.cal||0;t.protein+=+it.protein||0;t.carbs+=+it.carbs||0;t.fat+=+it.fat||0;t.fiber+=+it.fiber||0;}); return t; };
@@ -928,9 +934,28 @@ function GoalPlanner({ sett }: any) {
           </div>)}
           <div className="row" style={{gap:8,marginTop:8,flexWrap:"wrap"}}>
             <input className="in" type="time" value={dr.time} onChange={e=>setMealDraft((s:any)=>({...s,[key]:{...dr,time:e.target.value}}))} style={{width:120}}/>
-            <input className="in" value={dr.food} onChange={e=>setMealDraft((s:any)=>({...s,[key]:{...dr,food:e.target.value}}))} placeholder={`Add a ${key} item — e.g. 3 eggs`} style={{flex:1,minWidth:160}} onKeyDown={e=>{ if(e.key==="Enter") addMealItem(key); }}/>
-            <button className="btn sm" onClick={()=>addMealItem(key)} disabled={mealBusy===key}>{mealBusy===key?"🤖…":"✨ Add & count"}</button>
+            <input className="in" value={dr.food} onChange={e=>setMealDraft((s:any)=>({...s,[key]:{...dr,food:e.target.value}}))} placeholder={`Add a ${key} item — e.g. 3 eggs, 2 roti`} style={{flex:1,minWidth:160}} onKeyDown={e=>{ if(e.key==="Enter") analyzeMeal(key); }}/>
+            <button className="btn sm" onClick={()=>analyzeMeal(key)} disabled={mealBusy===key}>{mealBusy===key?"🤖…":"✨ Analyze"}</button>
           </div>
+          {mealPrev[key] && (()=>{ const pv=mealPrev[key]; const tt=pv.total||{}; return <div style={{marginTop:10,padding:12,borderRadius:12,background:"rgba(16,185,129,.08)",border:"1px solid rgba(16,185,129,.28)"}}>
+            <div className="between" style={{flexWrap:"wrap",gap:8}}><strong style={{fontSize:13}}>Nutrition of “{pv.text}”</strong><span className="muted" style={{fontSize:11}}>Correct? Modify below or add it.</span></div>
+            <div className="row" style={{flexWrap:"wrap",gap:6,marginTop:8}}>
+              <span className="in" style={{padding:"4px 9px",fontSize:12}}>🔥 {Math.round(tt.cal||0)} kcal</span>
+              <span className="in" style={{padding:"4px 9px",fontSize:12}}>Protein {Math.round(tt.protein||0)}g</span>
+              <span className="in" style={{padding:"4px 9px",fontSize:12}}>Carbs {Math.round(tt.carbs||0)}g</span>
+              <span className="in" style={{padding:"4px 9px",fontSize:12}}>Fat {Math.round(tt.fat||0)}g</span>
+              <span className="in" style={{padding:"4px 9px",fontSize:12}}>Fiber {Math.round(tt.fiber||0)}g</span>
+            </div>
+            {(pv.items||[]).length>1 && <div className="muted" style={{fontSize:11,marginTop:6}}>{pv.items.map((it:any)=>`${it.name}${it.qty?` (${it.qty})`:""} ${Math.round(it.cal||0)}kcal`).join(" · ")}</div>}
+            <div className="row" style={{gap:8,marginTop:10,flexWrap:"wrap"}}>
+              <input className="in" value={mealMod[key]||""} onChange={e=>setMealMod((s:any)=>({...s,[key]:e.target.value}))} placeholder="Modify — e.g. make it 2 eggs, add 1 tsp butter" style={{flex:1,minWidth:180}} onKeyDown={e=>{ if(e.key==="Enter") modifyMeal(key); }}/>
+              <button className="btn ghost sm" onClick={()=>modifyMeal(key)} disabled={mealBusy===key}>{mealBusy===key?"🤖…":"✨ Modify"}</button>
+            </div>
+            <div className="row" style={{gap:8,marginTop:10}}>
+              <button className="btn sm" onClick={()=>confirmMeal(key)}>✅ Add to {key}</button>
+              <button className="btn ghost sm" onClick={()=>setMealPrev((s:any)=>({...s,[key]:null}))}>Cancel</button>
+            </div>
+          </div>; })()}
         </div>; })}
       {dayTotal.cal? <div style={{marginTop:4,padding:"10px 12px",borderRadius:12,background:"rgba(16,185,129,.10)",border:"1px solid rgba(16,185,129,.25)"}}>
         <div className="row" style={{flexWrap:"wrap",gap:10}}><strong style={{fontSize:13}}>Day total</strong>
