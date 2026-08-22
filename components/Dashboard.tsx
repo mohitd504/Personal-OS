@@ -78,7 +78,7 @@ export default function Dashboard({ onSignOut, name }: { onSignOut: ()=>void; na
               <button className="btn ghost sm" onClick={()=>setSelDate(today())}>Today</button>
             </>}
             <span className="in" style={{ padding:"6px 12px" }}>{clock}</span>
-            <span style={{ fontSize:10, color:"var(--mut2)" }} title="build marker — bump this to verify a deploy went live">build&nbsp;77</span>
+            <span style={{ fontSize:10, color:"var(--mut2)" }} title="build marker — bump this to verify a deploy went live">build&nbsp;78</span>
           </div>
         </div>
         <div className="content"><Boundary key={view}>
@@ -1049,6 +1049,19 @@ function GoalPlanner({ sett }: any) {
         {(curSubj.next||[]).length>0 && <div style={{marginTop:10}}><div className="muted" style={{fontSize:11,textTransform:"uppercase",letterSpacing:.5,marginBottom:6}}>Up next</div><ul className="list">{curSubj.next.map((x:string,i:number)=><li className="li" key={i}><span className="dot" style={{background:"var(--mut2)"}}/><span style={{fontSize:13}} className="muted">{x}</span></li>)}</ul></div>}
       </div> : <div className="muted" style={{fontSize:12,marginTop:10}}>Add subjects like “2 hour data structures” and “DevOps” — each gets its own tab with a timed plan.</div>}
     </PRow>
+
+    <div className="card" style={{marginBottom:14}}>
+      <div className="row" style={{gap:10,marginBottom:8}}><Chip tint="purple">📅</Chip><strong style={{fontSize:15}}>Next 10 days — study outlook</strong></div>
+      <div className="grid g2">
+        {Array.from({length:10}).map((_,i)=>{ const ds=addDaysD(today(),i); const c:any=LS(planKey(ds),{}); const subs=(Array.isArray(c.studyList)?c.studyList:[]); const [yy,mm,dd2]=ds.split("-").map(Number); const dObj=new Date(yy,mm-1,dd2); const isToday=ds===today();
+          const doneCount=subs.filter((s:any)=>(s.plan||[]).length && (s.plan||[]).every((t:any)=>t.done)).length;
+          return <div key={ds} onClick={()=>setSel(ds)} style={{cursor:"pointer",padding:"10px 12px",borderRadius:12,border:"1px solid "+(ds===sel?"var(--stroke2)":"var(--stroke)"),background:ds===sel?"rgba(168,85,247,.12)":subs.length?"rgba(255,255,255,.03)":"transparent"}}>
+            <div className="between"><b style={{fontSize:13}}>{dObj.toLocaleDateString(undefined,{weekday:"short",day:"numeric",month:"short"})}{isToday?" · Today":""}</b><span className="muted" style={{fontSize:11}}>{subs.length?`${doneCount}/${subs.length} done`:"None"}</span></div>
+            {subs.length? subs.map((s:any,si:number)=>{ const complete=(s.plan||[]).length && (s.plan||[]).every((t:any)=>t.done); return <div key={si} className="muted" style={{fontSize:12,marginTop:3,textDecoration:complete?"line-through":"none"}}>{complete?"✅ ":"• "}{s.label}</div>; }) : <div className="muted" style={{fontSize:12,marginTop:3}}>No study planned</div>}
+          </div>; })}
+      </div>
+      <div className="muted" style={{fontSize:11,marginTop:8}}>Tap a day to open it. ✅ = all that day&apos;s tasks ticked.</div>
+    </div>
 
     <PRow icon="📓" tint="orange" title="Daily Journal" action={clearBtn(clearJournal)}>
       <div className="between" style={{flexWrap:"wrap",gap:8,marginBottom:10,paddingBottom:10,borderBottom:"1px solid rgba(255,255,255,.08)"}}>
