@@ -78,7 +78,7 @@ export default function Dashboard({ onSignOut, name }: { onSignOut: ()=>void; na
               <button className="btn ghost sm" onClick={()=>setSelDate(today())}>Today</button>
             </>}
             <span className="in" style={{ padding:"6px 12px" }}>{clock}</span>
-            <span style={{ fontSize:10, color:"var(--mut2)" }} title="build marker — bump this to verify a deploy went live">build&nbsp;81</span>
+            <span style={{ fontSize:10, color:"var(--mut2)" }} title="build marker — bump this to verify a deploy went live">build&nbsp;82</span>
           </div>
         </div>
         <div className="content"><Boundary key={view}>
@@ -776,6 +776,15 @@ function GoalPlanner({ sett }: any) {
   const downloadCode=(cf:any)=>{ try{ const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([cf.code],{type:"text/plain"})); a.download=cf.filename||"code.txt"; a.click(); }catch(e){} };
   const vscodeRepo=(url:string)=>{ const m=String(url||"").match(/github\.com\/([^\/]+)\/([^\/#?]+)/); return m?`https://vscode.dev/github/${m[1]}/${m[2]}`:""; };
   const [exChat,setExChat]=useState(""); const [stChat,setStChat]=useState(""); const [chatBusy,setChatBusy]=useState("");
+  const [opMode,setOpMode]=useState("swap"); const [dayA,setDayA]=useState(today()); const [dayB,setDayB]=useState(""); const [opPrompt,setOpPrompt]=useState("");
+  const buildExDay=(ds:string)=>{ const c:any=LS(planKey(ds),{}); return {date:ds,sessions:(c.exSessions||[]).map((s:any)=>({type:s.type,time:s.time||"",exercises:(s.selected||[]).map((x:any)=>({name:x.name,sets:+x.sets||0,reps:+x.reps||0,weight:+x.weight||0}))}))}; };
+  const applyExDays=(resDays:any[],okMsg:string)=>{ resDays.forEach((dd:any)=>{ if(!dd.date)return; const c:any=LS(planKey(dd.date),{}); const exSessions=(dd.sessions||[]).map((s:any)=>({id:uid(),time:s.time||"",type:s.type||"Workout",done:false,steps:"",distance:"",duration:"",detail:"",selected:(s.exercises||[]).map((x:any)=>({name:x.name,sets:String(x.sets||3),reps:String(x.reps||10),weight:String(x.weight||""),note:""}))})); SS(planKey(dd.date),{...c,exSessions}); }); setP(loadPlan(sel)); setT((x:number)=>x+1); refresh(); setSaved(okMsg); };
+  const runExEdit=async(daysList:any[],prompt:string,okMsg:string)=>{ setChatBusy("ex"); snap("Exercise edit");
+    try{ const r=await fetch("/api/plan-edit",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({kind:"exercise",days:daysList,prompt})}); if(!r.ok){ alert(r.status===404?"Deploy the latest build first (needs /api/plan-edit).":`Server error ${r.status} — try a shorter prompt.`); setChatBusy(""); return; } const d=await r.json(); if(Array.isArray(d.days)) applyExDays(d.days,okMsg); else alert(d.error||"Couldn't apply that change."); }
+    catch(e:any){ alert("Network error: "+(e?.message||"request failed")); } setChatBusy(""); };
+  const swapDays=()=>{ if(!dayB||dayA===dayB){ alert("Pick two different days to swap."); return; } snap("Swapped days"); const ca:any=LS(planKey(dayA),{}); const cb:any=LS(planKey(dayB),{}); const ea=Array.isArray(ca.exSessions)?ca.exSessions:[]; const eb=Array.isArray(cb.exSessions)?cb.exSessions:[]; SS(planKey(dayA),{...ca,exSessions:eb}); SS(planKey(dayB),{...cb,exSessions:ea}); setP(loadPlan(sel)); setT((x:number)=>x+1); refresh(); setSaved("✓ Swapped "+dayA+" ↔ "+dayB); };
+  const modifyDayEx=()=>{ if(!opPrompt.trim()){ alert("Type what to change."); return; } runExEdit([buildExDay(dayA)],opPrompt,"✓ "+dayA+" workout modified."); setOpPrompt(""); };
+  const addDayEx=()=>{ if(!opPrompt.trim()){ alert("Describe the workout to add."); return; } runExEdit([buildExDay(dayA)],"Add a NEW workout session to this day, keeping any existing sessions: "+opPrompt,"✓ Session added to "+dayA); setOpPrompt(""); };
   const applyExerciseChat=async()=>{ if(!exChat.trim())return; setChatBusy("ex"); snap("Exercise 10-day edit");
     const days:any[]=[]; for(let i=0;i<10;i++){ const ds=addDaysD(today(),i); const c:any=LS(planKey(ds),{}); days.push({date:ds,sessions:(c.exSessions||[]).map((s:any)=>({type:s.type,time:s.time||"",exercises:(s.selected||[]).map((x:any)=>({name:x.name,sets:+x.sets||0,reps:+x.reps||0,weight:+x.weight||0}))}))}); }
     try{ const r=await fetch("/api/plan-edit",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({kind:"exercise",days,prompt:exChat})});
@@ -963,13 +972,26 @@ function GoalPlanner({ sett }: any) {
           </div>; })}
       </div>
       <div className="muted" style={{fontSize:11,marginTop:8}}>Tap a day to open and edit it. Empty days are rest / unplanned.</div>
-      <div style={{marginTop:10,padding:12,borderRadius:12,background:"rgba(59,130,246,.08)",border:"1px solid rgba(59,130,246,.25)"}}>
-        <div className="row" style={{gap:8}}><span>💬</span><strong style={{fontSize:13}}>Change the 10-day exercise plan with AI</strong></div>
-        <div className="row" style={{gap:8,marginTop:8,flexWrap:"wrap"}}>
-          <input className="in" value={exChat} onChange={e=>setExChat(e.target.value)} placeholder="e.g. swap day 3 and day 5, add a rest day after day 4, add cardio on empty days" style={{flex:1,minWidth:220}} onKeyDown={e=>{ if(e.key==="Enter") applyExerciseChat(); }}/>
-          <button className="btn sm" onClick={applyExerciseChat} disabled={chatBusy==="ex"}>{chatBusy==="ex"?"🤖…":"✨ Apply"}</button>
-        </div>
-      </div>
+      {(()=>{ const opts=Array.from({length:10}).map((_,i)=>{ const ds=addDaysD(today(),i); const [yy,mm,dd2]=ds.split("-").map(Number); const dObj=new Date(yy,mm-1,dd2); return {ds,label:dObj.toLocaleDateString(undefined,{weekday:"short",day:"numeric",month:"short"})+(ds===today()?" · Today":"")}; });
+        return <div style={{marginTop:10,padding:12,borderRadius:12,background:"rgba(59,130,246,.08)",border:"1px solid rgba(59,130,246,.25)"}}>
+          <div className="row" style={{gap:8,flexWrap:"wrap"}}>
+            {[["swap","🔀 Swap"],["modify","✎ Modify"],["add","➕ Add"]].map(([m,lbl])=><button key={m} className={"btn "+(opMode===m?"":"ghost")+" sm"} onClick={()=>setOpMode(m)}>{lbl}</button>)}
+          </div>
+          {opMode==="swap"? <div className="row" style={{gap:8,marginTop:10,flexWrap:"wrap",alignItems:"center"}}>
+            <select className="in" value={dayA} onChange={e=>setDayA(e.target.value)}>{opts.map(o=><option key={o.ds} value={o.ds} style={OPT}>{o.label}</option>)}</select>
+            <span style={{fontSize:18}}>↔</span>
+            <select className="in" value={dayB} onChange={e=>setDayB(e.target.value)}><option value="" style={OPT}>Pick day B…</option>{opts.map(o=><option key={o.ds} value={o.ds} style={OPT}>{o.label}</option>)}</select>
+            <button className="btn sm" onClick={swapDays}>🔀 Swap days</button>
+          </div> : <div style={{marginTop:10}}>
+            <div className="row" style={{gap:8,flexWrap:"wrap",alignItems:"center"}}><span className="muted" style={{fontSize:12}}>Day:</span>
+              <select className="in" value={dayA} onChange={e=>setDayA(e.target.value)}>{opts.map(o=><option key={o.ds} value={o.ds} style={OPT}>{o.label}</option>)}</select></div>
+            <div className="row" style={{gap:8,marginTop:8,flexWrap:"wrap"}}>
+              <input className="in" value={opPrompt} onChange={e=>setOpPrompt(e.target.value)} placeholder={opMode==="modify"?"Change… e.g. +5% weight, swap bench for dumbbell press":"Add… e.g. 30-min evening cardio, or a Push session"} style={{flex:1,minWidth:200}} onKeyDown={e=>{ if(e.key==="Enter"){ opMode==="modify"?modifyDayEx():addDayEx(); } }}/>
+              <button className="btn sm" onClick={opMode==="modify"?modifyDayEx:addDayEx} disabled={chatBusy==="ex"}>{chatBusy==="ex"?"🤖…":(opMode==="modify"?"✎ Modify":"➕ Add")}</button>
+            </div>
+          </div>}
+          <div style={{marginTop:10,paddingTop:8,borderTop:"1px solid rgba(255,255,255,.07)"}} className="row"><input className="in" value={exChat} onChange={e=>setExChat(e.target.value)} placeholder="…or describe any change across all 10 days" style={{flex:1,minWidth:180}} onKeyDown={e=>{ if(e.key==="Enter") applyExerciseChat(); }}/><button className="btn ghost sm" onClick={applyExerciseChat} disabled={chatBusy==="ex"}>{chatBusy==="ex"?"🤖…":"✨ Apply"}</button></div>
+        </div>; })()}
     </div>
 
     <PRow icon="🍎" tint="emerald" title="Meals — add items with times, AI counts each" action={actBtns(skipMeals,clearMeals)}>
