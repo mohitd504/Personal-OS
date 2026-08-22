@@ -78,7 +78,7 @@ export default function Dashboard({ onSignOut, name }: { onSignOut: ()=>void; na
               <button className="btn ghost sm" onClick={()=>setSelDate(today())}>Today</button>
             </>}
             <span className="in" style={{ padding:"6px 12px" }}>{clock}</span>
-            <span style={{ fontSize:10, color:"var(--mut2)" }} title="build marker — bump this to verify a deploy went live">build&nbsp;80</span>
+            <span style={{ fontSize:10, color:"var(--mut2)" }} title="build marker — bump this to verify a deploy went live">build&nbsp;81</span>
           </div>
         </div>
         <div className="content"><Boundary key={view}>
@@ -759,6 +759,7 @@ function GoalPlanner({ sett }: any) {
   const [,setT]=useState(0);
   const [fixBusy,setFixBusy]=useState(false); const [fixMsg,setFixMsg]=useState("");
   const [mealBusy,setMealBusy]=useState(""); const [studyBusy,setStudyBusy]=useState(false); const [saved,setSaved]=useState(""); const [undoSnap,setUndoSnap]=useState<any>(null);
+  const refresh=()=>setT((x:number)=>x+1);
   const snap=(label:string)=>{ setUndoSnap({date:sel,label,data:JSON.parse(JSON.stringify(LS(planKey(sel),{})))}); };
   const doUndo=()=>{ if(!undoSnap) return; SS(planKey(undoSnap.date),undoSnap.data); if(undoSnap.date===sel) setP(loadPlan(sel)); const lbl=undoSnap.label; setUndoSnap(null); setT((x:number)=>x+1); refresh(); setSaved("↩ Restored: "+lbl); };
   const restoreCourses=()=>{ if(confirm("Restore all 3 study courses (Agentic AI, System Design, DSA) starting today? This re-adds any deleted course days. Your own subjects, workouts, meals & journals stay; progress ticks on course days reset.")){ seedAllCourses(); setP(loadPlan(sel)); setT((x:number)=>x+1); refresh(); setSaved("✓ Course study plans restored from today."); } };
