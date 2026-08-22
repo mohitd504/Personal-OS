@@ -78,7 +78,7 @@ export default function Dashboard({ onSignOut, name }: { onSignOut: ()=>void; na
               <button className="btn ghost sm" onClick={()=>setSelDate(today())}>Today</button>
             </>}
             <span className="in" style={{ padding:"6px 12px" }}>{clock}</span>
-            <span style={{ fontSize:10, color:"var(--mut2)" }} title="build marker — bump this to verify a deploy went live">build&nbsp;76</span>
+            <span style={{ fontSize:10, color:"var(--mut2)" }} title="build marker — bump this to verify a deploy went live">build&nbsp;77</span>
           </div>
         </div>
         <div className="content"><Boundary key={view}>
@@ -936,6 +936,18 @@ function GoalPlanner({ sett }: any) {
         </div>}
       </div> : <div className="muted" style={{fontSize:12,marginTop:10}}>No sessions yet — tap “+ Add session”. Add one for your morning walk and another for the gym.</div>}
     </PRow>
+
+    <div className="card" style={{marginBottom:14}}>
+      <div className="row" style={{gap:10,marginBottom:8}}><Chip tint="blue">📅</Chip><strong style={{fontSize:15}}>Next 10 days — exercise outlook</strong></div>
+      <div className="grid g2">
+        {Array.from({length:10}).map((_,i)=>{ const ds=addDaysD(today(),i); const c:any=LS(planKey(ds),{}); const ses=(Array.isArray(c.exSessions)?c.exSessions:[]); const [yy,mm,dd2]=ds.split("-").map(Number); const dObj=new Date(yy,mm-1,dd2); const isToday=ds===today();
+          return <div key={ds} onClick={()=>setSel(ds)} style={{cursor:"pointer",padding:"10px 12px",borderRadius:12,border:"1px solid "+(ds===sel?"var(--stroke2)":"var(--stroke)"),background:ds===sel?"rgba(59,130,246,.12)":ses.length?"rgba(255,255,255,.03)":"transparent"}}>
+            <div className="between"><b style={{fontSize:13}}>{dObj.toLocaleDateString(undefined,{weekday:"short",day:"numeric",month:"short"})}{isToday?" · Today":""}</b><span className="muted" style={{fontSize:11}}>{ses.length?`${ses.length} session${ses.length>1?"s":""}`:"Rest / none"}</span></div>
+            {ses.length? ses.map((s:any,si:number)=><div key={si} className="muted" style={{fontSize:12,marginTop:3}}>{s.done?"✅ ":"• "}{s.time?s.time+" · ":""}<b style={{color:"#E7ECF3"}}>{s.type}</b>{Array.isArray(s.selected)&&s.selected.length?` — ${s.selected.length} exercise${s.selected.length>1?"s":""}`:s.steps?` — ${s.steps} steps`:s.distance?` — ${s.distance}km`:""}</div>) : <div className="muted" style={{fontSize:12,marginTop:3}}>No workout planned</div>}
+          </div>; })}
+      </div>
+      <div className="muted" style={{fontSize:11,marginTop:8}}>Tap a day to open and edit it. Empty days are rest / unplanned.</div>
+    </div>
 
     <PRow icon="🍎" tint="emerald" title="Meals — add items with times, AI counts each" action={actBtns(skipMeals,clearMeals)}>
       {["breakfast","lunch","dinner"].map((key)=>{ const items=p.meals[key]||[]; const gt=groupTot(key); const lbl=key.charAt(0).toUpperCase()+key.slice(1); const dr=mealDraft[key]||{time:"",food:""};
