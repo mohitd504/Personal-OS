@@ -78,7 +78,7 @@ export default function Dashboard({ onSignOut, name }: { onSignOut: ()=>void; na
               <button className="btn ghost sm" onClick={()=>setSelDate(today())}>Today</button>
             </>}
             <span className="in" style={{ padding:"6px 12px" }}>{clock}</span>
-            <span style={{ fontSize:10, color:"var(--mut2)" }} title="build marker — bump this to verify a deploy went live">build&nbsp;75</span>
+            <span style={{ fontSize:10, color:"var(--mut2)" }} title="build marker — bump this to verify a deploy went live">build&nbsp;76</span>
           </div>
         </div>
         <div className="content"><Boundary key={view}>
@@ -766,7 +766,14 @@ function GoalPlanner({ sett }: any) {
   const [mealDraft,setMealDraft]=useState<any>({breakfast:{time:"",food:""},lunch:{time:"",food:""},dinner:{time:"",food:""}});
   const [mealPrev,setMealPrev]=useState<any>({}); const [mealMod,setMealMod]=useState<any>({});
   const [studyDraft,setStudyDraft]=useState<any>({label:"",hours:""});
-  const [exPrompt,setExPrompt]=useState(""); const [exEditBusy,setExEditBusy]=useState(false); const [planInfo,setPlanInfo]=useState<string|null>(null); const [notesBusy,setNotesBusy]=useState(""); const [askText,setAskText]=useState("");
+  const [exPrompt,setExPrompt]=useState(""); const [exEditBusy,setExEditBusy]=useState(false); const [planInfo,setPlanInfo]=useState<string|null>(null); const [notesBusy,setNotesBusy]=useState(""); const [askText,setAskText]=useState(""); const [codeBusy,setCodeBusy]=useState("");
+  const genCode=async(subj:any)=>{ setCodeBusy(subj.id);
+    try{ const topic=(subj.label||"").replace(/^.*?:\s*/,""); const r=await fetch("/api/code",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({course:subj.label,topic,brief:subj.brief,videos:subj.video})}); const d=await r.json();
+      if(d.code){ save({studyList:(p.studyList||[]).map((s:any)=>s.id===subj.id?{...s,codeFile:{filename:d.filename||"code.txt",lang:d.lang||"",code:d.code}}:s)}); } else alert(d.error||"Failed to generate code."); }
+    catch(e){ alert("Failed — check your AI key."); } setCodeBusy(""); };
+  const copyCode=(code:string)=>{ try{ (navigator as any).clipboard.writeText(code); alert("Code copied ✓"); }catch(e){ alert("Copy failed — select & copy manually."); } };
+  const downloadCode=(cf:any)=>{ try{ const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([cf.code],{type:"text/plain"})); a.download=cf.filename||"code.txt"; a.click(); }catch(e){} };
+  const vscodeRepo=(url:string)=>{ const m=String(url||"").match(/github\.com\/([^\/]+)\/([^\/#?]+)/); return m?`https://vscode.dev/github/${m[1]}/${m[2]}`:""; };
   const askClaude=(subj:any)=>{ const topic=(subj.label||"").replace(/^.*?:\s*/,""); const q=`I'm studying "${topic}"${subj.video?` (lectures: ${String(subj.video).replace(/^▶\s*/,"")})`:""}. ${askText.trim()||"Explain this topic in detail with theory, examples and common interview questions."}`; window.open("https://claude.ai/new?q="+encodeURIComponent(q),"_blank"); };
   const genNotes=async(subj:any)=>{ setNotesBusy(subj.id);
     try{ const topic=(subj.label||"").replace(/^.*?:\s*/,""); const r=await fetch("/api/notes",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({course:subj.label,topic,brief:subj.brief,videos:subj.video})}); const d=await r.json();
@@ -799,6 +806,13 @@ function GoalPlanner({ sett }: any) {
   const skipMeals=()=>{ if(!confirm("Skip MEALS plan on "+sel+"? Your meal plan from here shifts forward 1 day.")) return; shiftCategory(sel,"meals",1); afterShift("✓ Meals shifted forward 1 day from "+sel+"."); };
   const skipStudy=()=>{ if(!confirm("Rest from STUDY on "+sel+"? Your study plan from here shifts forward 1 day (no day is lost).")) return; shiftCategory(sel,"studyList",1); afterShift("✓ Study rested on "+sel+" — study plan shifted forward 1 day."); };
   const skipRestDay=()=>{ if(!confirm("Full REST day on "+sel+"? Exercise, meals AND study all shift forward 1 day.")) return; shiftCategory(sel,"exSessions",1); shiftCategory(sel,"meals",1); shiftCategory(sel,"studyList",1); afterShift("✓ "+sel+" is a full rest day — everything shifted forward 1 day."); };
+  const courseName=(cid:string)=> cid==="agentic"?"Agentic AI": cid==="sysdesign"?"System Design": cid==="dsa"?"DSA": "this subject";
+  const shiftCourse=(cid:string,fromDs:string,n:number)=>{ const dates:string[]=[]; for(let i=0;i<320;i++){ const ds=addDaysD(fromDs,i); const c:any=LS(planKey(ds),null); if(c&&Array.isArray(c.studyList)&&c.studyList.some((s:any)=>s.courseId===cid)) dates.push(ds); }
+    dates.sort().reverse().forEach(ds=>{ const c:any=LS(planKey(ds),{}); const tgt=addDaysD(ds,n); const tc:any=LS(planKey(tgt),{}); const moving=(c.studyList||[]).filter((s:any)=>s.courseId===cid); const staying=(c.studyList||[]).filter((s:any)=>s.courseId!==cid);
+      SS(planKey(tgt),{...tc,studyList:[...(Array.isArray(tc.studyList)?tc.studyList:[]),...moving]}); SS(planKey(ds),{...c,studyList:staying}); }); };
+  const skipSubject=(subj:any)=>{ const cid=subj.courseId;
+    if(cid){ if(!confirm("Rest/skip "+courseName(cid)+" on "+sel+"? Only this course shifts forward 1 day (nothing lost).")) return; snap("Skipped "+courseName(cid)); shiftCourse(cid,sel,1); afterShift("✓ "+courseName(cid)+" shifted forward 1 day from "+sel+"."); }
+    else { if(!confirm("Skip this subject on "+sel+"? It moves to tomorrow.")) return; snap("Subject skipped"); const cur:any=LS(planKey(sel),{}); const stay=(cur.studyList||[]).filter((s:any)=>s.id!==subj.id); SS(planKey(sel),{...cur,studyList:stay}); const tgt=addDaysD(sel,1); const tc:any=LS(planKey(tgt),{}); SS(planKey(tgt),{...tc,studyList:[...(Array.isArray(tc.studyList)?tc.studyList:[]),subj]}); afterShift("✓ Subject moved to "+tgt+"."); } };
   const filled=(d:string)=>{ const x=loadPlan(d); const meals=(x.meals?.breakfast||[]).length+(x.meals?.lunch||[]).length+(x.meals?.dinner||[]).length; return !!((x.exSessions||[]).length||meals||(x.studyList||[]).length||x.journal); };
   const start=new Date(sett.planStart);
   const cells=[]; for(let i=0;i<days;i++){ const d=new Date(start); d.setDate(d.getDate()+i); const ds=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; const f=filled(ds);
@@ -973,7 +987,8 @@ function GoalPlanner({ sett }: any) {
         {(p.studyList||[]).map((s:any)=><button key={s.id} className={"btn "+(curSubj&&curSubj.id===s.id?"":"ghost")+" sm"} onClick={()=>setStudyTab(s.id)}>{s.label}</button>)}
       </div>}
       {curSubj? <div style={{marginTop:12,paddingTop:12,borderTop:"1px solid rgba(255,255,255,.07)"}}>
-        <div className="between" style={{flexWrap:"wrap",gap:8}}><strong style={{fontSize:14}}>{curSubj.label}{curSubj.hours?` · ${curSubj.hours}h`:""}</strong><button className="btn ghost sm" onClick={()=>delSubject(curSubj.id)}>🗑 Remove</button></div>
+        <div className="between" style={{flexWrap:"wrap",gap:8}}><strong style={{fontSize:14}}>{curSubj.label}{curSubj.hours?` · ${curSubj.hours}h`:""}</strong>
+          <div className="row" style={{gap:8}}><button className="btn ghost sm" onClick={()=>skipSubject(curSubj)}>😴 Skip {curSubj.courseId?courseName(curSubj.courseId):"subject"}</button><button className="btn ghost sm" onClick={()=>delSubject(curSubj.id)}>🗑 Remove</button></div></div>
         {curSubj.brief && <div style={{fontSize:13,lineHeight:1.6,marginTop:8}}>{curSubj.brief}</div>}
         {(curSubj.video||curSubj.resource||curSubj.courseVideo) && <div style={{marginTop:8,padding:"10px 12px",borderRadius:10,background:"rgba(255,255,255,.04)",fontSize:12,lineHeight:1.8}}>
           {curSubj.video && <div className="muted">📺 {curSubj.video}{curSubj.courseVideo && <> · <a href={curSubj.courseVideo} target="_blank" rel="noopener" style={{color:"#7dd3fc",fontWeight:600}}>▶ open at this time</a></>}</div>}
@@ -990,6 +1005,21 @@ function GoalPlanner({ sett }: any) {
               </div>
             </div>
             <div style={{marginTop:8,fontSize:13,color:"#d5dbe6"}} dangerouslySetInnerHTML={{__html:mdToHtml(curSubj.notes)}}/>
+          </div>}
+        </div>
+        <div style={{marginTop:10}}>
+          {!curSubj.codeFile && <button className="btn sm" onClick={()=>genCode(curSubj)} disabled={codeBusy===curSubj.id}>{codeBusy===curSubj.id?"🤖 Writing code…":"💻 Get today's code"}</button>}
+          {curSubj.codeFile && <div className="card" style={{background:"rgba(255,255,255,.03)"}}>
+            <div className="between" style={{flexWrap:"wrap",gap:8}}><strong style={{fontSize:14}}>💻 {curSubj.codeFile.filename}{curSubj.codeFile.lang?` · ${curSubj.codeFile.lang}`:""}</strong>
+              <div className="row" style={{gap:8,flexWrap:"wrap"}}>
+                <button className="btn ghost sm" onClick={()=>copyCode(curSubj.codeFile.code)}>📋 Copy</button>
+                <button className="btn ghost sm" onClick={()=>downloadCode(curSubj.codeFile)}>⬇ Download</button>
+                {vscodeRepo(curSubj.resource) && <a className="btn ghost sm" href={vscodeRepo(curSubj.resource)} target="_blank" rel="noopener">↗ Repo in VS Code</a>}
+                <button className="btn ghost sm" onClick={()=>genCode(curSubj)} disabled={codeBusy===curSubj.id}>{codeBusy===curSubj.id?"🤖…":"↻"}</button>
+              </div>
+            </div>
+            <pre style={{marginTop:8,padding:12,borderRadius:10,background:"#0b1020",border:"1px solid var(--stroke)",overflowX:"auto",fontSize:12,lineHeight:1.55,color:"#d5dbe6",whiteSpace:"pre",maxHeight:360}}>{curSubj.codeFile.code}</pre>
+            <div className="muted" style={{fontSize:11,marginTop:6}}>Copy or ⬇ Download the file and open it in VS Code, or open the course repo in VS Code (web).</div>
           </div>}
         </div>
         <div style={{marginTop:12,padding:12,borderRadius:12,background:"rgba(59,130,246,.08)",border:"1px solid rgba(59,130,246,.25)"}}>
