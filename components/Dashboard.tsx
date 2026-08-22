@@ -78,7 +78,7 @@ export default function Dashboard({ onSignOut, name }: { onSignOut: ()=>void; na
               <button className="btn ghost sm" onClick={()=>setSelDate(today())}>Today</button>
             </>}
             <span className="in" style={{ padding:"6px 12px" }}>{clock}</span>
-            <span style={{ fontSize:10, color:"var(--mut2)" }} title="build marker — bump this to verify a deploy went live">build&nbsp;82</span>
+            <span style={{ fontSize:10, color:"var(--mut2)" }} title="build marker — bump this to verify a deploy went live">build&nbsp;83</span>
           </div>
         </div>
         <div className="content"><Boundary key={view}>
@@ -775,6 +775,14 @@ function GoalPlanner({ sett }: any) {
   const copyCode=(code:string)=>{ try{ (navigator as any).clipboard.writeText(code); alert("Code copied ✓"); }catch(e){ alert("Copy failed — select & copy manually."); } };
   const downloadCode=(cf:any)=>{ try{ const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([cf.code],{type:"text/plain"})); a.download=cf.filename||"code.txt"; a.click(); }catch(e){} };
   const vscodeRepo=(url:string)=>{ const m=String(url||"").match(/github\.com\/([^\/]+)\/([^\/#?]+)/); return m?`https://vscode.dev/github/${m[1]}/${m[2]}`:""; };
+  const [timer,setTimer]=useState<any>(null); const [nowTs,setNowTs]=useState(0);
+  useEffect(()=>{ if(!timer) return; const id=setInterval(()=>setNowTs(Date.now()),1000); return ()=>clearInterval(id); },[timer]);
+  const startTimer=(subj:any)=>{ if(timer && timer.id!==subj.id){ alert("Stop the running timer first."); return; } setTimer({id:subj.id,start:Date.now()}); setNowTs(Date.now()); };
+  const stopTimer=(subj:any)=>{ if(!timer) return; const mins=Math.max(0,Math.round((Date.now()-timer.start)/60000));
+    save({studyList:(p.studyList||[]).map((s:any)=>s.id===subj.id?{...s,studied:(+s.studied||0)+mins}:s)});
+    try{ const sd:any=loadStudy(sel); const k=subj.courseId||"study"; sd[k]=(sd[k]||0)+mins; SS(studyKey(sel),sd); }catch(e){}
+    setTimer(null); setSaved("⏱ Logged "+mins+" min to "+((subj.label||"study").replace(/^.*?:\s*/,""))); };
+  const fmtEl=(secs:number)=>`${String(Math.floor(secs/60)).padStart(2,"0")}:${String(secs%60).padStart(2,"0")}`;
   const [exChat,setExChat]=useState(""); const [stChat,setStChat]=useState(""); const [chatBusy,setChatBusy]=useState("");
   const [opMode,setOpMode]=useState("swap"); const [dayA,setDayA]=useState(today()); const [dayB,setDayB]=useState(""); const [opPrompt,setOpPrompt]=useState("");
   const buildExDay=(ds:string)=>{ const c:any=LS(planKey(ds),{}); return {date:ds,sessions:(c.exSessions||[]).map((s:any)=>({type:s.type,time:s.time||"",exercises:(s.selected||[]).map((x:any)=>({name:x.name,sets:+x.sets||0,reps:+x.reps||0,weight:+x.weight||0}))}))}; };
@@ -1047,6 +1055,14 @@ function GoalPlanner({ sett }: any) {
         <div className="between" style={{flexWrap:"wrap",gap:8}}><strong style={{fontSize:14}}>{curSubj.label}{curSubj.hours?` · ${curSubj.hours}h`:""}</strong>
           <div className="row" style={{gap:8}}><button className="btn ghost sm" onClick={()=>skipSubject(curSubj)}>😴 Skip {curSubj.courseId?courseName(curSubj.courseId):"subject"}</button><button className="btn ghost sm" onClick={()=>delSubject(curSubj.id)}>🗑 Remove</button></div></div>
         {curSubj.brief && <div style={{fontSize:13,lineHeight:1.6,marginTop:8}}>{curSubj.brief}</div>}
+        <div className="row" style={{gap:8,marginTop:10,flexWrap:"wrap",alignItems:"center"}}>
+          {timer&&timer.id===curSubj.id ? <>
+            <span className="in" style={{padding:"6px 14px",fontSize:16,fontWeight:700,color:"#6ee7b7",fontVariantNumeric:"tabular-nums"}}>⏱ {fmtEl(Math.max(0,Math.floor((nowTs-timer.start)/1000)))}</span>
+            <button className="btn sm" onClick={()=>stopTimer(curSubj)} style={{background:"linear-gradient(100deg,var(--pink),var(--orange))"}}>⏹ Stop &amp; log</button>
+          </> : <button className="btn sm" onClick={()=>startTimer(curSubj)}>▶ Start study timer</button>}
+          {(+curSubj.studied||0)>0 && <span className="muted" style={{fontSize:12}}>Studied today: <b style={{color:"#E7ECF3"}}>{curSubj.studied} min</b></span>}
+          {timer && timer.id!==curSubj.id && <span className="muted" style={{fontSize:11}}>⏱ running on another subject</span>}
+        </div>
         {(curSubj.video||curSubj.resource||curSubj.courseVideo) && <div style={{marginTop:8,padding:"10px 12px",borderRadius:10,background:"rgba(255,255,255,.04)",fontSize:12,lineHeight:1.8}}>
           {curSubj.video && <div className="muted">📺 {curSubj.video}{curSubj.courseVideo && <> · <a href={curSubj.courseVideo} target="_blank" rel="noopener" style={{color:"#7dd3fc",fontWeight:600}}>▶ open at this time</a></>}</div>}
           {curSubj.resource && <div>🔗 Study material: <a href={firstUrl(curSubj.resource)||curSubj.resource} target="_blank" rel="noopener" style={{color:"#7dd3fc",wordBreak:"break-all"}}>{firstUrl(curSubj.resource)||curSubj.resource}</a></div>}
