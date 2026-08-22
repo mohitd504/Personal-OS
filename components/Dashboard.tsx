@@ -78,7 +78,7 @@ export default function Dashboard({ onSignOut, name }: { onSignOut: ()=>void; na
               <button className="btn ghost sm" onClick={()=>setSelDate(today())}>Today</button>
             </>}
             <span className="in" style={{ padding:"6px 12px" }}>{clock}</span>
-            <span style={{ fontSize:10, color:"var(--mut2)" }} title="build marker — bump this to verify a deploy went live">build&nbsp;84</span>
+            <span style={{ fontSize:10, color:"var(--mut2)" }} title="build marker — bump this to verify a deploy went live">build&nbsp;85</span>
           </div>
         </div>
         <div className="content"><Boundary key={view}>
@@ -776,18 +776,16 @@ function GoalPlanner({ sett }: any) {
   const downloadCode=(cf:any)=>{ try{ const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([cf.code],{type:"text/plain"})); a.download=cf.filename||"code.txt"; a.click(); }catch(e){} };
   const vscodeRepo=(url:string)=>{ const m=String(url||"").match(/github\.com\/([^\/]+)\/([^\/#?]+)/); return m?`https://vscode.dev/github/${m[1]}/${m[2]}`:""; };
   const [timer,setTimer]=useState<any>(null); const [nowTs,setNowTs]=useState(0);
-  useEffect(()=>{ if(!timer) return; const id=setInterval(()=>setNowTs(Date.now()),1000); return ()=>clearInterval(id); },[timer]);
-  const startTimer=(subj:any)=>{ if(timer && timer.id!==subj.id){ alert("Stop the running timer first."); return; } setTimer({id:subj.id,start:Date.now()}); setNowTs(Date.now()); };
-  const stopTimer=(subj:any)=>{ if(!timer) return; const mins=Math.max(0,Math.round((Date.now()-timer.start)/60000));
-    save({studyList:(p.studyList||[]).map((s:any)=>s.id===subj.id?{...s,studied:(+s.studied||0)+mins}:s)});
-    try{ const sd:any=loadStudy(sel); const k=subj.courseId||"study"; sd[k]=(sd[k]||0)+mins; SS(studyKey(sel),sd); }catch(e){}
-    setTimer(null); setSaved("⏱ Logged "+mins+" min to "+((subj.label||"study").replace(/^.*?:\s*/,""))); };
+  useEffect(()=>{ if(!timer || !timer.startedAt) return; const id=setInterval(()=>setNowTs(Date.now()),1000); return ()=>clearInterval(id); },[timer]);
   const fmtEl=(secs:number)=>`${String(Math.floor(secs/60)).padStart(2,"0")}:${String(secs%60).padStart(2,"0")}`;
-  const startTask=(subj:any,idx:number,timeStr:string)=>{ const key=subj.id+"#"+idx; if(timer && timer.key!==key){ alert("Stop the running timer first."); return; } const tgt=parseInt(String(timeStr))||0; setTimer({key,id:subj.id,idx,start:Date.now(),target:tgt}); setNowTs(Date.now()); };
-  const stopTask=(subj:any)=>{ if(!timer) return; const mins=Math.max(0,Math.round((Date.now()-timer.start)/60000)); const idx=timer.idx;
+  const elapsedSec=(tm:any)=> tm? Math.max(0,Math.floor((tm.accum||0) + (tm.startedAt? (nowTs-tm.startedAt)/1000 : 0))) : 0;
+  const startTask=(subj:any,idx:number,timeStr:string)=>{ const key=subj.id+"#"+idx; if(timer && timer.key!==key){ alert("Log or finish the running timer first."); return; } const tgt=parseInt(String(timeStr))||0; setTimer({key,id:subj.id,idx,target:tgt,accum:0,startedAt:Date.now(),onBreak:false}); setNowTs(Date.now()); };
+  const pauseTimer=(brk:boolean)=>{ setTimer((t:any)=> !t?t: (t.startedAt? {...t,accum:(t.accum||0)+(Date.now()-t.startedAt)/1000,startedAt:null,onBreak:!!brk} : {...t,onBreak:!!brk}) ); };
+  const resumeTimer=()=>{ setTimer((t:any)=> t&&!t.startedAt? {...t,startedAt:Date.now(),onBreak:false}:t); setNowTs(Date.now()); };
+  const logTask=(subj:any)=>{ if(!timer) return; const secs=(timer.accum||0)+(timer.startedAt?(Date.now()-timer.startedAt)/1000:0); const mins=Math.max(0,Math.round(secs/60)); const idx=timer.idx;
     save({studyList:(p.studyList||[]).map((s:any)=>{ if(s.id!==subj.id) return s; const plan=(s.plan||[]).map((t:any,i:number)=>i===idx?{...t,done:true}:t); return {...s,plan,studied:(+s.studied||0)+mins}; })});
     try{ const sd:any=loadStudy(sel); const k=subj.courseId||"study"; sd[k]=(sd[k]||0)+mins; SS(studyKey(sel),sd); }catch(e){}
-    setTimer(null); setSaved("⏱ Logged "+mins+" min · task marked done"); };
+    setTimer(null); setSaved("⏱ Logged "+mins+" min · task done"); };
   const [exChat,setExChat]=useState(""); const [stChat,setStChat]=useState(""); const [chatBusy,setChatBusy]=useState("");
   const [opMode,setOpMode]=useState("swap"); const [dayA,setDayA]=useState(today()); const [dayB,setDayB]=useState(""); const [opPrompt,setOpPrompt]=useState("");
   const buildExDay=(ds:string)=>{ const c:any=LS(planKey(ds),{}); return {date:ds,sessions:(c.exSessions||[]).map((s:any)=>({type:s.type,time:s.time||"",exercises:(s.selected||[]).map((x:any)=>({name:x.name,sets:+x.sets||0,reps:+x.reps||0,weight:+x.weight||0}))}))}; };
@@ -1103,12 +1101,17 @@ function GoalPlanner({ sett }: any) {
         </div>
         {(curSubj.plan||[]).length>0? <div style={{overflowX:"auto",marginTop:10}}><table style={{width:"100%",borderCollapse:"collapse",minWidth:360}}>
           <thead><tr>{["","Time","Focus","Timer"].map((h,hi)=><th key={hi} style={{textAlign:"left",fontSize:10,textTransform:"uppercase",color:"#5b6577",padding:"6px",borderBottom:"1px solid rgba(255,255,255,.09)"}}>{h}</th>)}</tr></thead>
-          <tbody>{curSubj.plan.map((x:any,i:number)=>{ const running=timer&&timer.key===curSubj.id+"#"+i; const el=running?Math.max(0,Math.floor((nowTs-timer.start)/1000)):0; const over=running&&timer.target&&el>=timer.target*60;
+          <tbody>{curSubj.plan.map((x:any,i:number)=>{ const running=timer&&timer.key===curSubj.id+"#"+i; const el=running?elapsedSec(timer):0; const over=running&&timer.target&&el>=timer.target*60; const isRun=running&&!!timer.startedAt;
             return <tr key={i} style={{borderBottom:"1px solid rgba(255,255,255,.05)"}}>
               <td onClick={()=>toggleStudyTask(curSubj.id,i)} style={{padding:"7px 6px",cursor:"pointer",fontSize:15}}>{x.done?"✅":"⬜"}</td>
               <td style={{padding:"7px 6px",fontSize:12,whiteSpace:"nowrap",color:"#c4b5fd",fontWeight:600,textDecoration:x.done?"line-through":"none"}}>{x.time}</td>
               <td style={{padding:"7px 6px",fontSize:13,textDecoration:x.done?"line-through":"none",opacity:x.done?.6:1}}>{x.task}</td>
-              <td style={{padding:"7px 6px",whiteSpace:"nowrap"}}>{running? <span className="row" style={{gap:6}}><span style={{fontSize:13,fontWeight:700,color:over?"#f9a8d4":"#6ee7b7",fontVariantNumeric:"tabular-nums"}}>{fmtEl(el)}</span><button className="btn ghost sm" onClick={()=>stopTask(curSubj)}>⏹</button></span> : <button className="btn ghost sm" onClick={()=>startTask(curSubj,i,x.time)} disabled={x.done}>▶</button>}</td>
+              <td style={{padding:"7px 6px",whiteSpace:"nowrap"}}>{running? <span className="row" style={{gap:5,flexWrap:"wrap"}}>
+                  <span style={{fontSize:14,fontWeight:700,color:over?"#f9a8d4":isRun?"#6ee7b7":"#8A94A6",fontVariantNumeric:"tabular-nums"}}>{fmtEl(el)}{timer.onBreak?" ☕":""}</span>
+                  {isRun? <button className="btn ghost sm" title="Pause" onClick={()=>pauseTimer(false)}>⏸</button> : <button className="btn ghost sm" title="Resume" onClick={resumeTimer}>▶</button>}
+                  {isRun && <button className="btn ghost sm" title="Take a break" onClick={()=>pauseTimer(true)}>☕ Break</button>}
+                  <button className="btn sm" onClick={()=>logTask(curSubj)}>💾 Log</button>
+                </span> : <button className="btn ghost sm" onClick={()=>startTask(curSubj,i,x.time)} disabled={x.done}>▶ Start</button>}</td>
             </tr>; })}</tbody>
         </table></div> : <div className="muted" style={{fontSize:12,marginTop:8}}>Building plan…</div>}
         {(curSubj.next||[]).length>0 && <div style={{marginTop:10}}><div className="muted" style={{fontSize:11,textTransform:"uppercase",letterSpacing:.5,marginBottom:6}}>Up next</div><ul className="list">{curSubj.next.map((x:string,i:number)=><li className="li" key={i}><span className="dot" style={{background:"var(--mut2)"}}/><span style={{fontSize:13}} className="muted">{x}</span></li>)}</ul></div>}
