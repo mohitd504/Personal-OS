@@ -8,10 +8,14 @@ export async function POST(req: Request) {
   const { messages, topic } = await req.json();
   const transcript = (Array.isArray(messages) ? messages : []).map((m: any) => `${m.role === "user" ? "Learner" : "Interviewer"}: ${m.content}`).join("\n");
   const out = await askLLM(
-    "You are a friendly English-speaking partner running a spoken-style INTERVIEW / conversation to help an intermediate learner become fluent. Rules: ask ONE question at a time and keep the conversation flowing on the given theme. When the learner replies, FIRST give a one-line gentle correction of any grammar/word/tense mistakes in the form 'Fix: ...' (or 'Fix: none' if perfect), THEN react briefly and ask the next question. Keep your whole reply short and natural (3-5 lines max). If there is no transcript yet, warmly open the interview with your first question on the theme.",
-    `Theme: ${topic || "general fluency & daily life"}\n\nConversation so far:\n${transcript || "(none yet — open the interview)"}\n\nReply as the Interviewer:`,
+    "You are a warm, encouraging English speaking partner having a natural spoken conversation to help an intermediate learner become fluent on the given theme. For the learner's latest message return TWO things: " +
+    "'fix' = a short, friendly correction of any grammar/tense/word/pronunciation-in-writing mistakes, phrased as 'Say: <the corrected sentence>' (empty string \"\" if it was already correct); " +
+    "'reply' = react naturally and warmly to what they said (show genuine interest, add a small comment or your own bit), THEN ask ONE engaging follow-up question to keep the chat going. Keep 'reply' conversational and short (2-4 sentences). " +
+    "If there is no conversation yet, set fix to \"\" and make 'reply' a warm opening question on the theme. Return ONLY JSON: {\"fix\":string,\"reply\":string}.",
+    `Theme: ${topic || "general fluency & daily life"}\n\nConversation so far:\n${transcript || "(none yet — open the conversation)"}`,
     500
   );
-  if (!out) return Response.json({ error: "no reply" });
-  return Response.json({ reply: out.replace(/^Interviewer:\s*/i, "") });
+  const m = out.match(/\{[\s\S]*\}/);
+  if (m) { try { const j = JSON.parse(m[0]); if (j.reply) return Response.json({ fix: j.fix || "", reply: j.reply }); } catch (e) {} }
+  return Response.json({ fix: "", reply: (out || "Let's keep going — tell me more.").replace(/^Interviewer:\s*/i, "") });
 }
