@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, Component } from "react";
+import { useEffect, useState, useRef, Component } from "react";
 
 class Boundary extends Component<{ children: any }, { err: any }> {
   constructor(p: any) { super(p); this.state = { err: null }; }
@@ -78,7 +78,7 @@ export default function Dashboard({ onSignOut, name }: { onSignOut: ()=>void; na
               <button className="btn ghost sm" onClick={()=>setSelDate(today())}>Today</button>
             </>}
             <span className="in" style={{ padding:"6px 12px" }}>{clock}</span>
-            <span style={{ fontSize:10, color:"var(--mut2)" }} title="build marker — bump this to verify a deploy went live">build&nbsp;87</span>
+            <span style={{ fontSize:10, color:"var(--mut2)" }} title="build marker — bump this to verify a deploy went live">build&nbsp;88</span>
           </div>
         </div>
         <div className="content"><Boundary key={view}>
@@ -1134,10 +1134,16 @@ function English(){
   useEffect(()=>{ setData(LS("pos_eng_"+sel,{chat:[],essay:"",lesson:"",essayResult:""})); },[sel]);
   const save=(patch:any)=>{ setData((d:any)=>{ const n={...d,...patch}; SS("pos_eng_"+sel,n); return n; }); };
   const [busy,setBusy]=useState(""); const [chatIn,setChatIn]=useState("");
+  const [listening,setListening]=useState(false); const [speakOn,setSpeakOn]=useState(true); const recRef=useRef<any>(null);
+  const speak=(t:string)=>{ try{ if(!speakOn||typeof window==="undefined"||!(window as any).speechSynthesis) return; const clean=String(t).replace(/^Fix:[^\n]*\n?/im,""); const u=new (window as any).SpeechSynthesisUtterance(clean); u.lang="en-US"; u.rate=1; (window as any).speechSynthesis.cancel(); (window as any).speechSynthesis.speak(u); }catch(e){} };
+  const startListening=()=>{ const SR=(window as any).SpeechRecognition||(window as any).webkitSpeechRecognition; if(!SR){ alert("Voice input needs Chrome/Edge (Web Speech API). You can still type."); return; } try{ const rec=new SR(); rec.lang="en-US"; rec.interimResults=false; rec.maxAlternatives=1; recRef.current=rec; setListening(true);
+    rec.onresult=(e:any)=>{ const t=e.results[0][0].transcript; setListening(false); sendChat(false,t); };
+    rec.onerror=()=>setListening(false); rec.onend=()=>setListening(false); rec.start(); }catch(e){ setListening(false); alert("Couldn't start the microphone."); } };
+  const stopListening=()=>{ try{ recRef.current&&recRef.current.stop(); }catch(e){} setListening(false); };
   const shift=(n:number)=>{ const [y,m,d]=sel.split("-").map(Number); const dt=new Date(y,m-1,d+n); setSel(`${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,"0")}-${String(dt.getDate()).padStart(2,"0")}`); };
   const getLesson=async()=>{ setBusy("lesson"); try{ const r=await fetch("/api/english-lesson",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({day:dayIdx+1,topic})}); const d=await r.json(); if(d.lesson) save({lesson:d.lesson}); else alert(d.error||"Failed"); }catch(e){ alert("Failed — check your AI key."); } setBusy(""); };
-  const sendChat=async(first:boolean)=>{ if(!first && !chatIn.trim()) return; setBusy("chat"); const base=Array.isArray(data.chat)?data.chat:[]; const msgs=first?[]:[...base,{role:"user",content:chatIn}]; if(!first){ save({chat:msgs}); setChatIn(""); }
-    try{ const r=await fetch("/api/english-chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({messages:msgs,topic})}); const d=await r.json(); if(d.reply){ const n=[...msgs,{role:"bot",content:d.reply}]; save({chat:n}); } else if(d.error) alert(d.error); }catch(e){ alert("Chat failed — check your AI key."); } setBusy(""); };
+  const sendChat=async(first:boolean,textArg?:string)=>{ const txt=textArg!=null?textArg:chatIn; if(!first && !String(txt).trim()) return; setBusy("chat"); const base=Array.isArray(data.chat)?data.chat:[]; const msgs=first?[]:[...base,{role:"user",content:txt}]; if(!first){ save({chat:msgs}); setChatIn(""); }
+    try{ const r=await fetch("/api/english-chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({messages:msgs,topic})}); const d=await r.json(); if(d.reply){ const n=[...msgs,{role:"bot",content:d.reply}]; save({chat:n}); speak(d.reply); } else if(d.error) alert(d.error); }catch(e){ alert("Chat failed — check your AI key."); } setBusy(""); };
   const checkEssay=async()=>{ if(!(data.essay||"").trim()){ alert("Write your essay first."); return; } setBusy("essay"); try{ const r=await fetch("/api/essay-check",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text:data.essay})}); const d=await r.json(); if(d.result) save({essayResult:d.result}); else alert(d.error||"Failed"); }catch(e){ alert("Failed — check your AI key."); } setBusy(""); };
   return <>
     <Head t="English — 45-Day Fluency" p={`Day ${dayIdx+1} of 45 · ${topic}`} />
@@ -1160,14 +1166,15 @@ function English(){
     </div>
 
     <div className="card" style={{marginBottom:16}}>
-      <div className="between" style={{flexWrap:"wrap",gap:8}}><div className="row" style={{gap:8}}><Chip tint="emerald">🎤</Chip><strong>2 · Speaking & Interview Bot (15 min)</strong></div><MiniTimer minutes={15}/></div>
+      <div className="between" style={{flexWrap:"wrap",gap:8}}><div className="row" style={{gap:8}}><Chip tint="emerald">🎤</Chip><strong>2 · Speaking & Interview Bot (15 min)</strong></div><div className="row" style={{gap:8}}><button className="btn ghost sm" onClick={()=>{ setSpeakOn(v=>!v); if(speakOn && (window as any).speechSynthesis) (window as any).speechSynthesis.cancel(); }}>{speakOn?"🔊 Voice on":"🔇 Voice off"}</button><MiniTimer minutes={15}/></div></div>
       <div style={{marginTop:10,maxHeight:320,overflowY:"auto",display:"flex",flexDirection:"column",gap:8}}>
         {(data.chat||[]).map((m:any,i:number)=><div key={i} style={{alignSelf:m.role==="user"?"flex-end":"flex-start",maxWidth:"85%",padding:"8px 12px",borderRadius:12,fontSize:13,lineHeight:1.5,background:m.role==="user"?"rgba(59,130,246,.18)":"rgba(255,255,255,.05)",border:"1px solid var(--stroke)"}}>{m.role==="user"?"":"🎤 "}{m.content}</div>)}
         {!(data.chat||[]).length && <div className="muted" style={{fontSize:12}}>Start the interview and answer out loud (type your answers). The bot asks questions and corrects you.</div>}
       </div>
       <div className="row" style={{gap:8,marginTop:10,flexWrap:"wrap"}}>
         {!(data.chat||[]).length && <button className="btn sm" onClick={()=>sendChat(true)} disabled={busy==="chat"}>{busy==="chat"?"🤖…":"▶ Start interview"}</button>}
-        <input className="in" value={chatIn} onChange={e=>setChatIn(e.target.value)} placeholder="Type your answer…" style={{flex:1,minWidth:180}} onKeyDown={e=>{ if(e.key==="Enter") sendChat(false); }}/>
+        <button className={"btn "+(listening?"":"ghost")+" sm"} onClick={listening?stopListening:startListening} disabled={busy==="chat"} style={listening?{background:"linear-gradient(100deg,var(--pink),var(--orange))"}:{}}>{listening?"🎙️ Listening… tap to stop":"🎙️ Speak"}</button>
+        <input className="in" value={chatIn} onChange={e=>setChatIn(e.target.value)} placeholder="…or type your answer" style={{flex:1,minWidth:160}} onKeyDown={e=>{ if(e.key==="Enter") sendChat(false); }}/>
         <button className="btn sm" onClick={()=>sendChat(false)} disabled={busy==="chat"}>{busy==="chat"?"🤖…":"Send"}</button>
         {(data.chat||[]).length>0 && <button className="btn ghost sm" onClick={()=>save({chat:[]})}>Clear</button>}
       </div>
