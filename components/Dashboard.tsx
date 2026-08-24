@@ -31,7 +31,7 @@ const DEF_SETT: Sett = { name:"Mohit", age:36, heightFt:6, heightIn:1, planStart
 
 const NAV = [
   { k:"home", ic:"🏠", t:"Dashboard" }, { k:"health", ic:"❤️", t:"Health" }, { k:"exercise", ic:"🏋️", t:"Exercise" },
-  { k:"nutrition", ic:"🍎", t:"Nutrition" }, { k:"study", ic:"📚", t:"Study" }, { k:"gmail", ic:"📧", t:"Gmail" },
+  { k:"nutrition", ic:"🍎", t:"Nutrition" }, { k:"study", ic:"📚", t:"Study" }, { k:"english", ic:"🗣️", t:"English" }, { k:"gmail", ic:"📧", t:"Gmail" },
   { k:"calendar", ic:"📅", t:"Calendar" }, { k:"goals", ic:"🎯", t:"Goals" }, { k:"settings", ic:"⚙️", t:"Settings" },
 ];
 
@@ -78,7 +78,7 @@ export default function Dashboard({ onSignOut, name }: { onSignOut: ()=>void; na
               <button className="btn ghost sm" onClick={()=>setSelDate(today())}>Today</button>
             </>}
             <span className="in" style={{ padding:"6px 12px" }}>{clock}</span>
-            <span style={{ fontSize:10, color:"var(--mut2)" }} title="build marker — bump this to verify a deploy went live">build&nbsp;85</span>
+            <span style={{ fontSize:10, color:"var(--mut2)" }} title="build marker — bump this to verify a deploy went live">build&nbsp;87</span>
           </div>
         </div>
         <div className="content"><Boundary key={view}>
@@ -87,6 +87,7 @@ export default function Dashboard({ onSignOut, name }: { onSignOut: ()=>void; na
           {view==="exercise" && <Fitness />}
           {view==="nutrition" && <Nutrition sett={sett} refresh={refresh} tick={tick} date={selDate} />}
           {view==="study" && <Study refresh={refresh} tick={tick} date={selDate} />}
+          {view==="english" && <English />}
           {view==="gmail" && <Gmail />}
           {view==="calendar" && <Calendar sett={sett} tick={tick} />}
           {view==="goals" && <Goals sett={sett} tick={tick} />}
@@ -506,43 +507,7 @@ function PlanCalendar({ sett }: any) {
 /* ---------- GOALS ---------- */
 function Goals({ sett, tick }: any) {
   const start=new Date(sett.planStart); const dayNo=Math.max(0,Math.floor((Date.now()-start.getTime())/86400000)); const pct=Math.min(100,Math.round(dayNo/sett.planDays*100));
-  useEffect(()=>{ if(LS("pos_seed_agentic","")==="v3") return; purgeCourse("agentic");
-    const s0=seedStart();
-    AGENTIC_COURSE.forEach((day,i)=>{ const d=new Date(s0); d.setDate(d.getDate()+i); const ds=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
-      const key=planKey(ds); const cur:any=LS(key,{}); const list=(Array.isArray(cur.studyList)?cur.studyList:[]).filter((x:any)=>x.courseId!=="agentic");
-      const [mm,ss]=day.timing.replace("–","-").split("-")[0].split(":"); const sec=(+mm)*60+(+ss||0);
-      list.push({ id:uid(), courseId:"agentic", label:`Day ${i+1}: ${day.title}`, hours:"1.5", brief:day.brief, resource:day.link,
-        pdf:`/course/day-${String(i+1).padStart(2,"0")}.pdf`,
-        video:`▶ ${day.timing} of the 10h video`, courseVideo:`${YT}&t=${sec}s`,
-        plan:[{time:"40 min",task:`Watch the course video ${day.timing} — ${day.title}`},{time:"40 min",task:"Code along in the GitHub notebook / build the example"},{time:"10 min",task:"Write notes & commit your code"}], next:[] });
-      SS(key,{...cur,studyList:list});
-    });
-    SS("pos_seed_agentic","v3");
-  },[]);
-  useEffect(()=>{ if(LS("pos_seed_sysdesign","")==="v2") return; purgeCourse("sysdesign");
-    const s0=seedStart(); const fmt=(m:number)=>`${Math.floor(m/60)}:${String(m%60).padStart(2,"0")}`;
-    SYSDESIGN_COURSE.forEach((day,i)=>{ const d=new Date(s0); d.setDate(d.getDate()+i); const ds=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
-      const key=planKey(ds); const cur:any=LS(key,{}); const list=(Array.isArray(cur.studyList)?cur.studyList:[]).filter((x:any)=>x.courseId!=="sysdesign");
-      const startMin=i*15; const timing=`${fmt(startMin)}-${fmt(startMin+15)}`; const sec=startMin*60;
-      list.push({ id:uid(), courseId:"sysdesign", label:`SD Day ${i+1}: ${day.title}`, hours:"1.5", brief:day.brief, resource:SD_DOCS,
-        pdf:`/course/sd-day-${String(i+1).padStart(2,"0")}.pdf`, video:`▶ ${timing} of the 5h video`, courseVideo:`${SD_VIDEO}&t=${sec}s`,
-        plan:[{time:"25 min",task:`Watch the course video ${timing} — ${day.title}`},{time:"45 min",task:"Read the PDF notes + Telusko docs; draw the architecture diagram"},{time:"20 min",task:"Write your own notes / answer the day's tasks"}], next:[] });
-      SS(key,{...cur,studyList:list});
-    });
-    SS("pos_seed_sysdesign","v2");
-  },[]);
-  useEffect(()=>{ if(LS("pos_seed_dsa","")==="v3") return; purgeCourse("dsa");
-    const s0=seedStart();
-    DSA_COURSE.forEach((day:any,i:number)=>{ const d=new Date(s0); d.setDate(d.getDate()+i); const ds=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
-      const key=planKey(ds); const cur:any=LS(key,{}); const list=(Array.isArray(cur.studyList)?cur.studyList:[]).filter((x:any)=>x.courseId!=="dsa");
-      const vids=(day.videos||[]);
-      list.push({ id:uid(), courseId:"dsa", label:`DSA Day ${i+1}: ${day.title}`, hours:"1.5", brief:day.brief, resource:DSA_PLAYLIST,
-        pdf:`/course/dsa-day-${String(i+1).padStart(2,"0")}.pdf`, video:`▶ Watch (${vids.length}): ${vids.join("  •  ")}`, courseVideo:DSA_PLAYLIST,
-        plan:[{time:"45 min",task:`Watch: ${vids.join("; ")}`},{time:"35 min",task:"Read the PDF notes & code the algorithm"},{time:"10 min",task:"Note complexity & solve one practice problem"}], next:[] });
-      SS(key,{...cur,studyList:list});
-    });
-    SS("pos_seed_dsa","v3");
-  },[]);
+  useEffect(()=>{ if(LS("pos_seed_all","")==="v1") return; courseStart(); seedAllCourses(undefined,false); SS("pos_seed_all","v1"); },[]);
   return <>
     <Head t="Goals" p={`${sett.planDays}-day transformation`} />
     <div className="card" style={{background:"linear-gradient(120deg,rgba(236,72,153,.15),rgba(99,102,241,.12))"}}>
@@ -568,6 +533,11 @@ const P_PULL=["Deadlift","Barbell Row","Pendlay Row","T-Bar Row","Seated Cable R
 const P_LEGS=["Squat","Front Squat","Hack Squat","Leg Press","Bulgarian Split Squat","Walking Lunges","Reverse Lunges","Goblet Squat","Leg Extension","Romanian Deadlift","Stiff-Leg Deadlift","Lying Hamstring Curl","Seated Leg Curl","Hip Thrust","Glute Bridge","Cable Glute Kickback","Sumo Deadlift","Standing Calf Raise","Seated Calf Raise","Step-ups","Adductor Machine","Abductor Machine","Box Jumps"];
 const EX_LIB:Record<string,string[]>={Push:P_PUSH,Pull:P_PULL,Legs:P_LEGS};
 const COURSES=["AI / ML","Interview Prep","Data Structures & Algorithms","System Design","DevOps","Cloud","Frontend","Other"];
+const ENGLISH_TOPICS=["Advanced present tenses (simple vs continuous nuance)","Past tenses mastery (past simple vs present perfect)","Perfect tenses (present/past perfect & continuous)","Future forms (will vs going to vs present continuous)","Articles a/an/the — advanced usage","Prepositions of time & place — tricky cases","Prepositions with verbs & adjectives (depend on, good at)","Phrasal verbs — everyday (get, take, put)","Phrasal verbs — work & business","Idioms & how to use them naturally","Conditionals (0,1,2,3)","Mixed & inverted conditionals","Reported speech","Passive voice — when & how","Modal verbs — ability, permission, obligation","Modals of deduction & probability (must, might, can't)","Collocations — natural word pairs","Connectors & linking words (however, therefore)","Relative clauses (defining & non-defining)","Gerunds vs infinitives","Formal vs informal English","Polite English & softening language","Small talk & everyday conversation","Describing people & personality","Describing places & travel","Narrating a story (sequencing & tenses)","Giving opinions, agreeing & disagreeing","Argument & persuasion language","Comparisons & degrees (as…as, the more…)","Expressing feelings & reactions","Business email English","Meetings & discussions English","Job interview English — common questions","Presentations & public speaking phrases","Telephoning & video calls","Negotiation & making requests","Vocabulary: technology & work","Vocabulary: money & shopping","Vocabulary: health & lifestyle","Pronunciation & word stress","Fix your top common mistakes","Paraphrasing & summarizing","Advanced vocabulary & synonym upgrades","Fluency drills — thinking in English","Review + mock interview + final essay"];
+function MiniTimer({ minutes }:{ minutes:number }){ const [sec,setSec]=useState(0); const [run,setRun]=useState(false);
+  useEffect(()=>{ if(!run) return; const id=setInterval(()=>setSec((s:number)=>s+1),1000); return ()=>clearInterval(id); },[run]);
+  const f=(s:number)=>`${String(Math.floor(s/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`; const over=sec>=minutes*60;
+  return <span className="row" style={{gap:6}}><span style={{fontSize:13,fontWeight:700,color:over?"#f9a8d4":run?"#6ee7b7":"#8A94A6",fontVariantNumeric:"tabular-nums"}}>⏱ {f(sec)} / {minutes}:00</span><button className="btn ghost sm" onClick={()=>setRun(r=>!r)}>{run?"⏸":"▶"}</button><button className="btn ghost sm" onClick={()=>{setSec(0);setRun(false);}}>↺</button></span>; }
 function PRow({ icon, tint, title, action, children }: any){ return <div className="card" style={{marginBottom:14}}>
   <div className="between" style={{gap:10,marginBottom:10,flexWrap:"wrap"}}><div className="row" style={{gap:10}}><Chip tint={tint}>{icon}</Chip><strong style={{fontSize:15}}>{title}</strong></div>{action}</div>{children}</div>; }
 const OPT = { background:"#0f172a", color:"#E7ECF3" } as any;
@@ -694,18 +664,17 @@ const DSA_COURSE=[
   {title:"Rabin-Karp + AVL Trees",brief:"Rabin-Karp hashing match and AVL tree rotations.",videos:["9.2 Rabin-Karp String Matching Algorithm","10.1 AVL Tree - Insertion and Rotations"]},
   {title:"B/B+ Trees + Hashing + Review",brief:"B and B+ trees, hashing technique, and full-course review.",videos:["10.2 B Trees and B+ Trees. How they are useful in Databases","Hashing Technique - Simplified"]},
 ];
-function seedAllCourses(){
-  const s0=seedStart(); const fmt=(m:number)=>`${Math.floor(m/60)}:${String(m%60).padStart(2,"0")}`;
-  const setDay=(i:number,rec:any)=>{ const d=new Date(s0); d.setDate(d.getDate()+i); const ds=dstrD(d); const key=planKey(ds); const cur:any=LS(key,{}); const list=(Array.isArray(cur.studyList)?cur.studyList:[]).filter((x:any)=>x.courseId!==rec.courseId); list.push(rec); SS(key,{...cur,studyList:list}); };
-  purgeCourse("agentic");
+function courseStart(){ let s=LS("pos_course_start",""); if(!s){ s=dstrD(new Date()); SS("pos_course_start",s); } const [y,m,d]=String(s).split("-").map(Number); const dt=new Date(y,m-1,d); dt.setHours(0,0,0,0); return dt; }
+function seedAllCourses(start?:Date, overwrite:boolean=true){
+  const s0=start||courseStart(); const fmt=(m:number)=>`${Math.floor(m/60)}:${String(m%60).padStart(2,"0")}`;
+  const setDay=(cid:string,i:number,rec:any)=>{ const d=new Date(s0); d.setDate(d.getDate()+i); const ds=dstrD(d); const key=planKey(ds); const cur:any=LS(key,{}); const base=Array.isArray(cur.studyList)?cur.studyList:[]; if(!overwrite && base.some((x:any)=>x.courseId===cid)) return; const list=base.filter((x:any)=>x.courseId!==cid); list.push(rec); SS(key,{...cur,studyList:list}); };
+  if(overwrite){ purgeCourse("agentic"); purgeCourse("sysdesign"); purgeCourse("dsa"); }
   AGENTIC_COURSE.forEach((day:any,i:number)=>{ const [mm,ss]=day.timing.replace("–","-").split("-")[0].split(":"); const sec=(+mm)*60+(+ss||0);
-    setDay(i,{ id:uid(), courseId:"agentic", label:`Day ${i+1}: ${day.title}`, hours:"1.5", brief:day.brief, resource:day.link, pdf:`/course/day-${String(i+1).padStart(2,"0")}.pdf`, video:`▶ ${day.timing} of the 10h video`, courseVideo:`${YT}&t=${sec}s`, plan:[{time:"40 min",task:`Watch the course video ${day.timing} — ${day.title}`},{time:"40 min",task:"Code along in the GitHub notebook / build the example"},{time:"10 min",task:"Write notes & commit your code"}], next:[] }); });
-  purgeCourse("sysdesign");
+    setDay("agentic",i,{ id:uid(), courseId:"agentic", label:`Day ${i+1}: ${day.title}`, hours:"1.5", brief:day.brief, resource:day.link, pdf:`/course/day-${String(i+1).padStart(2,"0")}.pdf`, video:`▶ ${day.timing} of the 10h video`, courseVideo:`${YT}&t=${sec}s`, plan:[{time:"40 min",task:`Watch the course video ${day.timing} — ${day.title}`},{time:"40 min",task:"Code along in the GitHub notebook / build the example"},{time:"10 min",task:"Write notes & commit your code"}], next:[] }); });
   SYSDESIGN_COURSE.forEach((day:any,i:number)=>{ const startMin=i*15; const timing=`${fmt(startMin)}-${fmt(startMin+15)}`; const sec=startMin*60;
-    setDay(i,{ id:uid(), courseId:"sysdesign", label:`SD Day ${i+1}: ${day.title}`, hours:"1.5", brief:day.brief, resource:SD_DOCS, pdf:`/course/sd-day-${String(i+1).padStart(2,"0")}.pdf`, video:`▶ ${timing} of the 5h video`, courseVideo:`${SD_VIDEO}&t=${sec}s`, plan:[{time:"25 min",task:`Watch the course video ${timing} — ${day.title}`},{time:"45 min",task:"Read the PDF notes + Telusko docs; draw the architecture diagram"},{time:"20 min",task:"Write your own notes"}], next:[] }); });
-  purgeCourse("dsa");
+    setDay("sysdesign",i,{ id:uid(), courseId:"sysdesign", label:`SD Day ${i+1}: ${day.title}`, hours:"1.5", brief:day.brief, resource:SD_DOCS, pdf:`/course/sd-day-${String(i+1).padStart(2,"0")}.pdf`, video:`▶ ${timing} of the 5h video`, courseVideo:`${SD_VIDEO}&t=${sec}s`, plan:[{time:"25 min",task:`Watch the course video ${timing} — ${day.title}`},{time:"45 min",task:"Read the PDF notes + Telusko docs; draw the architecture diagram"},{time:"20 min",task:"Write your own notes"}], next:[] }); });
   DSA_COURSE.forEach((day:any,i:number)=>{ const vids=(day.videos||[]);
-    setDay(i,{ id:uid(), courseId:"dsa", label:`DSA Day ${i+1}: ${day.title}`, hours:"1.5", brief:day.brief, resource:DSA_PLAYLIST, pdf:`/course/dsa-day-${String(i+1).padStart(2,"0")}.pdf`, video:`▶ Watch (${vids.length}): ${vids.join("  •  ")}`, courseVideo:DSA_PLAYLIST, plan:[{time:"45 min",task:`Watch: ${vids.join("; ")}`},{time:"35 min",task:"Read the PDF notes & code the algorithm"},{time:"10 min",task:"Note complexity & solve one practice problem"}], next:[] }); });
+    setDay("dsa",i,{ id:uid(), courseId:"dsa", label:`DSA Day ${i+1}: ${day.title}`, hours:"1.5", brief:day.brief, resource:DSA_PLAYLIST, pdf:`/course/dsa-day-${String(i+1).padStart(2,"0")}.pdf`, video:`▶ Watch (${vids.length}): ${vids.join("  •  ")}`, courseVideo:DSA_PLAYLIST, plan:[{time:"45 min",task:`Watch: ${vids.join("; ")}`},{time:"35 min",task:"Read the PDF notes & code the algorithm"},{time:"10 min",task:"Note complexity & solve one practice problem"}], next:[] }); });
 }
 function CoursePlanner(){
   const [course,setCourse]=useState("Complete Agentic AI Course In 10 Hours — LangChain, LangGraph, RAG, Vectorless RAG, Guardrails, Evals (Krish Naik)");
@@ -762,7 +731,9 @@ function GoalPlanner({ sett }: any) {
   const refresh=()=>setT((x:number)=>x+1);
   const snap=(label:string)=>{ setUndoSnap({date:sel,label,data:JSON.parse(JSON.stringify(LS(planKey(sel),{})))}); };
   const doUndo=()=>{ if(!undoSnap) return; SS(planKey(undoSnap.date),undoSnap.data); if(undoSnap.date===sel) setP(loadPlan(sel)); const lbl=undoSnap.label; setUndoSnap(null); setT((x:number)=>x+1); refresh(); setSaved("↩ Restored: "+lbl); };
-  const restoreCourses=()=>{ if(confirm("Restore all 3 study courses (Agentic AI, System Design, DSA) starting today? This re-adds any deleted course days. Your own subjects, workouts, meals & journals stay; progress ticks on course days reset.")){ seedAllCourses(); setP(loadPlan(sel)); setT((x:number)=>x+1); refresh(); setSaved("✓ Course study plans restored from today."); } };
+  const restoreCourses=()=>{ if(confirm("Restore all 3 study courses from your start date ("+dstrD(courseStart())+")? This re-adds any deleted course days on their correct dates. Your own subjects, workouts, meals & journals stay; course progress ticks reset.")){ seedAllCourses(courseStart(),true); setP(loadPlan(sel)); setT((x:number)=>x+1); refresh(); setSaved("✓ Course study plans restored."); } };
+  const [courseStartInput,setCourseStartInput]=useState(LS("pos_course_start","")||today());
+  const applyCourseStart=()=>{ if(!courseStartInput) return; if(!confirm("Re-anchor all 3 courses to START on "+courseStartInput+"? Day 1 moves to that date and the rest follow. Course progress ticks reset.")) return; SS("pos_course_start",courseStartInput); const [y,m,d]=courseStartInput.split("-").map(Number); seedAllCourses(new Date(y,m-1,d),true); setP(loadPlan(sel)); setT((x:number)=>x+1); refresh(); setSaved("✓ Courses re-anchored to start "+courseStartInput); };
   const [exTab,setExTab]=useState(""); const [studyTab,setStudyTab]=useState("");
   const [mealDraft,setMealDraft]=useState<any>({breakfast:{time:"",food:""},lunch:{time:"",food:""},dinner:{time:"",food:""}});
   const [mealPrev,setMealPrev]=useState<any>({}); const [mealMod,setMealMod]=useState<any>({});
@@ -1119,7 +1090,8 @@ function GoalPlanner({ sett }: any) {
     </PRow>
 
     <div className="card" style={{marginBottom:14}}>
-      <div className="row" style={{gap:10,marginBottom:8}}><Chip tint="purple">📅</Chip><strong style={{fontSize:15}}>Next 10 days — study outlook</strong></div>
+      <div className="between" style={{flexWrap:"wrap",gap:8,marginBottom:8}}><div className="row" style={{gap:10}}><Chip tint="purple">📅</Chip><strong style={{fontSize:15}}>Next 10 days — study outlook</strong></div>
+        <div className="row" style={{gap:6,flexWrap:"wrap",alignItems:"center"}}><span className="muted" style={{fontSize:11}}>Course start:</span><input className="in" type="date" value={courseStartInput} onChange={e=>setCourseStartInput(e.target.value)} style={{width:140}}/><button className="btn ghost sm" onClick={applyCourseStart}>Set start</button></div></div>
       <div className="grid g2">
         {Array.from({length:10}).map((_,i)=>{ const ds=addDaysD(today(),i); const c:any=LS(planKey(ds),{}); const subs=(Array.isArray(c.studyList)?c.studyList:[]); const [yy,mm,dd2]=ds.split("-").map(Number); const dObj=new Date(yy,mm-1,dd2); const isToday=ds===today();
           const doneCount=subs.filter((s:any)=>(s.plan||[]).length && (s.plan||[]).every((t:any)=>t.done)).length;
@@ -1150,6 +1122,63 @@ function GoalPlanner({ sett }: any) {
 
     <div className="card" style={{marginTop:2}}><strong>{days}-Day Plan Overview</strong><div className="muted" style={{fontSize:12,marginTop:2,marginBottom:6}}>Green = planned. Tap any day to edit it.</div><div className="cal-grid">{cells}</div></div>
   </div>;
+}
+
+/* ---------- ENGLISH (45-day fluency) ---------- */
+function English(){
+  let st=LS("pos_eng_start",""); if(!st){ st=today(); SS("pos_eng_start",st); }
+  const [sel,setSel]=useState(today());
+  const dayIdx=(()=>{ const [y,m,d]=String(st).split("-").map(Number); const s0=new Date(y,m-1,d); const [y2,m2,d2]=sel.split("-").map(Number); const cur=new Date(y2,m2-1,d2); const diff=Math.round((cur.getTime()-s0.getTime())/86400000); return Math.max(0,Math.min(44,diff)); })();
+  const topic=ENGLISH_TOPICS[dayIdx];
+  const [data,setData]=useState<any>(LS("pos_eng_"+today(),{chat:[],essay:"",lesson:"",essayResult:""}));
+  useEffect(()=>{ setData(LS("pos_eng_"+sel,{chat:[],essay:"",lesson:"",essayResult:""})); },[sel]);
+  const save=(patch:any)=>{ setData((d:any)=>{ const n={...d,...patch}; SS("pos_eng_"+sel,n); return n; }); };
+  const [busy,setBusy]=useState(""); const [chatIn,setChatIn]=useState("");
+  const shift=(n:number)=>{ const [y,m,d]=sel.split("-").map(Number); const dt=new Date(y,m-1,d+n); setSel(`${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,"0")}-${String(dt.getDate()).padStart(2,"0")}`); };
+  const getLesson=async()=>{ setBusy("lesson"); try{ const r=await fetch("/api/english-lesson",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({day:dayIdx+1,topic})}); const d=await r.json(); if(d.lesson) save({lesson:d.lesson}); else alert(d.error||"Failed"); }catch(e){ alert("Failed — check your AI key."); } setBusy(""); };
+  const sendChat=async(first:boolean)=>{ if(!first && !chatIn.trim()) return; setBusy("chat"); const base=Array.isArray(data.chat)?data.chat:[]; const msgs=first?[]:[...base,{role:"user",content:chatIn}]; if(!first){ save({chat:msgs}); setChatIn(""); }
+    try{ const r=await fetch("/api/english-chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({messages:msgs,topic})}); const d=await r.json(); if(d.reply){ const n=[...msgs,{role:"bot",content:d.reply}]; save({chat:n}); } else if(d.error) alert(d.error); }catch(e){ alert("Chat failed — check your AI key."); } setBusy(""); };
+  const checkEssay=async()=>{ if(!(data.essay||"").trim()){ alert("Write your essay first."); return; } setBusy("essay"); try{ const r=await fetch("/api/essay-check",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text:data.essay})}); const d=await r.json(); if(d.result) save({essayResult:d.result}); else alert(d.error||"Failed"); }catch(e){ alert("Failed — check your AI key."); } setBusy(""); };
+  return <>
+    <Head t="English — 45-Day Fluency" p={`Day ${dayIdx+1} of 45 · ${topic}`} />
+    <div className="card" style={{marginBottom:16}}>
+      <div className="between" style={{flexWrap:"wrap",gap:10}}>
+        <div><strong>Day {dayIdx+1} / 45</strong><div className="muted" style={{fontSize:12,marginTop:2}}>{topic}</div></div>
+        <div className="row" style={{gap:6}}>
+          <button className="btn ghost sm" onClick={()=>shift(-1)}>‹ Prev</button>
+          <input className="in" type="date" value={sel} onChange={e=>setSel(e.target.value)} style={{width:150}}/>
+          <button className="btn ghost sm" onClick={()=>shift(1)}>Next ›</button>
+          <button className="btn ghost sm" onClick={()=>setSel(today())}>Today</button>
+        </div>
+      </div>
+      <div className="muted" style={{fontSize:11,marginTop:8}}>Intermediate → fluent. ~45 min/day: 15 min lesson · 15 min interview bot · 15 min essay correction. Started {String(st)}.</div>
+    </div>
+
+    <div className="card" style={{marginBottom:16}}>
+      <div className="between" style={{flexWrap:"wrap",gap:8}}><div className="row" style={{gap:8}}><Chip tint="blue">📘</Chip><strong>1 · Today&apos;s Lesson (15 min)</strong></div><div className="row" style={{gap:8}}><MiniTimer minutes={15}/><button className="btn sm" onClick={getLesson} disabled={busy==="lesson"}>{busy==="lesson"?"🤖…":data.lesson?"↻ New lesson":"✨ Get lesson"}</button></div></div>
+      {data.lesson? <div style={{marginTop:10,fontSize:13,color:"#d5dbe6"}} dangerouslySetInnerHTML={{__html:mdToHtml(data.lesson)}}/> : <div className="muted" style={{fontSize:12,marginTop:8}}>Tap “Get lesson” for today&apos;s {topic} lesson.</div>}
+    </div>
+
+    <div className="card" style={{marginBottom:16}}>
+      <div className="between" style={{flexWrap:"wrap",gap:8}}><div className="row" style={{gap:8}}><Chip tint="emerald">🎤</Chip><strong>2 · Speaking & Interview Bot (15 min)</strong></div><MiniTimer minutes={15}/></div>
+      <div style={{marginTop:10,maxHeight:320,overflowY:"auto",display:"flex",flexDirection:"column",gap:8}}>
+        {(data.chat||[]).map((m:any,i:number)=><div key={i} style={{alignSelf:m.role==="user"?"flex-end":"flex-start",maxWidth:"85%",padding:"8px 12px",borderRadius:12,fontSize:13,lineHeight:1.5,background:m.role==="user"?"rgba(59,130,246,.18)":"rgba(255,255,255,.05)",border:"1px solid var(--stroke)"}}>{m.role==="user"?"":"🎤 "}{m.content}</div>)}
+        {!(data.chat||[]).length && <div className="muted" style={{fontSize:12}}>Start the interview and answer out loud (type your answers). The bot asks questions and corrects you.</div>}
+      </div>
+      <div className="row" style={{gap:8,marginTop:10,flexWrap:"wrap"}}>
+        {!(data.chat||[]).length && <button className="btn sm" onClick={()=>sendChat(true)} disabled={busy==="chat"}>{busy==="chat"?"🤖…":"▶ Start interview"}</button>}
+        <input className="in" value={chatIn} onChange={e=>setChatIn(e.target.value)} placeholder="Type your answer…" style={{flex:1,minWidth:180}} onKeyDown={e=>{ if(e.key==="Enter") sendChat(false); }}/>
+        <button className="btn sm" onClick={()=>sendChat(false)} disabled={busy==="chat"}>{busy==="chat"?"🤖…":"Send"}</button>
+        {(data.chat||[]).length>0 && <button className="btn ghost sm" onClick={()=>save({chat:[]})}>Clear</button>}
+      </div>
+    </div>
+
+    <div className="card">
+      <div className="between" style={{flexWrap:"wrap",gap:8}}><div className="row" style={{gap:8}}><Chip tint="purple">✍️</Chip><strong>3 · Essay — get corrected (15 min)</strong></div><div className="row" style={{gap:8}}><MiniTimer minutes={15}/><button className="btn sm" onClick={checkEssay} disabled={busy==="essay"}>{busy==="essay"?"🤖…":"✨ Check my essay"}</button></div></div>
+      <textarea className="in" value={data.essay||""} onChange={e=>save({essay:e.target.value})} placeholder={`Write a short essay on: ${topic}. AI will fix tenses, grammar and suggest better words.`} style={{width:"100%",minHeight:140,marginTop:10,lineHeight:1.6}}/>
+      {data.essayResult && <div style={{marginTop:12,padding:12,borderRadius:12,background:"rgba(255,255,255,.03)",border:"1px solid var(--stroke)",fontSize:13,color:"#d5dbe6"}} dangerouslySetInnerHTML={{__html:mdToHtml(data.essayResult)}}/>}
+    </div>
+  </>;
 }
 
 /* ---------- SETTINGS ---------- */
