@@ -78,7 +78,7 @@ export default function Dashboard({ onSignOut, name }: { onSignOut: ()=>void; na
               <button className="btn ghost sm" onClick={()=>setSelDate(today())}>Today</button>
             </>}
             <span className="in" style={{ padding:"6px 12px" }}>{clock}</span>
-            <span style={{ fontSize:10, color:"var(--mut2)" }} title="build marker — bump this to verify a deploy went live">build&nbsp;89</span>
+            <span style={{ fontSize:10, color:"var(--mut2)" }} title="build marker — bump this to verify a deploy went live">build&nbsp;90</span>
           </div>
         </div>
         <div className="content"><Boundary key={view}>
@@ -1134,12 +1134,16 @@ function English(){
   useEffect(()=>{ setData(LS("pos_eng_"+sel,{chat:[],essay:"",lesson:"",essayResult:""})); },[sel]);
   const save=(patch:any)=>{ setData((d:any)=>{ const n={...d,...patch}; SS("pos_eng_"+sel,n); return n; }); };
   const [busy,setBusy]=useState(""); const [chatIn,setChatIn]=useState("");
-  const [listening,setListening]=useState(false); const [speakOn,setSpeakOn]=useState(true); const recRef=useRef<any>(null);
+  const [listening,setListening]=useState(false); const [speakOn,setSpeakOn]=useState(true); const recRef=useRef<any>(null); const finalRef=useRef(""); const stoppingRef=useRef(false);
   const speak=(t:string)=>{ try{ if(!speakOn||typeof window==="undefined"||!(window as any).speechSynthesis) return; const clean=String(t).replace(/^Fix:[^\n]*\n?/im,""); const u=new (window as any).SpeechSynthesisUtterance(clean); u.lang="en-US"; u.rate=1; (window as any).speechSynthesis.cancel(); (window as any).speechSynthesis.speak(u); }catch(e){} };
-  const startListening=()=>{ const SR=(window as any).SpeechRecognition||(window as any).webkitSpeechRecognition; if(!SR){ alert("Voice input needs Chrome/Edge (Web Speech API). You can still type."); return; } try{ const rec=new SR(); rec.lang="en-US"; rec.interimResults=false; rec.maxAlternatives=1; recRef.current=rec; setListening(true);
-    rec.onresult=(e:any)=>{ const t=e.results[0][0].transcript; setListening(false); sendChat(false,t); };
-    rec.onerror=()=>setListening(false); rec.onend=()=>setListening(false); rec.start(); }catch(e){ setListening(false); alert("Couldn't start the microphone."); } };
-  const stopListening=()=>{ try{ recRef.current&&recRef.current.stop(); }catch(e){} setListening(false); };
+  const startListening=()=>{ const SR=(window as any).SpeechRecognition||(window as any).webkitSpeechRecognition; if(!SR){ alert("Voice input needs Chrome/Edge (Web Speech API). You can still type."); return; }
+    try{ if((window as any).speechSynthesis) (window as any).speechSynthesis.cancel(); }catch(e){}
+    try{ const rec=new SR(); rec.lang="en-US"; rec.continuous=true; rec.interimResults=true; rec.maxAlternatives=1; recRef.current=rec; finalRef.current=""; stoppingRef.current=false; setListening(true); setChatIn("");
+      rec.onresult=(e:any)=>{ let interim=""; for(let i=e.resultIndex;i<e.results.length;i++){ const tr=e.results[i][0].transcript; if(e.results[i].isFinal) finalRef.current+=tr+" "; else interim+=tr; } setChatIn((finalRef.current+interim).trim()); };
+      rec.onerror=()=>{};
+      rec.onend=()=>{ if(!stoppingRef.current){ try{ rec.start(); return; }catch(e){} } setListening(false); };
+      rec.start(); }catch(e){ setListening(false); alert("Couldn't start the microphone."); } };
+  const stopListening=()=>{ stoppingRef.current=true; try{ recRef.current&&recRef.current.stop(); }catch(e){} setListening(false); const t=(finalRef.current||chatIn).trim(); finalRef.current=""; if(t) sendChat(false,t); };
   const shift=(n:number)=>{ const [y,m,d]=sel.split("-").map(Number); const dt=new Date(y,m-1,d+n); setSel(`${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,"0")}-${String(dt.getDate()).padStart(2,"0")}`); };
   const getLesson=async()=>{ setBusy("lesson"); try{ const r=await fetch("/api/english-lesson",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({day:dayIdx+1,topic})}); const d=await r.json(); if(d.lesson) save({lesson:d.lesson}); else alert(d.error||"Failed"); }catch(e){ alert("Failed — check your AI key."); } setBusy(""); };
   const sendChat=async(first:boolean,textArg?:string)=>{ const txt=textArg!=null?textArg:chatIn; if(!first && !String(txt).trim()) return; setBusy("chat"); const base=Array.isArray(data.chat)?data.chat:[]; const msgs=first?[]:[...base,{role:"user",content:txt}]; if(!first){ save({chat:msgs}); setChatIn(""); }
@@ -1176,8 +1180,8 @@ function English(){
       </div>
       <div className="row" style={{gap:8,marginTop:10,flexWrap:"wrap"}}>
         {!(data.chat||[]).length && <button className="btn sm" onClick={()=>sendChat(true)} disabled={busy==="chat"}>{busy==="chat"?"🤖…":"▶ Start interview"}</button>}
-        <button className={"btn "+(listening?"":"ghost")+" sm"} onClick={listening?stopListening:startListening} disabled={busy==="chat"} style={listening?{background:"linear-gradient(100deg,var(--pink),var(--orange))"}:{}}>{listening?"🎙️ Listening… tap to stop":"🎙️ Speak"}</button>
-        <input className="in" value={chatIn} onChange={e=>setChatIn(e.target.value)} placeholder="…or type your answer" style={{flex:1,minWidth:160}} onKeyDown={e=>{ if(e.key==="Enter") sendChat(false); }}/>
+        <button className={"btn "+(listening?"":"ghost")+" sm"} onClick={listening?stopListening:startListening} disabled={busy==="chat"} style={listening?{background:"linear-gradient(100deg,var(--pink),var(--orange))"}:{}}>{listening?"⏹ Stop & send":"🎙️ Speak"}</button>
+        <input className="in" value={chatIn} onChange={e=>setChatIn(e.target.value)} placeholder={listening?"Listening… speak, then tap Stop & send":"…or type your answer"} style={{flex:1,minWidth:160}} onKeyDown={e=>{ if(e.key==="Enter") sendChat(false); }}/>
         <button className="btn sm" onClick={()=>sendChat(false)} disabled={busy==="chat"}>{busy==="chat"?"🤖…":"Send"}</button>
         {(data.chat||[]).length>0 && <button className="btn ghost sm" onClick={()=>save({chat:[]})}>Clear</button>}
       </div>
