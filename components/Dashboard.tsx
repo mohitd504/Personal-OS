@@ -78,7 +78,7 @@ export default function Dashboard({ onSignOut, name }: { onSignOut: ()=>void; na
               <button className="btn ghost sm" onClick={()=>setSelDate(today())}>Today</button>
             </>}
             <span className="in" style={{ padding:"6px 12px" }}>{clock}</span>
-            <span style={{ fontSize:10, color:"var(--mut2)" }} title="build marker — bump this to verify a deploy went live">build&nbsp;90</span>
+            <span style={{ fontSize:10, color:"var(--mut2)" }} title="build marker — bump this to verify a deploy went live">build&nbsp;91</span>
           </div>
         </div>
         <div className="content"><Boundary key={view}>
@@ -1134,21 +1134,28 @@ function English(){
   useEffect(()=>{ setData(LS("pos_eng_"+sel,{chat:[],essay:"",lesson:"",essayResult:""})); },[sel]);
   const save=(patch:any)=>{ setData((d:any)=>{ const n={...d,...patch}; SS("pos_eng_"+sel,n); return n; }); };
   const [busy,setBusy]=useState(""); const [chatIn,setChatIn]=useState("");
-  const [listening,setListening]=useState(false); const [speakOn,setSpeakOn]=useState(true); const recRef=useRef<any>(null); const finalRef=useRef(""); const stoppingRef=useRef(false);
+  const [listening,setListening]=useState(false); const [speakOn,setSpeakOn]=useState(true); const recRef=useRef<any>(null); const finalRef=useRef(""); const stoppingRef=useRef(false); const onStopRef=useRef<any>(null); const [micCtx,setMicCtx]=useState("");
   const speak=(t:string)=>{ try{ if(!speakOn||typeof window==="undefined"||!(window as any).speechSynthesis) return; const clean=String(t).replace(/^Fix:[^\n]*\n?/im,""); const u=new (window as any).SpeechSynthesisUtterance(clean); u.lang="en-US"; u.rate=1; (window as any).speechSynthesis.cancel(); (window as any).speechSynthesis.speak(u); }catch(e){} };
-  const startListening=()=>{ const SR=(window as any).SpeechRecognition||(window as any).webkitSpeechRecognition; if(!SR){ alert("Voice input needs Chrome/Edge (Web Speech API). You can still type."); return; }
+  const startListening=(cb?:any,ctx?:string)=>{ const SR=(window as any).SpeechRecognition||(window as any).webkitSpeechRecognition; if(!SR){ alert("Voice input needs Chrome/Edge (Web Speech API). You can still type."); return; }
     try{ if((window as any).speechSynthesis) (window as any).speechSynthesis.cancel(); }catch(e){}
-    try{ const rec=new SR(); rec.lang="en-US"; rec.continuous=true; rec.interimResults=true; rec.maxAlternatives=1; recRef.current=rec; finalRef.current=""; stoppingRef.current=false; setListening(true); setChatIn("");
-      rec.onresult=(e:any)=>{ let interim=""; for(let i=e.resultIndex;i<e.results.length;i++){ const tr=e.results[i][0].transcript; if(e.results[i].isFinal) finalRef.current+=tr+" "; else interim+=tr; } setChatIn((finalRef.current+interim).trim()); };
+    try{ const rec=new SR(); rec.lang="en-US"; rec.continuous=true; rec.interimResults=true; rec.maxAlternatives=1; recRef.current=rec; finalRef.current=""; stoppingRef.current=false; onStopRef.current=cb||((t:string)=>sendChat(false,t)); setMicCtx(ctx||"chat"); setListening(true); if((ctx||"chat")==="chat") setChatIn("");
+      rec.onresult=(e:any)=>{ let interim=""; for(let i=e.resultIndex;i<e.results.length;i++){ const tr=e.results[i][0].transcript; if(e.results[i].isFinal) finalRef.current+=tr+" "; else interim+=tr; } if((ctx||"chat")==="chat") setChatIn((finalRef.current+interim).trim()); };
       rec.onerror=()=>{};
       rec.onend=()=>{ if(!stoppingRef.current){ try{ rec.start(); return; }catch(e){} } setListening(false); };
       rec.start(); }catch(e){ setListening(false); alert("Couldn't start the microphone."); } };
-  const stopListening=()=>{ stoppingRef.current=true; try{ recRef.current&&recRef.current.stop(); }catch(e){} setListening(false); const t=(finalRef.current||chatIn).trim(); finalRef.current=""; if(t) sendChat(false,t); };
+  const stopListening=()=>{ stoppingRef.current=true; try{ recRef.current&&recRef.current.stop(); }catch(e){} setListening(false); const t=(finalRef.current||chatIn).trim(); finalRef.current=""; const cb=onStopRef.current; onStopRef.current=null; setMicCtx(""); if(t && cb) cb(t); };
   const shift=(n:number)=>{ const [y,m,d]=sel.split("-").map(Number); const dt=new Date(y,m-1,d+n); setSel(`${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,"0")}-${String(dt.getDate()).padStart(2,"0")}`); };
   const getLesson=async()=>{ setBusy("lesson"); try{ const r=await fetch("/api/english-lesson",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({day:dayIdx+1,topic})}); const d=await r.json(); if(d.lesson) save({lesson:d.lesson}); else alert(d.error||"Failed"); }catch(e){ alert("Failed — check your AI key."); } setBusy(""); };
   const sendChat=async(first:boolean,textArg?:string)=>{ const txt=textArg!=null?textArg:chatIn; if(!first && !String(txt).trim()) return; setBusy("chat"); const base=Array.isArray(data.chat)?data.chat:[]; const msgs=first?[]:[...base,{role:"user",content:txt}]; if(!first){ save({chat:msgs}); setChatIn(""); }
     try{ const r=await fetch("/api/english-chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({messages:msgs,topic})}); const d=await r.json(); if(d.reply){ const n=[...msgs,{role:"bot",content:d.reply,fix:d.fix||""}]; save({chat:n}); speak((d.fix?d.fix+". ":"")+d.reply); } else if(d.error) alert(d.error); }catch(e){ alert("Chat failed — check your AI key."); } setBusy(""); };
   const checkEssay=async()=>{ if(!(data.essay||"").trim()){ alert("Write your essay first."); return; } setBusy("essay"); try{ const r=await fetch("/api/essay-check",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text:data.essay})}); const d=await r.json(); if(d.result) save({essayResult:d.result}); else alert(d.error||"Failed"); }catch(e){ alert("Failed — check your AI key."); } setBusy(""); };
+  const [drill,setDrill]=useState<any>(LS("pos_engdrill_"+today(),{sentences:[],idx:0,attempts:[],review:""}));
+  useEffect(()=>{ setDrill(LS("pos_engdrill_"+sel,{sentences:[],idx:0,attempts:[],review:""})); },[sel]);
+  const saveDrill=(patch:any)=>{ setDrill((d:any)=>{ const n={...d,...patch}; SS("pos_engdrill_"+sel,n); return n; }); };
+  const startDrill=async()=>{ setBusy("drill"); try{ const r=await fetch("/api/english-drill",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({topic,count:18})}); const d=await r.json(); if(Array.isArray(d.sentences)&&d.sentences.length){ const n={sentences:d.sentences,idx:0,attempts:[],review:""}; setDrill(n); SS("pos_engdrill_"+sel,n); speak(d.sentences[0]); } else alert(d.error||"Failed"); }catch(e){ alert("Failed — check your AI key."); } setBusy(""); };
+  const recordAttempt=(said:string)=>{ setDrill((d:any)=>{ const tgt=d.sentences[d.idx]||""; const attempts=[...(d.attempts||[]),{target:tgt,said}]; const idx=d.idx+1; const n={...d,attempts,idx}; SS("pos_engdrill_"+sel,n); if(idx<d.sentences.length) setTimeout(()=>speak(d.sentences[idx]),500); return n; }); };
+  const reviewDrill=async()=>{ if(!(drill.attempts||[]).length){ alert("Repeat a few sentences first."); return; } setBusy("dreview"); try{ const r=await fetch("/api/drill-review",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({attempts:drill.attempts})}); const d=await r.json(); if(d.review) saveDrill({review:d.review}); else alert(d.error||"Failed"); }catch(e){ alert("Failed."); } setBusy(""); };
+  const restartDrill=()=>{ const n={sentences:[],idx:0,attempts:[],review:""}; setDrill(n); SS("pos_engdrill_"+sel,n); };
   return <>
     <Head t="English — 45-Day Fluency" p={`Day ${dayIdx+1} of 45 · ${topic}`} />
     <div className="card" style={{marginBottom:16}}>
@@ -1180,7 +1187,7 @@ function English(){
       </div>
       <div className="row" style={{gap:8,marginTop:10,flexWrap:"wrap"}}>
         {!(data.chat||[]).length && <button className="btn sm" onClick={()=>sendChat(true)} disabled={busy==="chat"}>{busy==="chat"?"🤖…":"▶ Start interview"}</button>}
-        <button className={"btn "+(listening?"":"ghost")+" sm"} onClick={listening?stopListening:startListening} disabled={busy==="chat"} style={listening?{background:"linear-gradient(100deg,var(--pink),var(--orange))"}:{}}>{listening?"⏹ Stop & send":"🎙️ Speak"}</button>
+        <button className={"btn "+(listening&&micCtx==="chat"?"":"ghost")+" sm"} onClick={listening?stopListening:()=>startListening(undefined,"chat")} disabled={busy==="chat"||(listening&&micCtx!=="chat")} style={listening&&micCtx==="chat"?{background:"linear-gradient(100deg,var(--pink),var(--orange))"}:{}}>{listening&&micCtx==="chat"?"⏹ Stop & send":"🎙️ Speak"}</button>
         <input className="in" value={chatIn} onChange={e=>setChatIn(e.target.value)} placeholder={listening?"Listening… speak, then tap Stop & send":"…or type your answer"} style={{flex:1,minWidth:160}} onKeyDown={e=>{ if(e.key==="Enter") sendChat(false); }}/>
         <button className="btn sm" onClick={()=>sendChat(false)} disabled={busy==="chat"}>{busy==="chat"?"🤖…":"Send"}</button>
         {(data.chat||[]).length>0 && <button className="btn ghost sm" onClick={()=>save({chat:[]})}>Clear</button>}
@@ -1191,6 +1198,27 @@ function English(){
       <div className="between" style={{flexWrap:"wrap",gap:8}}><div className="row" style={{gap:8}}><Chip tint="purple">✍️</Chip><strong>3 · Essay — get corrected (15 min)</strong></div><div className="row" style={{gap:8}}><MiniTimer minutes={15}/><button className="btn sm" onClick={checkEssay} disabled={busy==="essay"}>{busy==="essay"?"🤖…":"✨ Check my essay"}</button></div></div>
       <textarea className="in" value={data.essay||""} onChange={e=>save({essay:e.target.value})} placeholder={`Write a short essay on: ${topic}. AI will fix tenses, grammar and suggest better words.`} style={{width:"100%",minHeight:140,marginTop:10,lineHeight:1.6}}/>
       {data.essayResult && <div style={{marginTop:12,padding:12,borderRadius:12,background:"rgba(255,255,255,.03)",border:"1px solid var(--stroke)",fontSize:13,color:"#d5dbe6"}} dangerouslySetInnerHTML={{__html:mdToHtml(data.essayResult)}}/>}
+    </div>
+
+    <div className="card" style={{marginTop:16}}>
+      <div className="between" style={{flexWrap:"wrap",gap:8}}><div className="row" style={{gap:8}}><Chip tint="cyan">🔁</Chip><strong>4 · Repeat-after-me drill (15 min)</strong></div><div className="row" style={{gap:8}}>{drill.sentences.length>0 && <span className="muted" style={{fontSize:12}}>{Math.min(drill.idx,drill.sentences.length)}/{drill.sentences.length}</span>}<MiniTimer minutes={15}/></div></div>
+      {!drill.sentences.length ? <div style={{marginTop:10}}>
+        <div className="muted" style={{fontSize:12}}>The bot says a sentence, you repeat it aloud. It records every attempt and reviews your mistakes at the end.</div>
+        <button className="btn sm" style={{marginTop:8}} onClick={startDrill} disabled={busy==="drill"}>{busy==="drill"?"🤖 Preparing…":"▶ Start drill"}</button>
+      </div> : drill.idx<drill.sentences.length ? <div style={{marginTop:10}}>
+        <div style={{padding:14,borderRadius:12,background:"rgba(6,182,212,.10)",border:"1px solid rgba(6,182,212,.28)",fontSize:16,lineHeight:1.5}}>{drill.sentences[drill.idx]} <button className="btn ghost sm" style={{marginLeft:6}} onClick={()=>speak(drill.sentences[drill.idx])}>🔊 Hear</button></div>
+        <div className="row" style={{gap:8,marginTop:10,flexWrap:"wrap"}}>
+          <button className={"btn "+(listening&&micCtx==="drill"?"":"ghost")+" sm"} onClick={listening?stopListening:()=>startListening((t:string)=>recordAttempt(t),"drill")} disabled={busy!==""||(listening&&micCtx!=="drill")} style={listening&&micCtx==="drill"?{background:"linear-gradient(100deg,var(--pink),var(--orange))"}:{}}>{listening&&micCtx==="drill"?"⏹ Stop & next":"🎙️ Repeat it"}</button>
+          <button className="btn ghost sm" onClick={()=>recordAttempt("(skipped)")}>Skip</button>
+          <button className="btn ghost sm" onClick={reviewDrill} disabled={busy==="dreview"}>{busy==="dreview"?"🤖…":"Finish & review"}</button>
+        </div>
+        <div className="muted" style={{fontSize:11,marginTop:6}}>Recorded {drill.attempts.length} so far. Repeat what you heard, then Stop & next.</div>
+      </div> : <div style={{marginTop:10}}>
+        <div className="muted" style={{fontSize:13}}>All {drill.sentences.length} sentences done — recorded {drill.attempts.length}.</div>
+        <button className="btn sm" style={{marginTop:8}} onClick={reviewDrill} disabled={busy==="dreview"}>{busy==="dreview"?"🤖 Reviewing…":"📋 Review my mistakes"}</button>
+      </div>}
+      {drill.review && <div style={{marginTop:12,padding:12,borderRadius:12,background:"rgba(255,255,255,.03)",border:"1px solid var(--stroke)",fontSize:13,color:"#d5dbe6"}} dangerouslySetInnerHTML={{__html:mdToHtml(drill.review)}}/>}
+      {drill.sentences.length>0 && <div style={{marginTop:8}}><button className="btn ghost sm" onClick={restartDrill}>↺ New drill</button></div>}
     </div>
   </>;
 }
