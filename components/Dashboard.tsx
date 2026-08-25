@@ -78,7 +78,7 @@ export default function Dashboard({ onSignOut, name }: { onSignOut: ()=>void; na
               <button className="btn ghost sm" onClick={()=>setSelDate(today())}>Today</button>
             </>}
             <span className="in" style={{ padding:"6px 12px" }}>{clock}</span>
-            <span style={{ fontSize:10, color:"var(--mut2)" }} title="build marker — bump this to verify a deploy went live">build&nbsp;91</span>
+            <span style={{ fontSize:10, color:"var(--mut2)" }} title="build marker — bump this to verify a deploy went live">build&nbsp;92</span>
           </div>
         </div>
         <div className="content"><Boundary key={view}>
@@ -1138,8 +1138,8 @@ function English(){
   const speak=(t:string)=>{ try{ if(!speakOn||typeof window==="undefined"||!(window as any).speechSynthesis) return; const clean=String(t).replace(/^Fix:[^\n]*\n?/im,""); const u=new (window as any).SpeechSynthesisUtterance(clean); u.lang="en-US"; u.rate=1; (window as any).speechSynthesis.cancel(); (window as any).speechSynthesis.speak(u); }catch(e){} };
   const startListening=(cb?:any,ctx?:string)=>{ const SR=(window as any).SpeechRecognition||(window as any).webkitSpeechRecognition; if(!SR){ alert("Voice input needs Chrome/Edge (Web Speech API). You can still type."); return; }
     try{ if((window as any).speechSynthesis) (window as any).speechSynthesis.cancel(); }catch(e){}
-    try{ const rec=new SR(); rec.lang="en-US"; rec.continuous=true; rec.interimResults=true; rec.maxAlternatives=1; recRef.current=rec; finalRef.current=""; stoppingRef.current=false; onStopRef.current=cb||((t:string)=>sendChat(false,t)); setMicCtx(ctx||"chat"); setListening(true); if((ctx||"chat")==="chat") setChatIn("");
-      rec.onresult=(e:any)=>{ let interim=""; for(let i=e.resultIndex;i<e.results.length;i++){ const tr=e.results[i][0].transcript; if(e.results[i].isFinal) finalRef.current+=tr+" "; else interim+=tr; } if((ctx||"chat")==="chat") setChatIn((finalRef.current+interim).trim()); };
+    try{ const rec=new SR(); rec.lang="en-US"; rec.continuous=true; rec.interimResults=true; rec.maxAlternatives=1; recRef.current=rec; finalRef.current=""; stoppingRef.current=false; onStopRef.current=cb||((t:string)=>sendChat(false,t)); setMicCtx(ctx||"chat"); setListening(true); setChatIn("");
+      rec.onresult=(e:any)=>{ let interim=""; for(let i=e.resultIndex;i<e.results.length;i++){ const tr=e.results[i][0].transcript; if(e.results[i].isFinal) finalRef.current+=tr+" "; else interim+=tr; } setChatIn((finalRef.current+interim).trim()); };
       rec.onerror=()=>{};
       rec.onend=()=>{ if(!stoppingRef.current){ try{ rec.start(); return; }catch(e){} } setListening(false); };
       rec.start(); }catch(e){ setListening(false); alert("Couldn't start the microphone."); } };
@@ -1152,7 +1152,7 @@ function English(){
   const [drill,setDrill]=useState<any>(LS("pos_engdrill_"+today(),{sentences:[],idx:0,attempts:[],review:""}));
   useEffect(()=>{ setDrill(LS("pos_engdrill_"+sel,{sentences:[],idx:0,attempts:[],review:""})); },[sel]);
   const saveDrill=(patch:any)=>{ setDrill((d:any)=>{ const n={...d,...patch}; SS("pos_engdrill_"+sel,n); return n; }); };
-  const startDrill=async()=>{ setBusy("drill"); try{ const r=await fetch("/api/english-drill",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({topic,count:18})}); const d=await r.json(); if(Array.isArray(d.sentences)&&d.sentences.length){ const n={sentences:d.sentences,idx:0,attempts:[],review:""}; setDrill(n); SS("pos_engdrill_"+sel,n); speak(d.sentences[0]); } else alert(d.error||"Failed"); }catch(e){ alert("Failed — check your AI key."); } setBusy(""); };
+  const startDrill=async()=>{ setBusy("drill"); try{ const r=await fetch("/api/english-drill",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({topic,count:25})}); const d=await r.json(); if(Array.isArray(d.sentences)&&d.sentences.length){ const paras:string[]=[]; for(let i=0;i<d.sentences.length;i+=5) paras.push(d.sentences.slice(i,i+5).join(" ")); const n={sentences:paras,idx:0,attempts:[],review:""}; setDrill(n); SS("pos_engdrill_"+sel,n); speak(paras[0]); } else alert(d.error||"Failed"); }catch(e){ alert("Failed — check your AI key."); } setBusy(""); };
   const recordAttempt=(said:string)=>{ setDrill((d:any)=>{ const tgt=d.sentences[d.idx]||""; const attempts=[...(d.attempts||[]),{target:tgt,said}]; const idx=d.idx+1; const n={...d,attempts,idx}; SS("pos_engdrill_"+sel,n); if(idx<d.sentences.length) setTimeout(()=>speak(d.sentences[idx]),500); return n; }); };
   const reviewDrill=async()=>{ if(!(drill.attempts||[]).length){ alert("Repeat a few sentences first."); return; } setBusy("dreview"); try{ const r=await fetch("/api/drill-review",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({attempts:drill.attempts})}); const d=await r.json(); if(d.review) saveDrill({review:d.review}); else alert(d.error||"Failed"); }catch(e){ alert("Failed."); } setBusy(""); };
   const restartDrill=()=>{ const n={sentences:[],idx:0,attempts:[],review:""}; setDrill(n); SS("pos_engdrill_"+sel,n); };
@@ -1201,18 +1201,19 @@ function English(){
     </div>
 
     <div className="card" style={{marginTop:16}}>
-      <div className="between" style={{flexWrap:"wrap",gap:8}}><div className="row" style={{gap:8}}><Chip tint="cyan">🔁</Chip><strong>4 · Repeat-after-me drill (15 min)</strong></div><div className="row" style={{gap:8}}>{drill.sentences.length>0 && <span className="muted" style={{fontSize:12}}>{Math.min(drill.idx,drill.sentences.length)}/{drill.sentences.length}</span>}<MiniTimer minutes={15}/></div></div>
+      <div className="between" style={{flexWrap:"wrap",gap:8}}><div className="row" style={{gap:8}}><Chip tint="cyan">🔁</Chip><strong>4 · Repeat-after-me drill — paragraphs (15 min)</strong></div><div className="row" style={{gap:8}}>{drill.sentences.length>0 && <span className="muted" style={{fontSize:12}}>Para {Math.min(drill.idx+1,drill.sentences.length)}/{drill.sentences.length}</span>}<MiniTimer minutes={15}/></div></div>
       {!drill.sentences.length ? <div style={{marginTop:10}}>
-        <div className="muted" style={{fontSize:12}}>The bot says a sentence, you repeat it aloud. It records every attempt and reviews your mistakes at the end.</div>
+        <div className="muted" style={{fontSize:12}}>The bot reads a short paragraph (4–5 sentences); you repeat the whole thing aloud. It records every attempt and reviews your mistakes at the end.</div>
         <button className="btn sm" style={{marginTop:8}} onClick={startDrill} disabled={busy==="drill"}>{busy==="drill"?"🤖 Preparing…":"▶ Start drill"}</button>
       </div> : drill.idx<drill.sentences.length ? <div style={{marginTop:10}}>
-        <div style={{padding:14,borderRadius:12,background:"rgba(6,182,212,.10)",border:"1px solid rgba(6,182,212,.28)",fontSize:16,lineHeight:1.5}}>{drill.sentences[drill.idx]} <button className="btn ghost sm" style={{marginLeft:6}} onClick={()=>speak(drill.sentences[drill.idx])}>🔊 Hear</button></div>
+        <div style={{padding:14,borderRadius:12,background:"rgba(6,182,212,.10)",border:"1px solid rgba(6,182,212,.28)",fontSize:16,lineHeight:1.6}}>{drill.sentences[drill.idx]} <button className="btn ghost sm" style={{marginLeft:6}} onClick={()=>speak(drill.sentences[drill.idx])}>🔊 Hear</button></div>
         <div className="row" style={{gap:8,marginTop:10,flexWrap:"wrap"}}>
-          <button className={"btn "+(listening&&micCtx==="drill"?"":"ghost")+" sm"} onClick={listening?stopListening:()=>startListening((t:string)=>recordAttempt(t),"drill")} disabled={busy!==""||(listening&&micCtx!=="drill")} style={listening&&micCtx==="drill"?{background:"linear-gradient(100deg,var(--pink),var(--orange))"}:{}}>{listening&&micCtx==="drill"?"⏹ Stop & next":"🎙️ Repeat it"}</button>
+          <button className={"btn "+(listening&&micCtx==="drill"?"":"ghost")+" sm"} onClick={listening?stopListening:()=>startListening((t:string)=>recordAttempt(t),"drill")} disabled={busy!==""||(listening&&micCtx!=="drill")} style={listening&&micCtx==="drill"?{background:"linear-gradient(100deg,var(--pink),var(--orange))"}:{}}>{listening&&micCtx==="drill"?"⏹ Done — next paragraph":"🎙️ Repeat the paragraph"}</button>
           <button className="btn ghost sm" onClick={()=>recordAttempt("(skipped)")}>Skip</button>
           <button className="btn ghost sm" onClick={reviewDrill} disabled={busy==="dreview"}>{busy==="dreview"?"🤖…":"Finish & review"}</button>
         </div>
-        <div className="muted" style={{fontSize:11,marginTop:6}}>Recorded {drill.attempts.length} so far. Repeat what you heard, then Stop & next.</div>
+        {listening&&micCtx==="drill" && (chatIn||"").trim() && <div className="muted" style={{fontSize:12,marginTop:8}}>Heard: {chatIn}</div>}
+        <div className="muted" style={{fontSize:11,marginTop:6}}>Recorded {drill.attempts.length} paragraph(s). Read the whole paragraph, then tap “Done — next paragraph”.</div>
       </div> : <div style={{marginTop:10}}>
         <div className="muted" style={{fontSize:13}}>All {drill.sentences.length} sentences done — recorded {drill.attempts.length}.</div>
         <button className="btn sm" style={{marginTop:8}} onClick={reviewDrill} disabled={busy==="dreview"}>{busy==="dreview"?"🤖 Reviewing…":"📋 Review my mistakes"}</button>
