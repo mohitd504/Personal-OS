@@ -78,7 +78,7 @@ export default function Dashboard({ onSignOut, name }: { onSignOut: ()=>void; na
               <button className="btn ghost sm" onClick={()=>setSelDate(today())}>Today</button>
             </>}
             <span className="in" style={{ padding:"6px 12px" }}>{clock}</span>
-            <span style={{ fontSize:10, color:"var(--mut2)" }} title="build marker — bump this to verify a deploy went live">build&nbsp;94</span>
+            <span style={{ fontSize:10, color:"var(--mut2)" }} title="build marker — bump this to verify a deploy went live">build&nbsp;96</span>
           </div>
         </div>
         <div className="content"><Boundary key={view}>
@@ -1137,10 +1137,12 @@ function English(){
   const [busy,setBusy]=useState(""); const [chatIn,setChatIn]=useState(""); const [scenario,setScenario]=useState("Free conversation");
   const getFeedback=async()=>{ if(!(data.chat||[]).length){ alert("Have a short conversation first."); return; } setBusy("fb"); try{ const r=await fetch("/api/english-feedback",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({messages:data.chat})}); const d=await r.json(); if(d.report) save({report:d.report}); else alert(d.error||"Failed"); }catch(e){ alert("Failed — check your AI key."); } setBusy(""); };
   const [listening,setListening]=useState(false); const [speakOn,setSpeakOn]=useState(true); const recRef=useRef<any>(null); const finalRef=useRef(""); const stoppingRef=useRef(false); const onStopRef=useRef<any>(null); const [micCtx,setMicCtx]=useState("");
-  const speak=(t:string)=>{ try{ if(!speakOn||typeof window==="undefined"||!(window as any).speechSynthesis) return; const clean=String(t).replace(/^Fix:[^\n]*\n?/im,""); const u=new (window as any).SpeechSynthesisUtterance(clean); u.lang="en-US"; u.rate=1; (window as any).speechSynthesis.cancel(); (window as any).speechSynthesis.speak(u); }catch(e){} };
+  const speak=(t:string)=>{ try{ if(!speakOn||typeof window==="undefined"||!(window as any).speechSynthesis) return; const synth=(window as any).speechSynthesis; const clean=String(t).replace(/^Fix:[^\n]*\n?/im,""); const u=new (window as any).SpeechSynthesisUtterance(clean); u.lang="en-IN"; u.rate=0.95;
+    const vs=synth.getVoices()||[]; const v=vs.find((x:any)=>x.lang==="en-IN")||vs.find((x:any)=>/en[-_]IN|India|Hindi|Ravi|Heera|Aditi|Rishi/i.test((x.lang||"")+(x.name||""))); if(v) u.voice=v;
+    synth.cancel(); synth.speak(u); }catch(e){} };
   const startListening=(cb?:any,ctx?:string)=>{ const SR=(window as any).SpeechRecognition||(window as any).webkitSpeechRecognition; if(!SR){ alert("Voice input needs Chrome/Edge (Web Speech API). You can still type."); return; }
     try{ if((window as any).speechSynthesis) (window as any).speechSynthesis.cancel(); }catch(e){}
-    try{ const rec=new SR(); rec.lang="en-US"; rec.continuous=true; rec.interimResults=true; rec.maxAlternatives=1; recRef.current=rec; finalRef.current=""; stoppingRef.current=false; onStopRef.current=cb||((t:string)=>sendChat(false,t)); setMicCtx(ctx||"chat"); setListening(true); setChatIn("");
+    try{ const rec=new SR(); rec.lang="en-IN"; rec.continuous=true; rec.interimResults=true; rec.maxAlternatives=1; recRef.current=rec; finalRef.current=""; stoppingRef.current=false; onStopRef.current=cb||((t:string)=>sendChat(false,t)); setMicCtx(ctx||"chat"); setListening(true); setChatIn("");
       rec.onresult=(e:any)=>{ let interim=""; for(let i=e.resultIndex;i<e.results.length;i++){ const tr=e.results[i][0].transcript; if(e.results[i].isFinal) finalRef.current+=tr+" "; else interim+=tr; } setChatIn((finalRef.current+interim).trim()); };
       rec.onerror=()=>{};
       rec.onend=()=>{ if(!stoppingRef.current){ try{ rec.start(); return; }catch(e){} } setListening(false); };
@@ -1150,7 +1152,7 @@ function English(){
   const getLesson=async()=>{ setBusy("lesson"); try{ const r=await fetch("/api/english-lesson",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({day:dayIdx+1,topic})}); const d=await r.json(); if(d.lesson) save({lesson:d.lesson}); else alert(d.error||"Failed"); }catch(e){ alert("Failed — check your AI key."); } setBusy(""); };
   const sendChat=async(first:boolean,textArg?:string)=>{ const txt=textArg!=null?textArg:chatIn; if(!first && !String(txt).trim()) return; setBusy("chat"); const base=Array.isArray(data.chat)?data.chat:[]; const msgs=first?[]:[...base,{role:"user",content:txt}]; if(!first){ save({chat:msgs}); setChatIn(""); }
     const convTopic = scenario && scenario!=="Free conversation" ? `Role-play scenario: ${scenario}. Stay in character as the other person in this scenario.` : topic;
-    try{ const r=await fetch("/api/english-chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({messages:msgs,topic:convTopic})}); const d=await r.json(); if(d.reply){ const n=[...msgs,{role:"bot",content:d.reply,fix:d.fix||""}]; save({chat:n}); speak((d.fix?d.fix+". ":"")+d.reply); } else if(d.error) alert(d.error); }catch(e){ alert("Chat failed — check your AI key."); } setBusy(""); };
+    try{ const r=await fetch("/api/english-chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({messages:msgs,topic:convTopic})}); const d=await r.json(); if(d.reply){ const n=[...msgs,{role:"bot",content:d.reply,corrected:d.corrected||"",issues:Array.isArray(d.issues)?d.issues:[]}]; save({chat:n}); speak((d.corrected?"Say: "+d.corrected+". ":"")+d.reply); } else if(d.error) alert(d.error); }catch(e){ alert("Chat failed — check your AI key."); } setBusy(""); };
   const checkEssay=async()=>{ if(!(data.essay||"").trim()){ alert("Write your essay first."); return; } setBusy("essay"); try{ const r=await fetch("/api/essay-check",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text:data.essay})}); const d=await r.json(); if(d.result) save({essayResult:d.result}); else alert(d.error||"Failed"); }catch(e){ alert("Failed — check your AI key."); } setBusy(""); };
   const [drill,setDrill]=useState<any>(LS("pos_engdrill_"+today(),{sentences:[],idx:0,attempts:[],review:""}));
   useEffect(()=>{ setDrill(LS("pos_engdrill_"+sel,{sentences:[],idx:0,attempts:[],review:""})); },[sel]);
@@ -1203,7 +1205,10 @@ function English(){
       </div>
       <div style={{marginTop:10,maxHeight:320,overflowY:"auto",display:"flex",flexDirection:"column",gap:8}}>
         {(data.chat||[]).map((m:any,i:number)=><div key={i} style={{alignSelf:m.role==="user"?"flex-end":"flex-start",maxWidth:"88%"}}>
-          {m.role==="bot" && m.fix && <div style={{fontSize:12,color:"#fcd34d",background:"rgba(245,158,11,.10)",border:"1px solid rgba(245,158,11,.28)",borderRadius:10,padding:"6px 10px",marginBottom:4}}>✏️ {m.fix}</div>}
+          {m.role==="bot" && (m.corrected||m.fix||(m.issues&&m.issues.length)) && <div style={{fontSize:12,color:"#fcd34d",background:"rgba(245,158,11,.10)",border:"1px solid rgba(245,158,11,.28)",borderRadius:10,padding:"6px 10px",marginBottom:4}}>
+            {(m.corrected||m.fix) && <div>✏️ Say: {m.corrected||String(m.fix).replace(/^Say:\s*/i,"")}</div>}
+            {(m.issues||[]).map((it:string,ii:number)=><div key={ii} style={{marginTop:2,opacity:.95}}>{/pronounce/i.test(it)?"🗣️ ":"• "}{it}</div>)}
+          </div>}
           <div style={{padding:"8px 12px",borderRadius:12,fontSize:13,lineHeight:1.5,background:m.role==="user"?"rgba(59,130,246,.18)":"rgba(16,185,129,.10)",border:"1px solid var(--stroke)"}}>{m.role==="user"?"🧑 ":"🎤 "}{m.content}{m.role==="bot"&&<button className="btn ghost sm" style={{marginLeft:8,padding:"1px 7px"}} title="Hear again" onClick={()=>speak(m.content)}>🔊</button>}</div>
         </div>)}
         {!(data.chat||[]).length && <div className="muted" style={{fontSize:12}}>Start the interview and answer out loud (type your answers). The bot asks questions and corrects you.</div>}
