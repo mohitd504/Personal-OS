@@ -78,7 +78,7 @@ export default function Dashboard({ onSignOut, name }: { onSignOut: ()=>void; na
               <button className="btn ghost sm" onClick={()=>setSelDate(today())}>Today</button>
             </>}
             <span className="in" style={{ padding:"6px 12px" }}>{clock}</span>
-            <span style={{ fontSize:10, color:"var(--mut2)" }} title="build marker — bump this to verify a deploy went live">build&nbsp;92</span>
+            <span style={{ fontSize:10, color:"var(--mut2)" }} title="build marker — bump this to verify a deploy went live">build&nbsp;94</span>
           </div>
         </div>
         <div className="content"><Boundary key={view}>
@@ -534,6 +534,7 @@ const P_LEGS=["Squat","Front Squat","Hack Squat","Leg Press","Bulgarian Split Sq
 const EX_LIB:Record<string,string[]>={Push:P_PUSH,Pull:P_PULL,Legs:P_LEGS};
 const COURSES=["AI / ML","Interview Prep","Data Structures & Algorithms","System Design","DevOps","Cloud","Frontend","Other"];
 const ENGLISH_TOPICS=["Advanced present tenses (simple vs continuous nuance)","Past tenses mastery (past simple vs present perfect)","Perfect tenses (present/past perfect & continuous)","Future forms (will vs going to vs present continuous)","Articles a/an/the — advanced usage","Prepositions of time & place — tricky cases","Prepositions with verbs & adjectives (depend on, good at)","Phrasal verbs — everyday (get, take, put)","Phrasal verbs — work & business","Idioms & how to use them naturally","Conditionals (0,1,2,3)","Mixed & inverted conditionals","Reported speech","Passive voice — when & how","Modal verbs — ability, permission, obligation","Modals of deduction & probability (must, might, can't)","Collocations — natural word pairs","Connectors & linking words (however, therefore)","Relative clauses (defining & non-defining)","Gerunds vs infinitives","Formal vs informal English","Polite English & softening language","Small talk & everyday conversation","Describing people & personality","Describing places & travel","Narrating a story (sequencing & tenses)","Giving opinions, agreeing & disagreeing","Argument & persuasion language","Comparisons & degrees (as…as, the more…)","Expressing feelings & reactions","Business email English","Meetings & discussions English","Job interview English — common questions","Presentations & public speaking phrases","Telephoning & video calls","Negotiation & making requests","Vocabulary: technology & work","Vocabulary: money & shopping","Vocabulary: health & lifestyle","Pronunciation & word stress","Fix your top common mistakes","Paraphrasing & summarizing","Advanced vocabulary & synonym upgrades","Fluency drills — thinking in English","Review + mock interview + final essay"];
+const SCENARIOS=["Free conversation","Job interview","Small talk / networking","At a restaurant","Business meeting","Travel & airport","Doctor's appointment","Debate a topic","Phone / customer service","Making friends","Negotiation","Presentation Q&A"];
 function MiniTimer({ minutes }:{ minutes:number }){ const [sec,setSec]=useState(0); const [run,setRun]=useState(false);
   useEffect(()=>{ if(!run) return; const id=setInterval(()=>setSec((s:number)=>s+1),1000); return ()=>clearInterval(id); },[run]);
   const f=(s:number)=>`${String(Math.floor(s/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`; const over=sec>=minutes*60;
@@ -1133,7 +1134,8 @@ function English(){
   const [data,setData]=useState<any>(LS("pos_eng_"+today(),{chat:[],essay:"",lesson:"",essayResult:""}));
   useEffect(()=>{ setData(LS("pos_eng_"+sel,{chat:[],essay:"",lesson:"",essayResult:""})); },[sel]);
   const save=(patch:any)=>{ setData((d:any)=>{ const n={...d,...patch}; SS("pos_eng_"+sel,n); return n; }); };
-  const [busy,setBusy]=useState(""); const [chatIn,setChatIn]=useState("");
+  const [busy,setBusy]=useState(""); const [chatIn,setChatIn]=useState(""); const [scenario,setScenario]=useState("Free conversation");
+  const getFeedback=async()=>{ if(!(data.chat||[]).length){ alert("Have a short conversation first."); return; } setBusy("fb"); try{ const r=await fetch("/api/english-feedback",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({messages:data.chat})}); const d=await r.json(); if(d.report) save({report:d.report}); else alert(d.error||"Failed"); }catch(e){ alert("Failed — check your AI key."); } setBusy(""); };
   const [listening,setListening]=useState(false); const [speakOn,setSpeakOn]=useState(true); const recRef=useRef<any>(null); const finalRef=useRef(""); const stoppingRef=useRef(false); const onStopRef=useRef<any>(null); const [micCtx,setMicCtx]=useState("");
   const speak=(t:string)=>{ try{ if(!speakOn||typeof window==="undefined"||!(window as any).speechSynthesis) return; const clean=String(t).replace(/^Fix:[^\n]*\n?/im,""); const u=new (window as any).SpeechSynthesisUtterance(clean); u.lang="en-US"; u.rate=1; (window as any).speechSynthesis.cancel(); (window as any).speechSynthesis.speak(u); }catch(e){} };
   const startListening=(cb?:any,ctx?:string)=>{ const SR=(window as any).SpeechRecognition||(window as any).webkitSpeechRecognition; if(!SR){ alert("Voice input needs Chrome/Edge (Web Speech API). You can still type."); return; }
@@ -1147,7 +1149,8 @@ function English(){
   const shift=(n:number)=>{ const [y,m,d]=sel.split("-").map(Number); const dt=new Date(y,m-1,d+n); setSel(`${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,"0")}-${String(dt.getDate()).padStart(2,"0")}`); };
   const getLesson=async()=>{ setBusy("lesson"); try{ const r=await fetch("/api/english-lesson",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({day:dayIdx+1,topic})}); const d=await r.json(); if(d.lesson) save({lesson:d.lesson}); else alert(d.error||"Failed"); }catch(e){ alert("Failed — check your AI key."); } setBusy(""); };
   const sendChat=async(first:boolean,textArg?:string)=>{ const txt=textArg!=null?textArg:chatIn; if(!first && !String(txt).trim()) return; setBusy("chat"); const base=Array.isArray(data.chat)?data.chat:[]; const msgs=first?[]:[...base,{role:"user",content:txt}]; if(!first){ save({chat:msgs}); setChatIn(""); }
-    try{ const r=await fetch("/api/english-chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({messages:msgs,topic})}); const d=await r.json(); if(d.reply){ const n=[...msgs,{role:"bot",content:d.reply,fix:d.fix||""}]; save({chat:n}); speak((d.fix?d.fix+". ":"")+d.reply); } else if(d.error) alert(d.error); }catch(e){ alert("Chat failed — check your AI key."); } setBusy(""); };
+    const convTopic = scenario && scenario!=="Free conversation" ? `Role-play scenario: ${scenario}. Stay in character as the other person in this scenario.` : topic;
+    try{ const r=await fetch("/api/english-chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({messages:msgs,topic:convTopic})}); const d=await r.json(); if(d.reply){ const n=[...msgs,{role:"bot",content:d.reply,fix:d.fix||""}]; save({chat:n}); speak((d.fix?d.fix+". ":"")+d.reply); } else if(d.error) alert(d.error); }catch(e){ alert("Chat failed — check your AI key."); } setBusy(""); };
   const checkEssay=async()=>{ if(!(data.essay||"").trim()){ alert("Write your essay first."); return; } setBusy("essay"); try{ const r=await fetch("/api/essay-check",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text:data.essay})}); const d=await r.json(); if(d.result) save({essayResult:d.result}); else alert(d.error||"Failed"); }catch(e){ alert("Failed — check your AI key."); } setBusy(""); };
   const [drill,setDrill]=useState<any>(LS("pos_engdrill_"+today(),{sentences:[],idx:0,attempts:[],review:""}));
   useEffect(()=>{ setDrill(LS("pos_engdrill_"+sel,{sentences:[],idx:0,attempts:[],review:""})); },[sel]);
@@ -1156,6 +1159,21 @@ function English(){
   const recordAttempt=(said:string)=>{ setDrill((d:any)=>{ const tgt=d.sentences[d.idx]||""; const attempts=[...(d.attempts||[]),{target:tgt,said}]; const idx=d.idx+1; const n={...d,attempts,idx}; SS("pos_engdrill_"+sel,n); if(idx<d.sentences.length) setTimeout(()=>speak(d.sentences[idx]),500); return n; }); };
   const reviewDrill=async()=>{ if(!(drill.attempts||[]).length){ alert("Repeat a few sentences first."); return; } setBusy("dreview"); try{ const r=await fetch("/api/drill-review",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({attempts:drill.attempts})}); const d=await r.json(); if(d.review) saveDrill({review:d.review}); else alert(d.error||"Failed"); }catch(e){ alert("Failed."); } setBusy(""); };
   const restartDrill=()=>{ const n={sentences:[],idx:0,attempts:[],review:""}; setDrill(n); SS("pos_engdrill_"+sel,n); };
+  const norm=(s:string)=>String(s||"").toLowerCase().replace(/[^a-z0-9 ]/g,"").replace(/\s+/g," ").trim();
+  // Pronunciation practice
+  const [pron,setPron]=useState<any>(LS("pos_engpron_"+today(),{items:[],idx:0,last:null,right:0}));
+  useEffect(()=>{ setPron(LS("pos_engpron_"+sel,{items:[],idx:0,last:null,right:0})); },[sel]);
+  const savePron=(patch:any)=>{ setPron((d:any)=>{ const n={...d,...patch}; SS("pos_engpron_"+sel,n); return n; }); };
+  const startPron=async()=>{ setBusy("pron"); try{ const r=await fetch("/api/word-set",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({kind:"pronunciation",topic,count:12})}); const d=await r.json(); if(Array.isArray(d.items)){ const n={items:d.items,idx:0,last:null,right:0}; setPron(n); SS("pos_engpron_"+sel,n); setTimeout(()=>speak(d.items[0].word),300); } else alert(d.error||"Failed"); }catch(e){ alert("Failed — check your AI key."); } setBusy(""); };
+  const checkPron=(said:string)=>{ setPron((d:any)=>{ const it=d.items[d.idx]||{}; const ok=norm(said).includes(norm(it.word))||norm(it.word).includes(norm(said)); const n={...d,last:{word:it.word,said,ok,tip:it.tip},right:d.right+(ok?1:0)}; SS("pos_engpron_"+sel,n); return n; }); };
+  const nextPron=()=>{ setPron((d:any)=>{ const idx=Math.min(d.idx+1,d.items.length); const n={...d,idx,last:null}; SS("pos_engpron_"+sel,n); if(idx<d.items.length) setTimeout(()=>speak(d.items[idx].word),300); return n; }); };
+  // Spelling practice (dictation)
+  const [spell,setSpell]=useState<any>(LS("pos_engspell_"+today(),{items:[],idx:0,input:"",last:null,right:0}));
+  useEffect(()=>{ setSpell(LS("pos_engspell_"+sel,{items:[],idx:0,input:"",last:null,right:0})); },[sel]);
+  const saveSpell=(patch:any)=>{ setSpell((d:any)=>{ const n={...d,...patch}; SS("pos_engspell_"+sel,n); return n; }); };
+  const startSpell=async()=>{ setBusy("spell"); try{ const r=await fetch("/api/word-set",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({kind:"spelling",topic,count:12})}); const d=await r.json(); if(Array.isArray(d.items)){ const n={items:d.items,idx:0,input:"",last:null,right:0}; setSpell(n); SS("pos_engspell_"+sel,n); setTimeout(()=>speak(d.items[0].word),300); } else alert(d.error||"Failed"); }catch(e){ alert("Failed — check your AI key."); } setBusy(""); };
+  const checkSpell=()=>{ setSpell((d:any)=>{ const it=d.items[d.idx]||{}; const ok=norm(d.input)===norm(it.word); const n={...d,last:{word:it.word,typed:d.input,ok},right:d.right+(ok?1:0)}; SS("pos_engspell_"+sel,n); return n; }); };
+  const nextSpell=()=>{ setSpell((d:any)=>{ const idx=Math.min(d.idx+1,d.items.length); const n={...d,idx,input:"",last:null}; SS("pos_engspell_"+sel,n); if(idx<d.items.length) setTimeout(()=>speak(d.items[idx].word),300); return n; }); };
   return <>
     <Head t="English — 45-Day Fluency" p={`Day ${dayIdx+1} of 45 · ${topic}`} />
     <div className="card" style={{marginBottom:16}}>
@@ -1177,7 +1195,12 @@ function English(){
     </div>
 
     <div className="card" style={{marginBottom:16}}>
-      <div className="between" style={{flexWrap:"wrap",gap:8}}><div className="row" style={{gap:8}}><Chip tint="emerald">🎤</Chip><strong>2 · Speaking & Interview Bot (15 min)</strong></div><div className="row" style={{gap:8}}><button className="btn ghost sm" onClick={()=>{ setSpeakOn(v=>!v); if(speakOn && (window as any).speechSynthesis) (window as any).speechSynthesis.cancel(); }}>{speakOn?"🔊 Voice on":"🔇 Voice off"}</button><MiniTimer minutes={15}/></div></div>
+      <div className="between" style={{flexWrap:"wrap",gap:8}}><div className="row" style={{gap:8}}><Chip tint="emerald">🎤</Chip><strong>2 · Speaking Coach (15 min)</strong></div><div className="row" style={{gap:8}}><button className="btn ghost sm" onClick={()=>{ setSpeakOn(v=>!v); if(speakOn && (window as any).speechSynthesis) (window as any).speechSynthesis.cancel(); }}>{speakOn?"🔊 Voice on":"🔇 Voice off"}</button><MiniTimer minutes={15}/></div></div>
+      <div className="row" style={{gap:8,marginTop:8,flexWrap:"wrap",alignItems:"center"}}>
+        <span className="muted" style={{fontSize:12}}>Scenario:</span>
+        <select className="in" value={scenario} onChange={e=>{ setScenario(e.target.value); if((data.chat||[]).length && confirm("Start this new scenario fresh? (clears the current chat)")) save({chat:[],report:""}); }} style={{minWidth:180}}>{SCENARIOS.map(sn=><option key={sn} value={sn} style={OPT}>{sn}</option>)}</select>
+        {(data.chat||[]).length>0 && <button className="btn ghost sm" onClick={getFeedback} disabled={busy==="fb"}>{busy==="fb"?"🤖 Scoring…":"🏁 End & get feedback"}</button>}
+      </div>
       <div style={{marginTop:10,maxHeight:320,overflowY:"auto",display:"flex",flexDirection:"column",gap:8}}>
         {(data.chat||[]).map((m:any,i:number)=><div key={i} style={{alignSelf:m.role==="user"?"flex-end":"flex-start",maxWidth:"88%"}}>
           {m.role==="bot" && m.fix && <div style={{fontSize:12,color:"#fcd34d",background:"rgba(245,158,11,.10)",border:"1px solid rgba(245,158,11,.28)",borderRadius:10,padding:"6px 10px",marginBottom:4}}>✏️ {m.fix}</div>}
@@ -1190,8 +1213,9 @@ function English(){
         <button className={"btn "+(listening&&micCtx==="chat"?"":"ghost")+" sm"} onClick={listening?stopListening:()=>startListening(undefined,"chat")} disabled={busy==="chat"||(listening&&micCtx!=="chat")} style={listening&&micCtx==="chat"?{background:"linear-gradient(100deg,var(--pink),var(--orange))"}:{}}>{listening&&micCtx==="chat"?"⏹ Stop & send":"🎙️ Speak"}</button>
         <input className="in" value={chatIn} onChange={e=>setChatIn(e.target.value)} placeholder={listening?"Listening… speak, then tap Stop & send":"…or type your answer"} style={{flex:1,minWidth:160}} onKeyDown={e=>{ if(e.key==="Enter") sendChat(false); }}/>
         <button className="btn sm" onClick={()=>sendChat(false)} disabled={busy==="chat"}>{busy==="chat"?"🤖…":"Send"}</button>
-        {(data.chat||[]).length>0 && <button className="btn ghost sm" onClick={()=>save({chat:[]})}>Clear</button>}
+        {(data.chat||[]).length>0 && <button className="btn ghost sm" onClick={()=>save({chat:[],report:""})}>Clear</button>}
       </div>
+      {data.report && <div style={{marginTop:12,padding:12,borderRadius:12,background:"rgba(16,185,129,.08)",border:"1px solid rgba(16,185,129,.28)",fontSize:13,color:"#d5dbe6"}}><div className="between" style={{marginBottom:4}}><strong>📊 Session report</strong><button className="btn ghost sm" onClick={()=>save({report:""})}>✕</button></div><div dangerouslySetInnerHTML={{__html:mdToHtml(data.report)}}/></div>}
     </div>
 
     <div className="card">
@@ -1220,6 +1244,45 @@ function English(){
       </div>}
       {drill.review && <div style={{marginTop:12,padding:12,borderRadius:12,background:"rgba(255,255,255,.03)",border:"1px solid var(--stroke)",fontSize:13,color:"#d5dbe6"}} dangerouslySetInnerHTML={{__html:mdToHtml(drill.review)}}/>}
       {drill.sentences.length>0 && <div style={{marginTop:8}}><button className="btn ghost sm" onClick={restartDrill}>↺ New drill</button></div>}
+    </div>
+
+    <div className="card" style={{marginTop:16}}>
+      <div className="between" style={{flexWrap:"wrap",gap:8}}><div className="row" style={{gap:8}}><Chip tint="pink">🗣️</Chip><strong>5 · Pronunciation practice</strong></div>{pron.items.length>0 && <span className="muted" style={{fontSize:12}}>{Math.min(pron.idx,pron.items.length)}/{pron.items.length} · ✅ {pron.right}</span>}</div>
+      {!pron.items.length ? <div style={{marginTop:10}}><div className="muted" style={{fontSize:12}}>Hear a word, say it back — it checks your pronunciation and gives a tip.</div><button className="btn sm" style={{marginTop:8}} onClick={startPron} disabled={busy==="pron"}>{busy==="pron"?"🤖…":"▶ Start"}</button></div>
+      : pron.idx<pron.items.length ? <div style={{marginTop:10}}>
+        <div style={{padding:14,borderRadius:12,background:"rgba(236,72,153,.10)",border:"1px solid rgba(236,72,153,.28)"}}>
+          <div style={{fontSize:20,fontWeight:700}}>{pron.items[pron.idx].word} <button className="btn ghost sm" style={{marginLeft:6}} onClick={()=>speak(pron.items[pron.idx].word)}>🔊 Hear</button></div>
+          {pron.items[pron.idx].tip && <div className="muted" style={{fontSize:12,marginTop:4}}>💡 {pron.items[pron.idx].tip}</div>}
+        </div>
+        {!pron.last ? <div className="row" style={{gap:8,marginTop:10,flexWrap:"wrap"}}>
+          <button className={"btn "+(listening&&micCtx==="pron"?"":"ghost")+" sm"} onClick={listening?stopListening:()=>startListening((t:string)=>checkPron(t),"pron")} disabled={busy!==""||(listening&&micCtx!=="pron")} style={listening&&micCtx==="pron"?{background:"linear-gradient(100deg,var(--pink),var(--orange))"}:{}}>{listening&&micCtx==="pron"?"⏹ Done":"🎙️ Say it"}</button>
+          <button className="btn ghost sm" onClick={nextPron}>Skip</button>
+        </div> : <div style={{marginTop:10}}>
+          <div style={{fontSize:14,fontWeight:700,color:pron.last.ok?"#6ee7b7":"#f9a8d4"}}>{pron.last.ok?"✅ Great pronunciation!":"❌ Not quite"}</div>
+          <div className="muted" style={{fontSize:12,marginTop:3}}>Heard: “{pron.last.said||"—"}” · Target: “{pron.last.word}”{pron.last.tip?` · 💡 ${pron.last.tip}`:""}</div>
+          <div className="row" style={{gap:8,marginTop:8}}><button className="btn ghost sm" onClick={()=>{ savePron({last:null}); }}>🎙️ Try again</button><button className="btn sm" onClick={nextPron}>Next →</button></div>
+        </div>}
+      </div> : <div style={{marginTop:10}}><div className="muted" style={{fontSize:13}}>Done! ✅ {pron.right}/{pron.items.length} good.</div><button className="btn sm" style={{marginTop:8}} onClick={startPron} disabled={busy==="pron"}>↺ New set</button></div>}
+    </div>
+
+    <div className="card" style={{marginTop:16}}>
+      <div className="between" style={{flexWrap:"wrap",gap:8}}><div className="row" style={{gap:8}}><Chip tint="orange">🔤</Chip><strong>6 · Spelling practice (dictation)</strong></div>{spell.items.length>0 && <span className="muted" style={{fontSize:12}}>{Math.min(spell.idx,spell.items.length)}/{spell.items.length} · ✅ {spell.right}</span>}</div>
+      {!spell.items.length ? <div style={{marginTop:10}}><div className="muted" style={{fontSize:12}}>The bot says a word (hidden) — you type the spelling. It checks and shows the correct spelling.</div><button className="btn sm" style={{marginTop:8}} onClick={startSpell} disabled={busy==="spell"}>{busy==="spell"?"🤖…":"▶ Start"}</button></div>
+      : spell.idx<spell.items.length ? <div style={{marginTop:10}}>
+        <div className="row" style={{gap:8,flexWrap:"wrap",alignItems:"center"}}>
+          <button className="btn sm" onClick={()=>speak(spell.items[spell.idx].word)}>🔊 Hear the word</button>
+          {spell.items[spell.idx].hint && <span className="muted" style={{fontSize:12}}>💡 {spell.items[spell.idx].hint}</span>}
+        </div>
+        {!spell.last ? <div className="row" style={{gap:8,marginTop:10,flexWrap:"wrap"}}>
+          <input className="in" value={spell.input} onChange={e=>saveSpell({input:e.target.value})} placeholder="Type the spelling…" style={{flex:1,minWidth:160}} onKeyDown={e=>{ if(e.key==="Enter") checkSpell(); }}/>
+          <button className="btn sm" onClick={checkSpell} disabled={!(spell.input||"").trim()}>Check</button>
+          <button className="btn ghost sm" onClick={nextSpell}>Skip</button>
+        </div> : <div style={{marginTop:10}}>
+          <div style={{fontSize:14,fontWeight:700,color:spell.last.ok?"#6ee7b7":"#f9a8d4"}}>{spell.last.ok?"✅ Correct!":"❌ Not quite"}</div>
+          <div className="muted" style={{fontSize:12,marginTop:3}}>You typed: “{spell.last.typed||"—"}” · Correct: <b style={{color:"#E7ECF3"}}>{spell.last.word}</b></div>
+          <button className="btn sm" style={{marginTop:8}} onClick={nextSpell}>Next →</button>
+        </div>}
+      </div> : <div style={{marginTop:10}}><div className="muted" style={{fontSize:13}}>Done! ✅ {spell.right}/{spell.items.length} correct.</div><button className="btn sm" style={{marginTop:8}} onClick={startSpell} disabled={busy==="spell"}>↺ New set</button></div>}
     </div>
   </>;
 }
