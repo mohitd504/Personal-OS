@@ -78,7 +78,7 @@ export default function Dashboard({ onSignOut, name }: { onSignOut: ()=>void; na
               <button className="btn ghost sm" onClick={()=>setSelDate(today())}>Today</button>
             </>}
             <span className="in" style={{ padding:"6px 12px" }}>{clock}</span>
-            <span className="build-mark" title="build marker — bump this to verify a deploy went live">build&nbsp;102</span>
+            <span className="build-mark" title="build marker — bump this to verify a deploy went live">build&nbsp;103</span>
           </div>
         </div>
         <div className="content"><Boundary key={view}><div className={`dashboard-screen screen-${view}`}>
@@ -157,10 +157,14 @@ function Home({ sett, tick, date }: any) {
   const start = new Date(sett.planStart); const dayNo = Math.max(1, Math.floor((new Date(D).getTime()-start.getTime())/86400000)+1);
   const h = new Date().getHours(); const greet = h<12?"Good morning":h<18?"Good afternoon":"Good evening";
   const pretty = new Date(D).toLocaleDateString(undefined,{weekday:"long",month:"long",day:"numeric"});
-  const ex = (plan.exSessions||[])[0]; const studies=(plan.studyList||[]).slice(0,2); const meals=plan.meals||{};
+  const exAll = (plan.exSessions||[]); const gymEx = exAll.find((s:any)=>GYM_TYPES.includes(s.type)); const walkEx = exAll.find((s:any)=>s.type==="Walk"); const ex = gymEx || exAll[0];
+  const woLabel = gymEx ? `${gymEx.type} + Walk` : (walkEx ? "Rest day · Walk only" : `${PPL[new Date().getDay()]} workout`);
+  const woDetail = gymEx ? `11,000-step walk · ${(gymEx.selected||[]).length} ${gymEx.type} exercises` : (walkEx ? "11,000-step walk" : "Open Goals to plan");
+  const woDone = gymEx ? (!!gymEx.done && (walkEx ? !!walkEx.done : true)) : (walkEx ? !!walkEx.done : false);
+  const studies=(plan.studyList||[]).slice(0,2); const meals=plan.meals||{};
   const todayTasks=[
     {ic:"🚶",label:"Daily steps",detail:`${steps.toLocaleString()} / ${sett.stepGoal.toLocaleString()}`,pct:stepPct,color:"#10B981"},
-    {ic:"🏋️",label:ex?`${ex.type||"Workout"} workout`:`${PPL[new Date().getDay()]} workout`,detail:ex?`${(ex.selected||[]).length} exercises planned`:"Open Goals to plan",pct:ex?.done?100:0,color:"#8B5CF6"},
+    {ic:"🏋️",label:woLabel,detail:woDetail,pct:woDone?100:0,color:"#8B5CF6"},
     {ic:"🍗",label:"Protein target",detail:`${nt.protein} / ${sett.proteinGoal} g`,pct:proteinPct,color:"#F59E0B"},
     {ic:"📚",label:studies[0]?.title||studies[0]?.name||"Study session",detail:st?`${fmt(st)} completed`:"120 min target",pct:studyPct,color:"#3B82F6"},
     {ic:"🗣️",label:"English practice",detail:"Speaking · pronunciation · fluency",pct:0,color:"#A855F7"},
