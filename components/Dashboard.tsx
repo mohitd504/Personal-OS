@@ -78,7 +78,7 @@ export default function Dashboard({ onSignOut, name }: { onSignOut: ()=>void; na
               <button className="btn ghost sm" onClick={()=>setSelDate(today())}>Today</button>
             </>}
             <span className="in" style={{ padding:"6px 12px" }}>{clock}</span>
-            <span className="build-mark" title="build marker — bump this to verify a deploy went live">build&nbsp;101</span>
+            <span className="build-mark" title="build marker — bump this to verify a deploy went live">build&nbsp;102</span>
           </div>
         </div>
         <div className="content"><Boundary key={view}><div className={`dashboard-screen screen-${view}`}>
@@ -525,7 +525,7 @@ function PlanCalendar({ sett }: any) {
 function Goals({ sett, tick }: any) {
   const start=new Date(sett.planStart); const dayNo=Math.max(0,Math.floor((Date.now()-start.getTime())/86400000)); const pct=Math.min(100,Math.round(dayNo/sett.planDays*100));
   useEffect(()=>{ if(LS("pos_seed_all","")==="v1") return; courseStart(); seedAllCourses(undefined,false); SS("pos_seed_all","v1"); },[]);
-  useEffect(()=>{ if(LS("pos_seed_workout","")==="v1") return; workoutStart(); seedWorkoutPlan(undefined,125,false); SS("pos_seed_workout","v1"); },[]);
+  useEffect(()=>{ const v=LS("pos_seed_workout",""); if(v==="v2") return; workoutStart(); seedWorkoutPlan(undefined,125,true); SS("pos_seed_workout","v2"); },[]);
   return <>
     <Head t="Goals" p={`${sett.planDays}-day transformation`} />
     <div className="card" style={{background:"linear-gradient(120deg,rgba(236,72,153,.15),rgba(99,102,241,.12))"}}>
@@ -551,7 +551,7 @@ const P_PULL=["Deadlift","Barbell Row","Pendlay Row","T-Bar Row","Seated Cable R
 const P_LEGS=["Squat","Front Squat","Hack Squat","Leg Press","Bulgarian Split Squat","Walking Lunges","Reverse Lunges","Goblet Squat","Leg Extension","Romanian Deadlift","Stiff-Leg Deadlift","Lying Hamstring Curl","Seated Leg Curl","Hip Thrust","Glute Bridge","Cable Glute Kickback","Sumo Deadlift","Standing Calf Raise","Seated Calf Raise","Step-ups","Adductor Machine","Abductor Machine","Box Jumps"];
 const P_ARMS=["EZ-Bar Curl","Barbell Curl","Incline Dumbbell Curl","Hammer Curl","Preacher Curl","Cable Curl","Concentration Curl","Spider Curl","Close-Grip Bench Press","Tricep Pushdown","Rope Pushdown","Overhead Tricep Extension","Skull Crushers","Dips","Overhead Cable Tricep Extension","Reverse Curl","Zottman Curl","Kickbacks"];
 const EX_LIB:Record<string,string[]>={Push:P_PUSH,Pull:P_PULL,Legs:P_LEGS,Arms:P_ARMS};
-const WORKOUT_CYCLE=["Push","Pull","Legs","Rest","Push","Legs","Arms"];
+const WORKOUT_CYCLE=["Pull","Legs","Rest","Push","Legs","Arms","Push"];
 const GYM_TYPES=["Push","Pull","Legs","Arms"];
 function workoutStart(){ let s=LS("pos_workout_start",""); if(!s){ s=dstrD(new Date()); SS("pos_workout_start",s); } const [y,m,d]=String(s).split("-").map(Number); const dt=new Date(y,m-1,d); dt.setHours(0,0,0,0); return dt; }
 function seedWorkoutPlan(start?:Date, days:number=125, overwrite:boolean=true){
