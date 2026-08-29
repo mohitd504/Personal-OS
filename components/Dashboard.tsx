@@ -78,10 +78,10 @@ export default function Dashboard({ onSignOut, name }: { onSignOut: ()=>void; na
               <button className="btn ghost sm" onClick={()=>setSelDate(today())}>Today</button>
             </>}
             <span className="in" style={{ padding:"6px 12px" }}>{clock}</span>
-            <span className="build-mark" title="build marker — bump this to verify a deploy went live">build&nbsp;98</span>
+            <span className="build-mark" title="build marker — bump this to verify a deploy went live">build&nbsp;100</span>
           </div>
         </div>
-        <div className="content"><Boundary key={view}>
+        <div className="content"><Boundary key={view}><div className={`dashboard-screen screen-${view}`}>
           {view==="home" && <Home sett={sett} tick={tick} date={selDate} />}
           {view==="health" && <Health sett={sett} refresh={refresh} tick={tick} />}
           {view==="exercise" && <Fitness />}
@@ -92,7 +92,7 @@ export default function Dashboard({ onSignOut, name }: { onSignOut: ()=>void; na
           {view==="calendar" && <Calendar sett={sett} tick={tick} />}
           {view==="goals" && <Goals sett={sett} tick={tick} />}
           {view==="settings" && <Settings sett={sett} save={saveSett} />}
-        </Boundary></div>
+        </div></Boundary></div>
       </div>
     </div>
   );
@@ -146,29 +146,46 @@ function Home({ sett, tick, date }: any) {
   const D = date || today(); const viewing = D !== today();
   const w = LS("pos_weight", [{date:today(),kg:97}]); const cur = w[w.length-1].kg;
   const nt = nutTotals(D); const st = studyTotal(D);
+  const H = LS("pos_health", {});
+  const plan = LS("pos_plan_"+D, {});
+  const steps = +(H.steps||0); const recovery = +(H.recovery||0);
+  const stepPct = Math.min(100,Math.round(steps/Math.max(1,sett.stepGoal)*100));
+  const proteinPct = Math.min(100,Math.round(nt.protein/Math.max(1,sett.proteinGoal)*100));
+  const caloriePct = Math.min(100,Math.round(nt.cal/Math.max(1,sett.calorieGoal)*100));
+  const studyPct = Math.min(100,Math.round(st/120*100));
+  const score = Math.round((stepPct+proteinPct+studyPct+(recovery||50))/4);
   const start = new Date(sett.planStart); const dayNo = Math.max(1, Math.floor((new Date(D).getTime()-start.getTime())/86400000)+1);
   const h = new Date().getHours(); const greet = h<12?"Good morning":h<18?"Good afternoon":"Good evening";
   const pretty = new Date(D).toLocaleDateString(undefined,{weekday:"long",month:"long",day:"numeric"});
+  const ex = (plan.exSessions||[])[0]; const studies=(plan.studyList||[]).slice(0,2); const meals=plan.meals||{};
+  const todayTasks=[
+    {ic:"🚶",label:"Daily steps",detail:`${steps.toLocaleString()} / ${sett.stepGoal.toLocaleString()}`,pct:stepPct,color:"#10B981"},
+    {ic:"🏋️",label:ex?`${ex.type||"Workout"} workout`:`${PPL[new Date().getDay()]} workout`,detail:ex?`${(ex.selected||[]).length} exercises planned`:"Open Goals to plan",pct:ex?.done?100:0,color:"#8B5CF6"},
+    {ic:"🍗",label:"Protein target",detail:`${nt.protein} / ${sett.proteinGoal} g`,pct:proteinPct,color:"#F59E0B"},
+    {ic:"📚",label:studies[0]?.title||studies[0]?.name||"Study session",detail:st?`${fmt(st)} completed`:"120 min target",pct:studyPct,color:"#3B82F6"},
+    {ic:"🗣️",label:"English practice",detail:"Speaking · pronunciation · fluency",pct:0,color:"#A855F7"},
+  ];
   return <>
-    <Head t={viewing? `Dashboard — ${pretty}` : `${greet}, ${sett.name}`} p={viewing? `📅 Viewing a past day · Day ${dayNo} of your ${sett.planDays}-day plan` : `${pretty} · Day ${dayNo} of your ${sett.planDays}-day plan`} />
-    <div className="card" style={{marginBottom:16,background:"linear-gradient(120deg,rgba(99,102,241,.18),rgba(16,185,129,.10))"}}>
-      <div className="between"><div className="row"><span style={{fontSize:20}}>🚀</span><strong>Today&apos;s Mission</strong></div><span className="in" style={{padding:"4px 10px"}}>{PPL[new Date().getDay()]} Day</span></div>
-      <p style={{marginBottom:0,lineHeight:1.55}}>Train {PPL[new Date().getDay()]} (~55 min), hit {sett.proteinGoal}g protein (now {nt.protein}g), study across AI/DevOps/System Design, and clear your inbox before deep work.</p>
+    <Head t={viewing? `Dashboard — ${pretty}` : `${greet}, ${sett.name}`} p={viewing? `Viewing a past day · Day ${dayNo} of your ${sett.planDays}-day plan` : `${pretty} · Your health, training, nutrition and learning command center`} />
+    <div className="dashboard-kpis">
+      <div className="card score-card"><div><div className="dash-label">TODAY SCORE</div><div className="dash-number blue">{score}</div><div className="muted">{score>=80?"Great progress":score>=60?"Building momentum":"Start with one task"}</div></div><div className="score-ring" style={{"--score":`${score*3.6}deg`} as any}><span>{score}</span></div></div>
+      <div className="card metric-card"><div className="dash-label">WEIGHT</div><div className="dash-number">{cur}<small> kg</small></div><div className="metric-good">Target {sett.weightGoal} kg</div><div className="mini-line">{w.slice(-12).map((x:any,i:number)=><i key={i} style={{height:Math.max(8,34-(x.kg-cur)*6)}}/> )}</div></div>
+      <div className="card metric-card"><div className="dash-label">STEPS</div><div className="dash-number green">{steps.toLocaleString()}</div><div className="muted">of {sett.stepGoal.toLocaleString()} steps</div><Bar v={steps} goal={sett.stepGoal} color="#22c55e"/></div>
+      <div className="card metric-card"><div className="dash-label">RECOVERY</div><div className="dash-number violet">{recovery||"—"}{recovery?"%":""}</div><div className="muted">Sleep {H.sleepH||0}h {H.sleepM||0}m · RHR {H.restingHR||"—"}</div><Bar v={recovery} goal={100} color="#8b5cf6"/></div>
     </div>
-    <div className="grid g4">
-      <Kpi lbl="Current Weight" ic="⚖️" tint="emerald" val={cur} unit="kg" sub={`Goal ${sett.weightGoal}kg`} />
-      <Kpi lbl="Calories Left" ic="🔥" tint="orange" val={sett.calorieGoal-nt.cal} unit="kcal" sub={`${nt.cal} eaten`} />
-      <Kpi lbl="Protein" ic="🍗" tint="blue" val={nt.protein} unit={`/${sett.proteinGoal}g`} sub="today" />
-      <Kpi lbl="Study Today" ic="📚" tint="purple" val={fmt(st)} sub={`streak ${streak()}d`} />
+    <div className="dashboard-main-grid">
+      <div className="card today-plan"><div className="section-title"><div><strong>Today&apos;s Plan</strong><span>Day {dayNo} of {sett.planDays}</span></div><span className="status-pill">{PPL[new Date().getDay()]} day</span></div>
+        <div className="task-stack">{todayTasks.map((x,i)=><div className="plan-task" key={i}><span className="task-icon" style={{background:x.color+"1f",color:x.color}}>{x.ic}</span><div className="task-copy"><b>{x.label}</b><small>{x.detail}</small></div><div className="task-progress"><span style={{width:x.pct+"%",background:x.color}}/></div><span className={x.pct>=100?"task-state done":"task-state"}>{x.pct>=100?"✓":"○"}</span></div>)}</div>
+      </div>
+      <div className="dashboard-side-stack">
+        <div className="card compact-card"><div className="section-title"><strong>Calories &amp; Macros</strong><span>{sett.calorieGoal} kcal goal</span></div><div className="macro-overview"><div className="macro-ring" style={{"--macro":`${caloriePct*3.6}deg`} as any}><b>{nt.cal}</b><small>kcal</small></div><div className="macro-bars"><div><span>Protein</span><b>{nt.protein}/{sett.proteinGoal}g</b></div><Bar v={nt.protein} goal={sett.proteinGoal} color="#22c55e"/><div><span>Carbs</span><b>{nt.carbs}/{sett.carbGoal}g</b></div><Bar v={nt.carbs} goal={sett.carbGoal} color="#3b82f6"/><div><span>Fat</span><b>{nt.fat}/{sett.fatGoal}g</b></div><Bar v={nt.fat} goal={sett.fatGoal} color="#f59e0b"/></div></div></div>
+        <div className="card compact-card"><div className="section-title"><strong>Today&apos;s Workout</strong><span>{ex?.type||PPL[new Date().getDay()]}</span></div><div className="workout-preview"><span className="workout-orb">🏋️</span><div><b>{ex?.type||PPL[new Date().getDay()]} Day</b><small>{(ex?.selected||[]).length||6} exercises · ~55 min</small></div></div><div className="workout-list">{((ex?.selected||[]).slice(0,3)).map((x:any,i:number)=><span key={i}>{i+1}. {x.name} <b>{x.sets}×{x.reps}</b></span>)}{!ex&&<><span>1. Main compound lift <b>4×8</b></span><span>2. Secondary movement <b>3×10</b></span><span>3. Accessory work <b>3×12</b></span></>}</div></div>
+      </div>
     </div>
-    <div className="grid g3" style={{marginTop:16}}>
-      <PieCard title="Today's Macros" data={[{name:"Protein",value:nt.protein},{name:"Carbs",value:nt.carbs},{name:"Fat",value:nt.fat}]}/>
-      <BarCard title="Study — last 7 days (hrs)" color="#A855F7" data={last7().map(x=>({name:x.name,value:Math.round(studyTotal(x.ds)/60*10)/10}))}/>
-      <LineCard title="Weight trend (kg)" color="#10B981" data={w.map((x:any)=>({name:x.date.slice(5),value:x.kg}))}/>
-    </div>
-    <div className="grid g2" style={{marginTop:16}}>
+    <div className="grid g3 dashboard-charts" style={{marginTop:14}}>
+      <LineCard title="7-Day Weight Trend" color="#3B82F6" data={w.slice(-12).map((x:any)=>({name:x.date.slice(5),value:x.kg}))}/>
+      <BarCard title="Study — last 7 days" color="#8B5CF6" data={last7().map(x=>({name:x.name,value:Math.round(studyTotal(x.ds)/60*10)/10}))}/>
       <BarCard title="Calories — last 7 days" color="#F59E0B" data={last7().map(x=>({name:x.name,value:nutTotals(x.ds).cal}))}/>
-      <PieCard title="Study split" data={[{name:"AI",value:loadStudy(D).ai||0},{name:"DevOps",value:loadStudy(D).devops||0},{name:"System",value:loadStudy(D).system||0}]}/>
     </div>
   </>;
 }
@@ -850,7 +867,7 @@ function GoalPlanner({ sett }: any) {
   };
   useEffect(()=>{ const t=setTimeout(()=>autoCheckExercise(true),400); return ()=>clearTimeout(t); /* eslint-disable-next-line */ },[sel,p.exSessions.length]);
   const toggleSessEx=(id:string,name:string)=>{ const s=(p.exSessions||[]).find((x:any)=>x.id===id); if(!s)return; const cur=s.selected||[]; const nx=cur.some((x:any)=>x.name===name)?cur.filter((x:any)=>x.name!==name):[...cur,{name,sets:"3",reps:"10",weight:"",note:""}]; updSession(id,{selected:nx}); };
-  const setSessExField=(id:string,name:string,field:string,val:string)=>{ const s=(p.exSessions||[]).find((x:any)=>x.id===id); if(!s)return; updSession(id,{selected:(s.selected||[]).map((x:any)=>x.name===name?{...x,[field]:val}:x)}); };
+  const setSessExField=(id:string,name:string,field:string,val:any)=>{ const s=(p.exSessions||[]).find((x:any)=>x.id===id); if(!s)return; updSession(id,{selected:(s.selected||[]).map((x:any)=>x.name===name?{...x,[field]:val}:x)}); };
   const editSessionAI=async(id:string)=>{ const s=(p.exSessions||[]).find((x:any)=>x.id===id); if(!s||!exPrompt.trim())return; setExEditBusy(true);
     try{ const r=await fetch("/api/edit-workout",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({type:s.type,exercises:(s.selected||[]).map((x:any)=>({name:x.name,sets:x.sets,reps:x.reps,weight:x.weight})),prompt:exPrompt})}); const d=await r.json();
       if(Array.isArray(d.exercises)) updSession(id,{selected:d.exercises.map((x:any)=>({name:x.name,sets:String(x.sets||3),reps:String(x.reps||10),weight:String(x.weight||""),note:""}))}); setExPrompt(""); }catch(e){} setExEditBusy(false); };
