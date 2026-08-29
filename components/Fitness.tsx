@@ -38,6 +38,56 @@ export function exEmoji(name:string){ const n=name.toLowerCase();
   if(/(deadlift|row|shrug|farmer)/.test(n)) return "🏋️";
   return "🏋️"; }
 export function demoLink(name:string){ return "https://www.youtube.com/results?search_query="+encodeURIComponent(name+" proper form"); }
+const SPLIT_VISUAL:Record<string,string>={Push:"/workout/push-machine.webp",Pull:"/workout/pull-machine.webp",Legs:"/workout/legs-machine.webp"};
+const EXERCISE_SETUP:Record<string,{machine:string;pattern:string;target:string;cue:string}>={
+  "Bench Press":{machine:"Flat bench + barbell",pattern:"Horizontal push",target:"Chest · triceps · front delts",cue:"Eyes below bar · feet planted"},
+  "Incline Dumbbell Press":{machine:"30–45° incline bench",pattern:"Incline push",target:"Upper chest · triceps",cue:"Wrists stacked · shoulders down"},
+  "Machine Chest Press":{machine:"Seated chest press",pattern:"Horizontal push",target:"Chest · triceps",cue:"Handles at mid-chest height"},
+  "Cable Fly":{machine:"Dual cable station",pattern:"Chest adduction",target:"Chest",cue:"Soft elbows · controlled stretch"},
+  "Shoulder Press":{machine:"Bench + dumbbells / press machine",pattern:"Vertical push",target:"Shoulders · triceps",cue:"Back supported · ribs down"},
+  "Lateral Raise":{machine:"Dumbbells / cable",pattern:"Shoulder abduction",target:"Side delts",cue:"Lead with elbows · no swing"},
+  "Rear Delt Fly":{machine:"Reverse pec deck / dumbbells",pattern:"Horizontal pull",target:"Rear delts · upper back",cue:"Chest supported when possible"},
+  "Tricep Pushdown":{machine:"Cable + rope / bar",pattern:"Elbow extension",target:"Triceps",cue:"Pin elbows beside ribs"},
+  "Overhead Tricep Extension":{machine:"Cable / dumbbell",pattern:"Elbow extension",target:"Long-head triceps",cue:"Keep elbows narrow"},
+  "Dips":{machine:"Parallel bars / assisted dip",pattern:"Vertical push",target:"Chest · triceps",cue:"Shoulders down · controlled depth"},
+  "Push-ups":{machine:"Floor / handles",pattern:"Horizontal push",target:"Chest · triceps · core",cue:"Head-to-heel straight line"},
+  "Deadlift":{machine:"Barbell + platform",pattern:"Hip hinge",target:"Glutes · hamstrings · back",cue:"Bar over mid-foot · brace first"},
+  "Lat Pulldown":{machine:"Lat pulldown + wide bar",pattern:"Vertical pull",target:"Lats · biceps",cue:"Thigh pad snug · chest tall"},
+  "Pull-ups":{machine:"Pull-up bar / assisted machine",pattern:"Vertical pull",target:"Lats · biceps",cue:"Start from active shoulders"},
+  "Barbell Row":{machine:"Barbell",pattern:"Horizontal pull",target:"Mid-back · lats",cue:"Hinge and hold a neutral spine"},
+  "Seated Cable Row":{machine:"Low cable row",pattern:"Horizontal pull",target:"Mid-back · lats",cue:"Cable level with lower ribs"},
+  "Single Arm Row":{machine:"Bench + dumbbell",pattern:"Horizontal pull",target:"Lats · mid-back",cue:"Square hips · pull toward pocket"},
+  "Face Pull":{machine:"Cable + rope",pattern:"Horizontal pull + rotation",target:"Rear delts · rotator cuff",cue:"Rope at eye level"},
+  "Barbell Curl":{machine:"Barbell / EZ bar",pattern:"Elbow flexion",target:"Biceps",cue:"Elbows still · wrists neutral"},
+  "Hammer Curl":{machine:"Dumbbells",pattern:"Elbow flexion",target:"Biceps · brachialis",cue:"Palms face inward"},
+  "Preacher Curl":{machine:"Preacher bench / curl machine",pattern:"Elbow flexion",target:"Biceps",cue:"Armpits against pad"},
+  "Shrugs":{machine:"Dumbbells / barbell",pattern:"Scapular elevation",target:"Upper traps",cue:"Lift straight up · do not roll"},
+  "Squat":{machine:"Rack + barbell",pattern:"Squat",target:"Quads · glutes · core",cue:"Safety pins set · brace first"},
+  "Romanian Deadlift":{machine:"Barbell / dumbbells",pattern:"Hip hinge",target:"Hamstrings · glutes",cue:"Push hips back · bar stays close"},
+  "Leg Press":{machine:"45° leg press",pattern:"Squat / knee extension",target:"Quads · glutes",cue:"Lower back stays on pad"},
+  "Walking Lunges":{machine:"Open floor + dumbbells",pattern:"Lunge",target:"Quads · glutes",cue:"Front knee tracks over toes"},
+  "Leg Extension":{machine:"Leg extension",pattern:"Knee extension",target:"Quads",cue:"Machine pivot aligned with knee"},
+  "Hamstring Curl":{machine:"Seated / lying leg curl",pattern:"Knee flexion",target:"Hamstrings",cue:"Machine pivot aligned with knee"},
+  "Bulgarian Split Squat":{machine:"Bench + dumbbells",pattern:"Single-leg squat",target:"Quads · glutes",cue:"Stable front foot · controlled depth"},
+  "Standing Calf Raise":{machine:"Standing calf machine",pattern:"Ankle extension",target:"Calves",cue:"Full stretch · pause at top"},
+  "Seated Calf Raise":{machine:"Seated calf machine",pattern:"Ankle extension",target:"Soleus · calves",cue:"Pad secure above knees"},
+  "Hip Thrust":{machine:"Hip-thrust bench / machine",pattern:"Hip extension",target:"Glutes",cue:"Chin tucked · ribs down"},
+  "Glute Bridge":{machine:"Floor mat",pattern:"Hip extension",target:"Glutes",cue:"Finish with hips, not lower back"},
+};
+function exerciseSetup(name:string){
+  if(EXERCISE_SETUP[name]) return EXERCISE_SETUP[name];
+  const n=name.toLowerCase();
+  if(/press|push/.test(n)) return {machine:"Bench / press machine",pattern:"Push",target:"Chest · shoulders · triceps",cue:"Use a stable setup and controlled range"};
+  if(/row|pull|pulldown/.test(n)) return {machine:"Cable / free weights",pattern:"Pull",target:"Back · biceps",cue:"Keep the spine neutral and control the return"};
+  if(/squat|lunge|leg/.test(n)) return {machine:"Rack / leg machine",pattern:"Lower body",target:"Quads · glutes · hamstrings",cue:"Align knees with toes and use controlled depth"};
+  return {machine:"Free weights / bodyweight",pattern:"Accessory",target:"See today’s training focus",cue:"Use controlled form and a pain-free range"};
+}
+function ExerciseGuide({name}: {name:string}){ const m=exerciseSetup(name); return <div className="exercise-guide">
+  <div className="exercise-guide__item"><span>Machine / setup</span><b>{m.machine}</b></div>
+  <div className="exercise-guide__item"><span>Movement pattern</span><b>{m.pattern}</b></div>
+  <div className="exercise-guide__item"><span>Main muscles</span><b>{m.target}</b></div>
+  <div className="exercise-guide__cue"><span>FORM CUE</span>{m.cue}</div>
+</div>; }
 export const HOWTO: Record<string,string> = {
   "Bench Press":"Lie flat, grip the bar slightly wider than shoulders. Unrack, lower the bar to mid-chest with elbows about 45°, then press up until arms lock. Keep shoulder blades pinched and feet planted.",
   "Incline Dumbbell Press":"Set the bench to 30–45°. Start with dumbbells at shoulder level, press up and slightly together until arms extend, then lower slowly to feel the upper-chest stretch.",
@@ -1349,9 +1399,10 @@ function PlanWorkout({ refresh }: { refresh:()=>void }) {
       <div className="head"><h1>🏋️ Workout</h1><p>Pick today&apos;s split — it loads the plan you set in Goals, you log the actual sets, and AI plans your next one.</p></div>
       <div className="grid g3">
         {["Push","Pull","Legs"].map(sp=>{ const has=hasSplit(sp); const done=daySessions.find((s:any)=>s.type===sp)?.done; const col=sp==="Push"?"🟦":sp==="Pull"?"🟪":"🟩";
-          return <div key={sp} className="card" style={{cursor:"pointer",borderColor:has?"rgba(59,130,246,.45)":undefined,opacity:has?1:.6}} onClick={()=>setSplit(sp)}>
-            <div style={{fontSize:34}}>{col}</div><strong style={{fontSize:18}}>{sp}</strong>
-            <div className="muted" style={{fontSize:12,marginTop:4}}>{done?"✅ Completed today":has?"Planned for today — tap to log":"Not scheduled today"}</div>
+          return <div key={sp} className={`card workout-split workout-split--${sp.toLowerCase()}`} style={{cursor:"pointer",borderColor:has?"rgba(59,130,246,.45)":undefined,opacity:has?1:.68}} onClick={()=>setSplit(sp)}>
+            <img className="workout-split__image" src={SPLIT_VISUAL[sp]} alt={`${sp} workout machine`} />
+            <div className="workout-split__body"><div className="between"><strong style={{fontSize:19}}>{sp}</strong><span className="workout-split__mark">{col}</span></div>
+            <div className="muted" style={{fontSize:12,marginTop:4}}>{done?"✅ Completed today":has?"Planned for today — tap to log":"Not scheduled today"}</div></div>
           </div>; })}
       </div>
       {!todays.length && <div className="card" style={{marginTop:16}}><strong>😌 Rest day</strong><div className="muted" style={{fontSize:13,marginTop:6}}>No Push/Pull/Legs is planned in Goals for today ({t}). Add today&apos;s session in <b>Goals → Exercise</b>, or move a workout here.</div></div>}
@@ -1415,7 +1466,8 @@ function PlanWorkout({ refresh }: { refresh:()=>void }) {
           <div><div style={{fontSize:15,fontWeight:650}}>{exEmoji(e.name)} {e.name} <a href={demoLink(e.name)} target="_blank" rel="noopener" style={{fontSize:11,color:"#7dd3fc",textDecoration:"none"}}>📺 Demo</a> <span onClick={()=>setPInfo(pInfo===e.name?null:e.name)} style={{fontSize:11,color:"#a5b4fc",cursor:"pointer"}}>ⓘ How to</span></div>
             <div className="muted" style={{fontSize:12,marginTop:2}}>Plan: {e.sets}×{e.reps} @ {e.weight||"—"}kg</div></div>
         </div>
-        {pInfo===e.name && <div className="muted" style={{fontSize:12,lineHeight:1.6,marginTop:8}}>{HOWTO[e.name]||"Controlled form, full range of motion — tap Demo to watch it."}</div>}
+        <ExerciseGuide name={e.name}/>
+        {pInfo===e.name && <div className="exercise-howto"><b>How to perform</b><div>{HOWTO[e.name]||"Use controlled form and a pain-free range of motion — tap Demo to watch it."}</div><small>Stop if you feel sharp pain. Ask a trainer to check unfamiliar equipment.</small></div>}
         <table style={{width:"100%",borderCollapse:"collapse",marginTop:10}}>
           <thead><tr>{["Set","Weight (kg)","Reps",""].map(h=><th key={h} style={{textAlign:"left",fontSize:10,textTransform:"uppercase",color:"#5b6577",padding:"5px"}}>{h}</th>)}</tr></thead>
           <tbody>{sets.map((s:any,i:number)=><tr key={i}>

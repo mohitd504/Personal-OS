@@ -27,7 +27,7 @@ const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(
 const PPL: Record<number,string> = {0:"Recovery",1:"Push",2:"Pull",3:"Legs",4:"Push",5:"Pull",6:"Legs"};
 
 type Sett = { name:string; age:number; heightFt:number; heightIn:number; planStart:string; planDays:number; weightGoal:number; calorieGoal:number; proteinGoal:number; carbGoal:number; fatGoal:number; fiberGoal:number; waterGoal:number; stepGoal:number; };
-const DEF_SETT: Sett = { name:"Mohit", age:36, heightFt:6, heightIn:1, planStart:today(), planDays:120, weightGoal:87, calorieGoal:2350, proteinGoal:180, carbGoal:250, fatGoal:70, fiberGoal:35, waterGoal:3.5, stepGoal:9000 };
+const DEF_SETT: Sett = { name:"Mohit", age:34, heightFt:6, heightIn:1, planStart:today(), planDays:180, weightGoal:86, calorieGoal:2300, proteinGoal:170, carbGoal:230, fatGoal:60, fiberGoal:35, waterGoal:3.5, stepGoal:13000 };
 
 const NAV = [
   { k:"home", ic:"🏠", t:"Dashboard" }, { k:"health", ic:"❤️", t:"Health" }, { k:"exercise", ic:"🏋️", t:"Exercise" },
@@ -67,9 +67,9 @@ export default function Dashboard({ onSignOut, name }: { onSignOut: ()=>void; na
           <div className="nav" onClick={onSignOut}><span className="ic">↩</span><span className="tx">Sign out</span></div>
         </div>
       </nav>
-      <div className="main">
+      <div className={`main view-${view}`}>
         <div className="topbar">
-          <strong style={{ textTransform:"capitalize" }}>{view === "home" ? "Dashboard" : view}</strong>
+          <div className="topbar-title"><span>PERSONAL OS</span><strong>{view === "home" ? "Dashboard" : NAV.find(n=>n.k===view)?.t || view}</strong></div>
           <div className="row" style={{gap:6,flexWrap:"wrap"}}>
             {["home","nutrition","study"].includes(view) && <>
               <button className="btn ghost sm" onClick={()=>shiftDate(-1)}>‹</button>
@@ -78,7 +78,7 @@ export default function Dashboard({ onSignOut, name }: { onSignOut: ()=>void; na
               <button className="btn ghost sm" onClick={()=>setSelDate(today())}>Today</button>
             </>}
             <span className="in" style={{ padding:"6px 12px" }}>{clock}</span>
-            <span style={{ fontSize:10, color:"var(--mut2)" }} title="build marker — bump this to verify a deploy went live">build&nbsp;96</span>
+            <span className="build-mark" title="build marker — bump this to verify a deploy went live">build&nbsp;98</span>
           </div>
         </div>
         <div className="content"><Boundary key={view}>
