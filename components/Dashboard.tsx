@@ -78,7 +78,7 @@ export default function Dashboard({ onSignOut, name }: { onSignOut: ()=>void; na
               <button className="btn ghost sm" onClick={()=>setSelDate(today())}>Today</button>
             </>}
             <span className="in" style={{ padding:"6px 12px" }}>{clock}</span>
-            <span className="build-mark" title="build marker — bump this to verify a deploy went live">build&nbsp;100</span>
+            <span className="build-mark" title="build marker — bump this to verify a deploy went live">build&nbsp;101</span>
           </div>
         </div>
         <div className="content"><Boundary key={view}><div className={`dashboard-screen screen-${view}`}>
@@ -525,6 +525,7 @@ function PlanCalendar({ sett }: any) {
 function Goals({ sett, tick }: any) {
   const start=new Date(sett.planStart); const dayNo=Math.max(0,Math.floor((Date.now()-start.getTime())/86400000)); const pct=Math.min(100,Math.round(dayNo/sett.planDays*100));
   useEffect(()=>{ if(LS("pos_seed_all","")==="v1") return; courseStart(); seedAllCourses(undefined,false); SS("pos_seed_all","v1"); },[]);
+  useEffect(()=>{ if(LS("pos_seed_workout","")==="v1") return; workoutStart(); seedWorkoutPlan(undefined,125,false); SS("pos_seed_workout","v1"); },[]);
   return <>
     <Head t="Goals" p={`${sett.planDays}-day transformation`} />
     <div className="card" style={{background:"linear-gradient(120deg,rgba(236,72,153,.15),rgba(99,102,241,.12))"}}>
@@ -544,11 +545,29 @@ function purgeCourse(cid:string){ const base=new Date(); for(let i=-90;i<=200;i+
 const PLAN_DEF:any={exSessions:[],meals:{breakfast:[],lunch:[],dinner:[]},studyList:[],journal:""};
 function loadPlan(d:string){ const raw:any=LS(planKey(d),{}); const mealArr=(g:string)=>Array.isArray(raw.meals?.[g])?raw.meals[g]:[];
   return {...PLAN_DEF, ...raw, exSessions:Array.isArray(raw.exSessions)?raw.exSessions:[], studyList:Array.isArray(raw.studyList)?raw.studyList:[], meals:{breakfast:mealArr("breakfast"),lunch:mealArr("lunch"),dinner:mealArr("dinner")}, journal:raw.journal||""}; }
-const EX_TYPES=["Rest","Push","Pull","Legs","Cardio","Walk","HIIT","Yoga"];
+const EX_TYPES=["Rest","Push","Pull","Legs","Arms","Cardio","Walk","HIIT","Yoga"];
 const P_PUSH=["Bench Press","Incline Bench Press","Decline Bench Press","Flat Dumbbell Press","Incline Dumbbell Press","Machine Chest Press","Cable Fly","Incline Cable Fly","Pec Deck Fly","Push-ups","Dips","Overhead Shoulder Press","Seated Dumbbell Shoulder Press","Arnold Press","Military Press","Lateral Raise","Cable Lateral Raise","Front Raise","Rear Delt Fly","Upright Row","Tricep Pushdown","Rope Pushdown","Overhead Tricep Extension","Skull Crushers","Close-Grip Bench Press"];
 const P_PULL=["Deadlift","Barbell Row","Pendlay Row","T-Bar Row","Seated Cable Row","Single Arm Dumbbell Row","Lat Pulldown","Wide-Grip Lat Pulldown","Close-Grip Pulldown","Pull-ups","Chin-ups","Face Pull","Straight-Arm Pulldown","Shrugs","Barbell Curl","Dumbbell Curl","Hammer Curl","Preacher Curl","Incline Dumbbell Curl","Concentration Curl","Cable Curl","Reverse Curl","Spider Curl","Farmer Walk"];
 const P_LEGS=["Squat","Front Squat","Hack Squat","Leg Press","Bulgarian Split Squat","Walking Lunges","Reverse Lunges","Goblet Squat","Leg Extension","Romanian Deadlift","Stiff-Leg Deadlift","Lying Hamstring Curl","Seated Leg Curl","Hip Thrust","Glute Bridge","Cable Glute Kickback","Sumo Deadlift","Standing Calf Raise","Seated Calf Raise","Step-ups","Adductor Machine","Abductor Machine","Box Jumps"];
-const EX_LIB:Record<string,string[]>={Push:P_PUSH,Pull:P_PULL,Legs:P_LEGS};
+const P_ARMS=["EZ-Bar Curl","Barbell Curl","Incline Dumbbell Curl","Hammer Curl","Preacher Curl","Cable Curl","Concentration Curl","Spider Curl","Close-Grip Bench Press","Tricep Pushdown","Rope Pushdown","Overhead Tricep Extension","Skull Crushers","Dips","Overhead Cable Tricep Extension","Reverse Curl","Zottman Curl","Kickbacks"];
+const EX_LIB:Record<string,string[]>={Push:P_PUSH,Pull:P_PULL,Legs:P_LEGS,Arms:P_ARMS};
+const WORKOUT_CYCLE=["Push","Pull","Legs","Rest","Push","Legs","Arms"];
+const GYM_TYPES=["Push","Pull","Legs","Arms"];
+function workoutStart(){ let s=LS("pos_workout_start",""); if(!s){ s=dstrD(new Date()); SS("pos_workout_start",s); } const [y,m,d]=String(s).split("-").map(Number); const dt=new Date(y,m-1,d); dt.setHours(0,0,0,0); return dt; }
+function seedWorkoutPlan(start?:Date, days:number=125, overwrite:boolean=true){
+  const s0=start||workoutStart();
+  for(let i=0;i<days;i++){
+    const d=new Date(s0); d.setDate(d.getDate()+i); const ds=dstrD(d); const key=planKey(ds);
+    const cur:any=LS(key,{}); let list=Array.isArray(cur.exSessions)?cur.exSessions:[];
+    const has=list.some((s:any)=>s.seeded);
+    if(!overwrite && has) continue;
+    if(overwrite) list=list.filter((s:any)=>!s.seeded);
+    const type=WORKOUT_CYCLE[i%7];
+    const sessions:any[]=[{id:uid(),seeded:true,time:"06:30",type:"Walk",done:false,steps:"11000",distance:"",duration:"",detail:"11,000-step walk",selected:[]}];
+    if(type!=="Rest"){ const lib=EX_LIB[type]||[]; sessions.push({id:uid(),seeded:true,time:"18:00",type,done:false,steps:"",distance:"",duration:"",detail:type+" day",selected:lib.slice(0,7).map((n:string)=>({name:n,sets:"3",reps:"10",weight:"",note:""}))}); }
+    SS(key,{...cur,exSessions:[...sessions,...list]});
+  }
+}
 const COURSES=["AI / ML","Interview Prep","Data Structures & Algorithms","System Design","DevOps","Cloud","Frontend","Other"];
 const ENGLISH_TOPICS=["Advanced present tenses (simple vs continuous nuance)","Past tenses mastery (past simple vs present perfect)","Perfect tenses (present/past perfect & continuous)","Future forms (will vs going to vs present continuous)","Articles a/an/the — advanced usage","Prepositions of time & place — tricky cases","Prepositions with verbs & adjectives (depend on, good at)","Phrasal verbs — everyday (get, take, put)","Phrasal verbs — work & business","Idioms & how to use them naturally","Conditionals (0,1,2,3)","Mixed & inverted conditionals","Reported speech","Passive voice — when & how","Modal verbs — ability, permission, obligation","Modals of deduction & probability (must, might, can't)","Collocations — natural word pairs","Connectors & linking words (however, therefore)","Relative clauses (defining & non-defining)","Gerunds vs infinitives","Formal vs informal English","Polite English & softening language","Small talk & everyday conversation","Describing people & personality","Describing places & travel","Narrating a story (sequencing & tenses)","Giving opinions, agreeing & disagreeing","Argument & persuasion language","Comparisons & degrees (as…as, the more…)","Expressing feelings & reactions","Business email English","Meetings & discussions English","Job interview English — common questions","Presentations & public speaking phrases","Telephoning & video calls","Negotiation & making requests","Vocabulary: technology & work","Vocabulary: money & shopping","Vocabulary: health & lifestyle","Pronunciation & word stress","Fix your top common mistakes","Paraphrasing & summarizing","Advanced vocabulary & synonym upgrades","Fluency drills — thinking in English","Review + mock interview + final essay"];
 const SCENARIOS=["Free conversation","Job interview","Small talk / networking","At a restaurant","Business meeting","Travel & airport","Doctor's appointment","Debate a topic","Phone / customer service","Making friends","Negotiation","Presentation Q&A"];
@@ -831,6 +850,13 @@ function GoalPlanner({ sett }: any) {
   const skipMeals=()=>{ if(!confirm("Skip MEALS plan on "+sel+"? Your meal plan from here shifts forward 1 day.")) return; shiftCategory(sel,"meals",1); afterShift("✓ Meals shifted forward 1 day from "+sel+"."); };
   const skipStudy=()=>{ if(!confirm("Rest from STUDY on "+sel+"? Your study plan from here shifts forward 1 day (no day is lost).")) return; shiftCategory(sel,"studyList",1); afterShift("✓ Study rested on "+sel+" — study plan shifted forward 1 day."); };
   const skipRestDay=()=>{ if(!confirm("Full REST day on "+sel+"? Exercise, meals AND study all shift forward 1 day.")) return; shiftCategory(sel,"exSessions",1); shiftCategory(sel,"meals",1); shiftCategory(sel,"studyList",1); afterShift("✓ "+sel+" is a full rest day — everything shifted forward 1 day."); };
+  const isGymSess=(s:any)=>GYM_TYPES.includes(s.type);
+  const awayDay=()=>{ if(!confirm("Mark "+sel+" as AWAY?\nYou still walk your 11,000 steps, but every GYM session from here shifts forward 1 day — nothing is skipped.")) return; snap("Away day");
+    const dates:string[]=[]; for(let i=0;i<220;i++){ const ds=addDaysD(sel,i); const c:any=LS(planKey(ds),null); if(c&&Array.isArray(c.exSessions)&&c.exSessions.some(isGymSess)) dates.push(ds); }
+    dates.sort().reverse().forEach(ds=>{ const nd=addDaysD(ds,1); const c:any=LS(planKey(ds),{}); const gym=(c.exSessions||[]).filter(isGymSess).map((g:any)=>({...g,done:false,selected:(g.selected||[]).map((x:any)=>({...x,done:false}))})); const keep=(c.exSessions||[]).filter((s:any)=>!isGymSess(s)); SS(planKey(ds),{...c,exSessions:keep}); const cn:any=LS(planKey(nd),{}); const others=(cn.exSessions||[]); SS(planKey(nd),{...cn,exSessions:[...others,...gym]}); });
+    afterShift("✓ "+sel+" set as Away — gym shifted forward 1 day. Keep your 11,000-step walk today."); };
+  const [woStartInput,setWoStartInput]=useState(LS("pos_workout_start","")||today());
+  const applyWorkoutSeed=()=>{ if(!woStartInput) return; if(!confirm("Load the 125-day workout cycle starting "+woStartInput+"?\nPush → Pull → Legs → Rest → Push → Legs → Arms (repeats), plus an 11,000-step walk every day. Your own added sessions stay; only auto-loaded ones refresh.")) return; SS("pos_workout_start",woStartInput); const [y,m,d]=woStartInput.split("-").map(Number); seedWorkoutPlan(new Date(y,m-1,d),125,true); SS("pos_seed_workout","v1"); setP(loadPlan(sel)); setT((x:number)=>x+1); refresh(); setSaved("✓ 125-day workout plan loaded from "+woStartInput); };
   const courseName=(cid:string)=> cid==="agentic"?"Agentic AI": cid==="sysdesign"?"System Design": cid==="dsa"?"DSA": "this subject";
   const shiftCourse=(cid:string,fromDs:string,n:number)=>{ const dates:string[]=[]; for(let i=0;i<320;i++){ const ds=addDaysD(fromDs,i); const c:any=LS(planKey(ds),null); if(c&&Array.isArray(c.studyList)&&c.studyList.some((s:any)=>s.courseId===cid)) dates.push(ds); }
     dates.sort().reverse().forEach(ds=>{ const c:any=LS(planKey(ds),{}); const tgt=addDaysD(ds,n); const tc:any=LS(planKey(tgt),{}); const moving=(c.studyList||[]).filter((s:any)=>s.courseId===cid); const staying=(c.studyList||[]).filter((s:any)=>s.courseId!==cid);
@@ -922,7 +948,14 @@ function GoalPlanner({ sett }: any) {
       </div>
     </div>
 
-    <PRow icon="🏋️" tint="blue" title="Exercise — add each session (e.g. 6 AM walk, 1 PM gym)" action={actBtns(skipExercise,clearEx)}>
+    <PRow icon="🏋️" tint="blue" title="Exercise — add each session (e.g. 6 AM walk, 1 PM gym)" action={<div className="row" style={{gap:8}}><button className="btn ghost sm" onClick={awayDay} title="Walk only today — push your gym sessions forward 1 day">🧳 Away</button><button className="btn ghost sm" onClick={skipExercise}>😴 Rest</button><button className="btn ghost sm" onClick={clearEx}>🗑 Clear</button></div>}>
+      <div className="card" style={{marginBottom:12,background:"rgba(59,130,246,.07)",padding:"10px 12px"}}>
+        <div className="between" style={{flexWrap:"wrap",gap:8}}>
+          <div style={{fontSize:12}}><b>125-day workout cycle</b> — Push · Pull · Legs · Rest · Push · Legs · Arms, repeating, with an 11,000-step walk every day.</div>
+          <div className="row" style={{gap:6}}><input className="in" type="date" value={woStartInput} onChange={e=>setWoStartInput(e.target.value)} style={{width:150}} title="Start date"/><button className="btn sm" onClick={applyWorkoutSeed}>⚡ Load 125-day plan</button></div>
+        </div>
+        <div className="muted" style={{fontSize:11,marginTop:6}}>Tip: on any day you can’t train, hit 🧳 Away — you keep your walk and the whole gym cycle slides forward a day (nothing lost).</div>
+      </div>
       <div className="row" style={{flexWrap:"wrap",gap:8,alignItems:"center"}}>
         {(p.exSessions||[]).map((s:any)=><button key={s.id} className={"btn "+(curS&&curS.id===s.id?"":"ghost")+" sm"} onClick={()=>setExTab(s.id)}>{s.done?"✅ ":""}{s.time||"—"} · {s.type}</button>)}
         <button className="btn ghost sm" onClick={addSession}>+ Add session</button>
