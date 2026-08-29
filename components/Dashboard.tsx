@@ -78,7 +78,7 @@ export default function Dashboard({ onSignOut, name }: { onSignOut: ()=>void; na
               <button className="btn ghost sm" onClick={()=>setSelDate(today())}>Today</button>
             </>}
             <span className="in" style={{ padding:"6px 12px" }}>{clock}</span>
-            <span className="build-mark" title="build marker — bump this to verify a deploy went live">build&nbsp;103</span>
+            <span className="build-mark" title="build marker — bump this to verify a deploy went live">build&nbsp;104</span>
           </div>
         </div>
         <div className="content"><Boundary key={view}><div className={`dashboard-screen screen-${view}`}>
@@ -162,11 +162,15 @@ function Home({ sett, tick, date }: any) {
   const woDetail = gymEx ? `11,000-step walk · ${(gymEx.selected||[]).length} ${gymEx.type} exercises` : (walkEx ? "11,000-step walk" : "Open Goals to plan");
   const woDone = gymEx ? (!!gymEx.done && (walkEx ? !!walkEx.done : true)) : (walkEx ? !!walkEx.done : false);
   const studies=(plan.studyList||[]).slice(0,2); const meals=plan.meals||{};
+  const stTasks=(plan.studyList||[]).flatMap((s:any)=>Array.isArray(s.plan)?s.plan:[]); const stDone=stTasks.filter((t:any)=>t.done).length; const stTaskPct=stTasks.length?Math.round(stDone/stTasks.length*100):studyPct;
+  const stLabel=(plan.studyList||[])[0]?.label||(plan.studyList||[])[0]?.title||(plan.studyList||[])[0]?.name||"Study session";
+  const stDetail=stTasks.length?`${stDone}/${stTasks.length} tasks done${st?` · ${fmt(st)}`:""}`:(st?`${fmt(st)} completed`:"120 min target");
+  const cprog=studyProgress(); const cList=[["Agentic AI",cprog.courses.agentic],["System Design",cprog.courses.sysdesign],["DSA",cprog.courses.dsa]].filter((c:any)=>c[1]&&c[1].total>0) as any[];
   const todayTasks=[
     {ic:"🚶",label:"Daily steps",detail:`${steps.toLocaleString()} / ${sett.stepGoal.toLocaleString()}`,pct:stepPct,color:"#10B981"},
     {ic:"🏋️",label:woLabel,detail:woDetail,pct:woDone?100:0,color:"#8B5CF6"},
     {ic:"🍗",label:"Protein target",detail:`${nt.protein} / ${sett.proteinGoal} g`,pct:proteinPct,color:"#F59E0B"},
-    {ic:"📚",label:studies[0]?.title||studies[0]?.name||"Study session",detail:st?`${fmt(st)} completed`:"120 min target",pct:studyPct,color:"#3B82F6"},
+    {ic:"📚",label:stLabel,detail:stDetail,pct:stTaskPct,color:"#3B82F6"},
     {ic:"🗣️",label:"English practice",detail:"Speaking · pronunciation · fluency",pct:0,color:"#A855F7"},
   ];
   return <>
@@ -184,6 +188,9 @@ function Home({ sett, tick, date }: any) {
       <div className="dashboard-side-stack">
         <div className="card compact-card"><div className="section-title"><strong>Calories &amp; Macros</strong><span>{sett.calorieGoal} kcal goal</span></div><div className="macro-overview"><div className="macro-ring" style={{"--macro":`${caloriePct*3.6}deg`} as any}><b>{nt.cal}</b><small>kcal</small></div><div className="macro-bars"><div><span>Protein</span><b>{nt.protein}/{sett.proteinGoal}g</b></div><Bar v={nt.protein} goal={sett.proteinGoal} color="#22c55e"/><div><span>Carbs</span><b>{nt.carbs}/{sett.carbGoal}g</b></div><Bar v={nt.carbs} goal={sett.carbGoal} color="#3b82f6"/><div><span>Fat</span><b>{nt.fat}/{sett.fatGoal}g</b></div><Bar v={nt.fat} goal={sett.fatGoal} color="#f59e0b"/></div></div></div>
         <div className="card compact-card"><div className="section-title"><strong>Today&apos;s Workout</strong><span>{ex?.type||PPL[new Date().getDay()]}</span></div><div className="workout-preview"><span className="workout-orb">🏋️</span><div><b>{ex?.type||PPL[new Date().getDay()]} Day</b><small>{(ex?.selected||[]).length||6} exercises · ~55 min</small></div></div><div className="workout-list">{((ex?.selected||[]).slice(0,3)).map((x:any,i:number)=><span key={i}>{i+1}. {x.name} <b>{x.sets}×{x.reps}</b></span>)}{!ex&&<><span>1. Main compound lift <b>4×8</b></span><span>2. Secondary movement <b>3×10</b></span><span>3. Accessory work <b>3×12</b></span></>}</div></div>
+        <div className="card compact-card"><div className="section-title"><strong>Course Progress</strong><span>{cprog.tasksDone}/{cprog.tasksTotal} tasks</span></div>
+          {cList.length? <div style={{display:"flex",flexDirection:"column",gap:10,marginTop:4}}>{cList.map(([nm,c]:any,i:number)=>{ const pct=c.total?Math.round(c.done/c.total*100):0; return <div key={i}><div className="between" style={{fontSize:12,marginBottom:4}}><b style={{color:"#E7ECF3"}}>{nm}</b><span className="muted">{c.done}/{c.total} days{pct>=100?" ✓":""}</span></div><Bar v={c.done} goal={c.total} color={pct>=100?"#22c55e":"#8B5CF6"}/></div>; })}</div> : <div className="muted" style={{fontSize:12,marginTop:8}}>Tick your study tasks in Goals — course completion shows here.</div>}
+        </div>
       </div>
     </div>
     <div className="grid g3 dashboard-charts" style={{marginTop:14}}>
