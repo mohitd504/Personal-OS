@@ -78,7 +78,7 @@ export default function Dashboard({ onSignOut, name }: { onSignOut: ()=>void; na
               <button className="btn ghost sm" onClick={()=>setSelDate(today())}>Today</button>
             </>}
             <span className="in" style={{ padding:"6px 12px" }}>{clock}</span>
-            <span className="build-mark" title="build marker — bump this to verify a deploy went live">build&nbsp;104</span>
+            <span className="build-mark" title="build marker — bump this to verify a deploy went live">build&nbsp;105</span>
           </div>
         </div>
         <div className="content"><Boundary key={view}><div className={`dashboard-screen screen-${view}`}>
@@ -557,6 +557,8 @@ const PLAN_DEF:any={exSessions:[],meals:{breakfast:[],lunch:[],dinner:[]},studyL
 function loadPlan(d:string){ const raw:any=LS(planKey(d),{}); const mealArr=(g:string)=>Array.isArray(raw.meals?.[g])?raw.meals[g]:[];
   return {...PLAN_DEF, ...raw, exSessions:Array.isArray(raw.exSessions)?raw.exSessions:[], studyList:Array.isArray(raw.studyList)?raw.studyList:[], meals:{breakfast:mealArr("breakfast"),lunch:mealArr("lunch"),dinner:mealArr("dinner")}, journal:raw.journal||""}; }
 const EX_TYPES=["Rest","Push","Pull","Legs","Arms","Cardio","Walk","HIIT","Yoga"];
+const SESS_EMOJI:Record<string,string>={Walk:"🚶",Push:"🤚",Pull:"🏋️",Legs:"🦵",Arms:"💪",Rest:"😴",Cardio:"🏃",HIIT:"⚡",Yoga:"🧘"};
+const SESS_GRAD:Record<string,string>={Walk:"linear-gradient(120deg,rgba(34,197,94,.22),rgba(16,185,129,.14))",Push:"linear-gradient(120deg,rgba(239,68,68,.20),rgba(249,115,22,.14))",Pull:"linear-gradient(120deg,rgba(59,130,246,.22),rgba(139,92,246,.16))",Legs:"linear-gradient(120deg,rgba(168,85,247,.20),rgba(59,130,246,.14))",Arms:"linear-gradient(120deg,rgba(236,72,153,.20),rgba(139,92,246,.14))",Rest:"linear-gradient(120deg,rgba(148,163,184,.18),rgba(100,116,139,.12))",Cardio:"linear-gradient(120deg,rgba(249,115,22,.20),rgba(234,179,8,.14))"};
 const P_PUSH=["Bench Press","Incline Bench Press","Decline Bench Press","Flat Dumbbell Press","Incline Dumbbell Press","Machine Chest Press","Cable Fly","Incline Cable Fly","Pec Deck Fly","Push-ups","Dips","Overhead Shoulder Press","Seated Dumbbell Shoulder Press","Arnold Press","Military Press","Lateral Raise","Cable Lateral Raise","Front Raise","Rear Delt Fly","Upright Row","Tricep Pushdown","Rope Pushdown","Overhead Tricep Extension","Skull Crushers","Close-Grip Bench Press"];
 const P_PULL=["Deadlift","Barbell Row","Pendlay Row","T-Bar Row","Seated Cable Row","Single Arm Dumbbell Row","Lat Pulldown","Wide-Grip Lat Pulldown","Close-Grip Pulldown","Pull-ups","Chin-ups","Face Pull","Straight-Arm Pulldown","Shrugs","Barbell Curl","Dumbbell Curl","Hammer Curl","Preacher Curl","Incline Dumbbell Curl","Concentration Curl","Cable Curl","Reverse Curl","Spider Curl","Farmer Walk"];
 const P_LEGS=["Squat","Front Squat","Hack Squat","Leg Press","Bulgarian Split Squat","Walking Lunges","Reverse Lunges","Goblet Squat","Leg Extension","Romanian Deadlift","Stiff-Leg Deadlift","Lying Hamstring Curl","Seated Leg Curl","Hip Thrust","Glute Bridge","Cable Glute Kickback","Sumo Deadlift","Standing Calf Raise","Seated Calf Raise","Step-ups","Adductor Machine","Abductor Machine","Box Jumps"];
@@ -886,6 +888,7 @@ function GoalPlanner({ sett }: any) {
   const delSession=(id:string)=>{ const list=(p.exSessions||[]).filter((s:any)=>s.id!==id); save({exSessions:list}); if(exTab===id) setExTab((list[0]||{}).id||""); };
   const curS=(p.exSessions||[]).find((s:any)=>s.id===exTab)||(p.exSessions||[])[0];
   const toggleSessDone=(id:string)=> save({exSessions:(p.exSessions||[]).map((s:any)=>s.id===id?{...s,done:!s.done,selected:(s.selected||[]).map((x:any)=>({...x,done:!s.done}))}:s)});
+  const submitSession=(id:string)=>{ const s=(p.exSessions||[]).find((x:any)=>x.id===id); if(!s) return; const nd=!s.done; save({exSessions:(p.exSessions||[]).map((x:any)=>x.id===id?{...x,done:nd,selected:(x.selected||[]).map((e:any)=>({...e,done:nd}))}:x)}); setSaved(nd?("✅ "+(s.type||"Session")+" submitted as done — reflected on your dashboard"):("↩ "+(s.type||"Session")+" reopened")); };
   /* auto-tick planned sessions when the watch / workout logs show they were done */
   const autoCheckExercise=(silent?:boolean)=>{ const sessions=p.exSessions||[]; if(!sessions.length){ if(!silent) alert("No sessions to check."); return; }
     const acts=LS("pos_gh_acts",[]).filter((a:any)=>a.date===sel);
@@ -967,10 +970,15 @@ function GoalPlanner({ sett }: any) {
         </div>
         <div className="muted" style={{fontSize:11,marginTop:6}}>Tip: on any day you can’t train, hit 🧳 Away — you keep your walk and the whole gym cycle slides forward a day (nothing lost).</div>
       </div>
-      <div className="row" style={{flexWrap:"wrap",gap:8,alignItems:"center"}}>
-        {(p.exSessions||[]).map((s:any)=><button key={s.id} className={"btn "+(curS&&curS.id===s.id?"":"ghost")+" sm"} onClick={()=>setExTab(s.id)}>{s.done?"✅ ":""}{s.time||"—"} · {s.type}</button>)}
-        <button className="btn ghost sm" onClick={addSession}>+ Add session</button>
-        {(p.exSessions||[]).length>0 && <button className="btn ghost sm" onClick={()=>autoCheckExercise(false)} title="Check your watch & workout logs and tick anything that's done">🔄 Auto-check from watch</button>}
+      <div className="row" style={{flexWrap:"wrap",gap:10,alignItems:"stretch"}}>
+        {(p.exSessions||[]).map((s:any)=>{ const active=curS&&curS.id===s.id; const em=SESS_EMOJI[s.type]||"🏋️"; const cnt=(s.selected||[]).length; const grad=SESS_GRAD[s.type]||"rgba(255,255,255,.04)"; return (
+          <button key={s.id} onClick={()=>setExTab(s.id)} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 14px",borderRadius:14,cursor:"pointer",border:active?"1px solid rgba(96,165,250,.7)":"1px solid var(--stroke)",background:active?grad:"rgba(255,255,255,.03)",boxShadow:active?"0 6px 20px rgba(59,130,246,.22)":"none",transition:"all .15s"}}>
+            <span style={{fontSize:22,lineHeight:1}}>{em}</span>
+            <span style={{textAlign:"left"}}><b style={{fontSize:13,color:"#E7ECF3",display:"block"}}>{s.type}</b><span style={{fontSize:11,color:"#8b93a5"}}>{s.time||"—"}{cnt?` · ${cnt} ex`:s.steps?` · ${(+s.steps).toLocaleString()} steps`:""}</span></span>
+            <span style={{marginLeft:4,fontSize:16}}>{s.done?"✅":"⭕"}</span>
+          </button> ); })}
+        <button className="btn ghost sm" onClick={addSession} style={{alignSelf:"center"}}>+ Add session</button>
+        {(p.exSessions||[]).length>0 && <button className="btn ghost sm" onClick={()=>autoCheckExercise(false)} title="Check your watch & workout logs and tick anything that's done" style={{alignSelf:"center"}}>🔄 Auto-check from watch</button>}
       </div>
       {curS? <div style={{marginTop:12,paddingTop:12,borderTop:"1px solid rgba(255,255,255,.07)"}}>
         <div className="row" style={{flexWrap:"wrap",gap:8,alignItems:"center"}}>
@@ -1003,6 +1011,10 @@ function GoalPlanner({ sett }: any) {
           <input className="in" value={curS.duration||""} onChange={e=>updSession(curS.id,{duration:e.target.value})} placeholder="Duration min" style={{width:120}}/>
           <input className="in" value={curS.detail||""} onChange={e=>updSession(curS.id,{detail:e.target.value})} placeholder="Notes — e.g. easy pace, park loop" style={{flex:1,minWidth:160}}/>
         </div>}
+        <div className="between" style={{marginTop:16,paddingTop:14,borderTop:"1px solid rgba(255,255,255,.08)",flexWrap:"wrap",gap:10}}>
+          <div className="muted" style={{fontSize:12}}>{(curS.selected||[]).length? `${(curS.selected||[]).filter((x:any)=>x.done).length}/${(curS.selected||[]).length} exercises ticked` : (curS.type==="Walk"?"11,000-step walk":"Log your session, then submit")}</div>
+          <button onClick={()=>submitSession(curS.id)} style={{padding:"11px 22px",borderRadius:14,border:"none",cursor:"pointer",fontWeight:700,fontSize:14,color:"#fff",background:curS.done?"linear-gradient(100deg,#22c55e,#10b981)":"linear-gradient(100deg,var(--blue),#8B5CF6)",boxShadow:curS.done?"0 6px 18px rgba(16,185,129,.35)":"0 6px 18px rgba(59,130,246,.35)"}}>{curS.done?`✅ ${curS.type} done — tap to undo`:`🎯 Submit ${curS.type} as done`}</button>
+        </div>
       </div> : <div className="muted" style={{fontSize:12,marginTop:10}}>No sessions yet — tap “+ Add session”. Add one for your morning walk and another for the gym.</div>}
     </PRow>
 
