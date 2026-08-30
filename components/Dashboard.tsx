@@ -78,7 +78,7 @@ export default function Dashboard({ onSignOut, name }: { onSignOut: ()=>void; na
               <button className="btn ghost sm" onClick={()=>setSelDate(today())}>Today</button>
             </>}
             <span className="in" style={{ padding:"6px 12px" }}>{clock}</span>
-            <span className="build-mark" title="build marker — bump this to verify a deploy went live">build&nbsp;105</span>
+            <span className="build-mark" title="build marker — bump this to verify a deploy went live">build&nbsp;106</span>
           </div>
         </div>
         <div className="content"><Boundary key={view}><div className={`dashboard-screen screen-${view}`}>
@@ -341,8 +341,30 @@ function Nutrition({ sett, refresh, tick, date }: any) {
   const water=(d:number)=>{ const m=loadNut(D); m.water=Math.max(0,Math.round((m.water+d)*100)/100); SS(nutKey(D),m); refresh(); };
   const R=(lbl:string,v:number,g:number,color:string,u:string)=><div className="card"><div className="between"><div className="lbl muted">{lbl}</div></div><div className="val" style={{fontSize:24,fontWeight:760,marginTop:6}}>{v}<small className="muted"> /{g}{u}</small></div><Bar v={v} goal={g} color={color}/></div>;
   return <>
-    <Head t="Nutrition" p="Log every macro yourself" />
-    <div className="grid g4">{R("Calories",t.cal,sett.calorieGoal,"var(--orange)","kcal")}{R("Protein",t.protein,sett.proteinGoal,"var(--emerald)","g")}{R("Carbs",t.carbs,sett.carbGoal,"var(--blue)","g")}{R("Fat",t.fat,sett.fatGoal,"var(--pink)","g")}</div>
+    <Head t="Nutrition" p="Track calories, macros, water & meals" />
+    <div className="grid g3" style={{marginBottom:16}}>
+      <div className="panel">
+        <div className="panel-h"><div className="t">🎯 Calorie Goal</div></div>
+        <div className="row" style={{gap:18,alignItems:"center"}}>
+          <div className="ring lg" style={{["--p" as any]:Math.min(100,Math.round(t.cal/Math.max(1,sett.calorieGoal)*100)),["--c" as any]:"#f59e0b"}}><div className="rc"><b>{t.cal}</b><small>of {sett.calorieGoal}</small></div></div>
+          <div style={{flex:1,minWidth:0}}>
+            {[["Protein",t.protein,sett.proteinGoal,"grad-green"],["Carbs",t.carbs,sett.carbGoal,"grad-blue"],["Fat",t.fat,sett.fatGoal,"grad-orange"]].map((x:any)=>(
+              <div className="stat" key={x[0]}><span className="sl">{x[0]}</span><span className="track"><i className={x[3]} style={{width:Math.min(100,Math.round(x[1]/Math.max(1,x[2])*100))+"%"}}/></span><span className="sv">{x[1]} / {x[2]} g</span></div>
+            ))}
+          </div>
+        </div>
+      </div>
+      <div className="panel">
+        <div className="panel-h"><div className="t">💧 Water Tracker</div></div>
+        <div style={{fontSize:22,fontWeight:800}}>{n.water}<small className="muted" style={{fontSize:13,fontWeight:600}}> / {sett.waterGoal} L</small></div>
+        <div className="glasses">{Array.from({length:Math.max(8,Math.round(sett.waterGoal/0.25))}).map((_,i)=><span key={i} className={"glass"+(i<Math.round(n.water/0.25)?" on":"")}/>)}</div>
+        <div className="row" style={{marginTop:14,gap:8}}><button className="btn ghost sm" onClick={()=>water(-0.25)}>−250ml</button><button className="btn sm" onClick={()=>water(0.25)}>+ Add Water</button></div>
+      </div>
+      <div className="panel">
+        <div className="panel-h"><div className="t">🍽️ Meal Timeline</div></div>
+        {n.meals.length? <div className="mealline">{n.meals.slice(0,4).map((m:any,i:number)=><div className="meal" key={i}><div className="mimg">{["🍳","🥗","🍎","🍲"][i]||"🍽️"}</div><span className="mt">{String(m.name).slice(0,12)}</span><span className="mk">{m.cal} kcal</span></div>)}</div> : <div className="muted" style={{fontSize:12,marginTop:20}}>No meals logged yet — add one below and it appears here.</div>}
+      </div>
+    </div>
     <div className="grid g2" style={{marginTop:16}}>
       <div className="card"><strong>Log a meal</strong>
         <div className="row" style={{marginTop:12}}><input className="in" id="nName" placeholder="Food name" style={{flex:1}}/></div>
@@ -387,6 +409,12 @@ function Study({ refresh, tick, date }: any) {
   const cur=LS("pos_curriculum",seedCurr()); if(!LS("pos_curriculum",null)) SS("pos_curriculum",cur);
   return <>
     <Head t="Study" p="AI · DevOps · System Design" />
+    {(()=>{ const pr=studyProgress(); const cs=[["Agentic AI",pr.courses.agentic,"#22c55e"],["System Design",pr.courses.sysdesign,"#a855f7"],["DSA",pr.courses.dsa,"#f59e0b"]].filter((c:any)=>c[1]&&c[1].total>0);
+      if(!cs.length) return null;
+      return <div className="panel" style={{marginBottom:16}}>
+        <div className="panel-h"><div className="t">📚 Course Progress</div><span className="lk">{pr.tasksDone}/{pr.tasksTotal} tasks done</span></div>
+        <div className="row" style={{gap:16,flexWrap:"wrap",justifyContent:"space-around"}}>{cs.map((c:any,i:number)=>{ const pct=c[1].total?Math.round(c[1].done/c[1].total*100):0; return <div key={i} style={{textAlign:"center"}}><div className="ring sm" style={{["--p" as any]:pct,["--c" as any]:c[2]}}><div className="rc"><b>{pct}%</b></div></div><div style={{fontSize:12,fontWeight:700,marginTop:8}}>{c[0]}</div><div className="muted" style={{fontSize:10}}>{c[1].done}/{c[1].total} days</div></div>; })}</div>
+      </div>; })()}
     <div className="grid g3">
       <Kpi lbl="Study" ic="⏱️" tint="purple" val={fmt(studyTotal(D))} sub={`Goal ${goal}m`} />
       <Kpi lbl="Streak" ic="🔥" tint="orange" val={streak()} unit="days" />
@@ -1251,6 +1279,19 @@ function English(){
   const nextSpell=()=>{ setSpell((d:any)=>{ const idx=Math.min(d.idx+1,d.items.length); const n={...d,idx,input:"",last:null}; SS("pos_engspell_"+sel,n); if(idx<d.items.length) setTimeout(()=>speak(d.items[idx].word),300); return n; }); };
   return <>
     <Head t="English — 45-Day Fluency" p={`Day ${dayIdx+1} of 45 · ${topic}`} />
+    {(()=>{ const ps=(re:RegExp)=>{ const m=String(data.report||"").match(re); return m?+m[1]:null; };
+      const flu=ps(/fluency[^0-9]*(\d{1,3})/i), gra=ps(/grammar[^0-9]*(\d{1,3})/i), voc=ps(/vocab\w*[^0-9]*(\d{1,3})/i);
+      const cefr=(String(data.report||"").match(/\b(A2|B1|B2|C1|C2)\b/)||[])[1]||"—";
+      const vals=[flu,gra,voc].filter((x:any)=>x!=null) as number[];
+      const overall=vals.length?Math.round(vals.reduce((a,b)=>a+b,0)/vals.length):null;
+      const sub:any[]=[["Pronunciation",null,"#22c55e"],["Vocabulary",voc,"#3b82f6"],["Grammar",gra,"#a855f7"],["Fluency",flu,"#f59e0b"]];
+      return <div className="panel" style={{marginBottom:16}}>
+        <div className="panel-h"><div className="t">🗣️ Fluency Score</div><span className="lk">{overall!=null?"From your latest speaking session":"Do a speaking session to score"}</span></div>
+        <div className="fluency">
+          <div className="fl-main"><div className="ring" style={{["--p" as any]:overall||0,["--c" as any]:"#3b82f6"}}><div className="rc"><b>{overall??"—"}</b><small>/100</small></div></div><div style={{fontSize:12,fontWeight:700,color:"#60a5fa"}}>{cefr!=="—"?cefr+" · ":""}{overall!=null?(overall>=80?"Advanced":overall>=60?"Upper-Int":"Intermediate"):"Start a session"}</div></div>
+          {sub.map((x:any,i:number)=><div className="fl-sub" key={i}><div className="fn">{x[0]}</div><div className="fv" style={{color:x[2]}}>{x[1]??"—"}</div><div className="fg" style={{color:x[2]}}>{x[1]!=null?(x[1]>=80?"Excellent":x[1]>=70?"Good":"Fair"):"—"}</div></div>)}
+        </div>
+      </div>; })()}
     <div className="card" style={{marginBottom:16}}>
       <div className="between" style={{flexWrap:"wrap",gap:10}}>
         <div><strong>Day {dayIdx+1} / 45</strong><div className="muted" style={{fontSize:12,marginTop:2}}>{topic}</div></div>
