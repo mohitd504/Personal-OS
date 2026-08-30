@@ -1,4 +1,8 @@
 
 node_modules/
 .next/
+.next-build/
 .env*.local
+*.tsbuildinfo
+coverage/
+personal-os-build-*.zip

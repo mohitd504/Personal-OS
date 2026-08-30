@@ -13,11 +13,11 @@ async function email() {
 export async function GET() {
   const e = await email();
   if (!e) return Response.json({ error: "unauthorized" }, { status: 401 });
-  if (!SB_URL || !SB_KEY) return Response.json({ data: null, note: "sync not configured" });
+  if (!SB_URL || !SB_KEY) return Response.json({ data: null, version: 2, note: "sync not configured" });
   try {
     const r = await fetch(`${SB_URL}/rest/v1/user_data?email=eq.${encodeURIComponent(e)}&select=data`, { headers: H() });
     const rows = await r.json();
-    return Response.json({ data: Array.isArray(rows) && rows[0] ? rows[0].data : null });
+    return Response.json({ data: Array.isArray(rows) && rows[0] ? rows[0].data : null, version: 2 });
   } catch (err: any) { return Response.json({ error: err.message }, { status: 500 }); }
 }
 
@@ -25,7 +25,13 @@ export async function POST(req: Request) {
   const e = await email();
   if (!e) return Response.json({ error: "unauthorized" }, { status: 401 });
   if (!SB_URL || !SB_KEY) return Response.json({ ok: false, note: "sync not configured" });
-  const { data } = await req.json();
+  const body = await req.json();
+  const data = body?.data;
+  if (!data || typeof data !== "object" || Array.isArray(data)) return Response.json({ ok: false, error: "invalid sync payload" }, { status: 400 });
+  const serialized = JSON.stringify(data);
+  if (serialized.length > 4_000_000) return Response.json({ ok: false, error: "sync payload too large" }, { status: 413 });
+  const invalidKey = Object.keys(data).find((key) => !key.startsWith("pos_") || typeof data[key] !== "string");
+  if (invalidKey) return Response.json({ ok: false, error: "invalid sync key" }, { status: 400 });
   try {
     const r = await fetch(`${SB_URL}/rest/v1/user_data`, {
       method: "POST",

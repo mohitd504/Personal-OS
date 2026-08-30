@@ -1,4 +1,6 @@
 import { askLLM } from "@/lib/llm";
+import { aiHeaders, guardAiRequest, isGuardResponse } from "@/lib/api-security";
+import { nutritionEstimateSchema, nutritionRequestSchema } from "@/lib/domain";
 const TABLE: Record<string,{cal:number;protein:number;carbs:number;fat:number;fiber:number}> = {
   chai:{cal:60,protein:2,carbs:8,fat:2,fiber:0}, tea:{cal:60,protein:2,carbs:8,fat:2,fiber:0},
   roti:{cal:80,protein:3,carbs:15,fat:1,fiber:2}, chapati:{cal:80,protein:3,carbs:15,fat:1,fiber:2},
@@ -11,11 +13,14 @@ const TABLE: Record<string,{cal:number;protein:number;carbs:number;fat:number;fi
 function parse(t:string){ const m=t.trim().match(/^(\d+(?:\.\d+)?)\s*(?:x|\*)?\s*(.*)$/i); return { q:m&&m[1]?parseFloat(m[1]):1, name:(m&&m[2]?m[2]:t).trim().toLowerCase() }; }
 function tableLookup(t:string){ const {q,name}=parse(t); const k=Object.keys(TABLE).find(x=>name.includes(x)); if(!k)return null; const b=TABLE[k]; return { cal:Math.round(b.cal*q), protein:Math.round(b.protein*q), carbs:Math.round(b.carbs*q), fat:Math.round(b.fat*q), fiber:Math.round(b.fiber*q) }; }
 export async function POST(req: Request) {
-  const { food } = await req.json();
-  if (!food) return Response.json({ error: "no food" }, { status: 400 });
+  const guard = await guardAiRequest(req, "nutrition");
+  if (isGuardResponse(guard)) return guard;
+  const parsed = nutritionRequestSchema.safeParse(await req.json().catch(() => null));
+  if (!parsed.success) return Response.json({ error: "Enter a valid food description (maximum 300 characters)." }, { status: 400 });
+  const { food } = parsed.data;
   const out = await askLLM('You are a nutrition estimator. Reply with ONLY compact JSON {"cal":0,"protein":0,"carbs":0,"fat":0,"fiber":0} (grams, integers).', `Entry: "${food}"`, 200);
   const m = out.match(/\{[\s\S]*?\}/);
-  if (m) { try { const o = JSON.parse(m[0]); return Response.json({ source:"ai", cal:+o.cal||0, protein:+o.protein||0, carbs:+o.carbs||0, fat:+o.fat||0, fiber:+o.fiber||0 }); } catch(e){} }
-  const t = tableLookup(food); if (t) return Response.json({ source:"table", ...t });
-  return Response.json({ source:"none", cal:0, protein:0, carbs:0, fat:0, fiber:0 });
+  if (m) { try { const o = nutritionEstimateSchema.safeParse(JSON.parse(m[0])); if (o.success) return Response.json({ source:"ai", estimated:true, assumption:"Typical serving sizes were assumed; edit before saving if your portion differs.", ...o.data }, { headers: aiHeaders(guard) }); } catch(e){} }
+  const t = tableLookup(food); if (t) return Response.json({ source:"table", estimated:true, assumption:"Calculated from the built-in standard-serving reference.", ...t }, { headers: aiHeaders(guard) });
+  return Response.json({ source:"none", estimated:true, assumption:"No reliable estimate was available; enter values manually.", cal:0, protein:0, carbs:0, fat:0, fiber:0 }, { headers: aiHeaders(guard) });
 }

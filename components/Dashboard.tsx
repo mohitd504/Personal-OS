@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, useRef, Component } from "react";
+import { useCallback, useEffect, useState, useRef, Component } from "react";
 
 class Boundary extends Component<{ children: any }, { err: any }> {
   constructor(p: any) { super(p); this.state = { err: null }; }
@@ -19,6 +19,12 @@ import { PieChart, Pie, Cell, BarChart, Bar as RBar, LineChart, Line, XAxis, YAx
 import Fitness, { HOWTO, demoLink, exEmoji } from "@/components/Fitness";
 import SyncManager from "@/components/SyncManager";
 import Assistant from "@/components/Assistant";
+import TodayView from "@/components/features/TodayView";
+import WeeklyReview from "@/components/features/WeeklyReview";
+import ReminderCenter from "@/components/features/ReminderCenter";
+import DataControls from "@/components/features/DataControls";
+import StudyDashboard from "@/components/features/study/StudyDashboard";
+import type { AppSettings } from "@/lib/domain";
 
 /* ---------- storage helpers ---------- */
 const LS = (k: string, d: any) => { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch { return d; } };
@@ -26,22 +32,22 @@ const SS = (k: string, v: any) => { try { localStorage.setItem(k, JSON.stringify
 const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; };
 const PPL: Record<number,string> = {0:"Recovery",1:"Push",2:"Pull",3:"Legs",4:"Push",5:"Pull",6:"Legs"};
 
-type Sett = { name:string; age:number; heightFt:number; heightIn:number; planStart:string; planDays:number; weightGoal:number; calorieGoal:number; proteinGoal:number; carbGoal:number; fatGoal:number; fiberGoal:number; waterGoal:number; stepGoal:number; };
+type Sett = AppSettings;
 const DEF_SETT: Sett = { name:"Mohit", age:34, heightFt:6, heightIn:1, planStart:today(), planDays:180, weightGoal:86, calorieGoal:2300, proteinGoal:170, carbGoal:230, fatGoal:60, fiberGoal:35, waterGoal:3.5, stepGoal:13000 };
 
 const NAV = [
-  { k:"home", ic:"🏠", t:"Dashboard" }, { k:"health", ic:"❤️", t:"Health" }, { k:"exercise", ic:"🏋️", t:"Exercise" },
+  { k:"today", ic:"☀️", t:"Today" }, { k:"home", ic:"🏠", t:"Dashboard" }, { k:"weekly", ic:"📈", t:"Weekly Review" }, { k:"health", ic:"❤️", t:"Health" }, { k:"exercise", ic:"🏋️", t:"Exercise" },
   { k:"nutrition", ic:"🍎", t:"Nutrition" }, { k:"study", ic:"📚", t:"Study" }, { k:"english", ic:"🗣️", t:"English" }, { k:"gmail", ic:"📧", t:"Gmail" },
   { k:"calendar", ic:"📅", t:"Calendar" }, { k:"goals", ic:"🎯", t:"Goals" }, { k:"settings", ic:"⚙️", t:"Settings" },
 ];
 
 export default function Dashboard({ onSignOut, name }: { onSignOut: ()=>void; name: string }) {
-  const [view, setView] = useState<string>("home");
+  const [view, setView] = useState<string>("today");
   const [clock, setClock] = useState("");
   const [sett, setSett] = useState<Sett>(DEF_SETT);
   const [tick, setTick] = useState(0);
   const [selDate, setSelDate] = useState(today());
-  const refresh = () => setTick(t => t + 1);
+  const refresh = useCallback(() => setTick(t => t + 1), []);
   const shiftDate = (n:number) => { const d=new Date(selDate); d.setDate(d.getDate()+n); const nd=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; if(nd<=today()) setSelDate(nd); };
 
   useEffect(() => { setSett({ ...DEF_SETT, ...LS("pos_settings", {}), name }); }, [name]);
@@ -82,11 +88,13 @@ export default function Dashboard({ onSignOut, name }: { onSignOut: ()=>void; na
           </div>
         </div>
         <div className="content"><Boundary key={view}><div className={`dashboard-screen screen-${view}`}>
+          {view==="today" && <TodayView settings={sett} tick={tick} onNavigate={setView} />}
           {view==="home" && <Home sett={sett} tick={tick} date={selDate} />}
+          {view==="weekly" && <WeeklyReview settings={sett} tick={tick} />}
           {view==="health" && <Health sett={sett} refresh={refresh} tick={tick} />}
           {view==="exercise" && <Fitness />}
           {view==="nutrition" && <Nutrition sett={sett} refresh={refresh} tick={tick} date={selDate} />}
-          {view==="study" && <Study refresh={refresh} tick={tick} date={selDate} />}
+          {view==="study" && <Study sett={sett} refresh={refresh} tick={tick} date={selDate} />}
           {view==="english" && <English />}
           {view==="gmail" && <Gmail />}
           {view==="calendar" && <Calendar sett={sett} tick={tick} />}
@@ -299,6 +307,7 @@ function nutTotals(d:string){const n=loadNut(d);const t={cal:0,protein:0,carbs:0
 function Nutrition({ sett, refresh, tick, date }: any) {
   const D=date||today(); const n=loadNut(D); const t=nutTotals(D);
   const [busy,setBusy]=useState(false);
+  const [estimateNote,setEstimateNote]=useState("");
   const [paste,setPaste]=useState("");
   const [photoBusy,setPhotoBusy]=useState(false); const [photoMsg,setPhotoMsg]=useState("");
   // shrink the image in the browser so the upload stays well under the request size limit
@@ -332,7 +341,7 @@ function Nutrition({ sett, refresh, tick, date }: any) {
     let cal=+el("nCal").value||0; let p=+el("nP").value||0,c=+el("nC").value||0,f=+el("nF").value||0,fb=+el("nFb").value||0;
     if(!(cal||p||c||f||fb)){
       setBusy(true);
-      try{ const r=await fetch("/api/nutrition",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({food:name})}); const d=await r.json(); cal=d.cal||0;p=d.protein||0;c=d.carbs||0;f=d.fat||0;fb=d.fiber||0; }catch(e){}
+      try{ const r=await fetch("/api/nutrition",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({food:name})}); const d=await r.json(); if(!r.ok)throw new Error(d.error||"Estimate failed"); cal=d.cal||0;p=d.protein||0;c=d.carbs||0;f=d.fat||0;fb=d.fiber||0;setEstimateNote(`${d.source==="ai"?"AI estimate":"Reference estimate"}: ${d.assumption||"Review the values before relying on them."}`); }catch(e){setEstimateNote(e instanceof Error?e.message:"Estimate failed");}
       setBusy(false);
     } else if(!cal){ cal=Math.round(p*4+c*4+f*9); }
     const m=loadNut(D); m.meals.push({name,cal,protein:p,carbs:c,fat:f,fiber:fb}); SS(nutKey(D),m);
@@ -369,7 +378,8 @@ function Nutrition({ sett, refresh, tick, date }: any) {
       <div className="card"><strong>Log a meal</strong>
         <div className="row" style={{marginTop:12}}><input className="in" id="nName" placeholder="Food name" style={{flex:1}}/></div>
         <div className="row" style={{marginTop:8,flexWrap:"wrap",gap:8}}><input className="in" id="nCal" type="number" placeholder="Calories" style={{width:100}}/><input className="in" id="nP" type="number" placeholder="Protein g" style={{width:100}}/><input className="in" id="nC" type="number" placeholder="Carbs g" style={{width:95}}/><input className="in" id="nF" type="number" placeholder="Fat g" style={{width:85}}/><input className="in" id="nFb" type="number" placeholder="Fiber g" style={{width:90}}/><button className="btn" onClick={add} disabled={busy}>{busy?"🤖 Fetching…":"Add meal"}</button></div>
-        <div className="muted" style={{fontSize:11,margin:"6px 0"}}>Type just the food name and hit Add — Claude auto-fills protein, carbs, fat &amp; fiber. Fill any field yourself to override.</div>
+        <div className="muted" style={{fontSize:11,margin:"6px 0"}}>Type just the food name and hit Add — AI estimates the macros. All estimates are editable and may vary by portion or preparation.</div>
+        {estimateNote&&<div style={{fontSize:11,margin:"8px 0",padding:8,borderRadius:8,background:"rgba(59,130,246,.08)",border:"1px solid rgba(59,130,246,.2)"}}>ℹ️ {estimateNote}</div>}
         <div style={{marginTop:6,padding:10,borderRadius:12,background:"rgba(245,158,11,.08)",border:"1px solid rgba(245,158,11,.25)"}}>
           <div className="row" style={{gap:8,flexWrap:"wrap"}}><span>📷</span><strong style={{fontSize:13}}>Snap a food photo</strong>
             <label className="btn ghost sm" style={{cursor:"pointer",marginLeft:"auto"}}>{photoBusy?"🤖 Analysing…":"Upload / take photo"}<input type="file" accept="image/*" capture="environment" style={{display:"none"}} disabled={photoBusy} onChange={e=>onPhoto(e.target.files?.[0])}/></label>
@@ -403,8 +413,15 @@ function studyTotal(d:string){const s=loadStudy(d);return Object.keys(s).reduce(
 function fmt(m:number){m=Math.round(m||0);return Math.floor(m/60)+"h "+(m%60)+"m";}
 function streak(){let n=0;const d=new Date();for(;;){const ds=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;if(studyTotal(ds)>0){n++;d.setDate(d.getDate()-1);}else break;if(n>400)break;}return n;}
 const SUBJ=[{k:"ai",label:"Artificial Intelligence"},{k:"devops",label:"DevOps"},{k:"system",label:"System Design"}];
-function Study({ refresh, tick, date }: any) {
+function Study({ sett, refresh, tick }: any) {
+  useEffect(()=>{ if(LS("pos_seed_all","")==="v1") return; courseStart(); seedAllCourses(undefined,false); SS("pos_seed_all","v1"); refresh(); },[refresh]);
+  return <StudyDashboard settings={sett} tick={tick} onRefresh={refresh} planner={<GoalPlanner sett={sett} mode="study"/>} coursePlanner={<CoursePlanner/>} curriculum={<Curriculum/>}/>;
+}
+
+// Retained temporarily as a compatibility reference while the dedicated study modules settle.
+function StudyLegacyAnalytics({ sett, refresh, tick, date }: any) {
   const D=date||today(); const s=loadStudy(D); const weekend=[0,6].includes(new Date(D).getDay()); const goal=weekend?300:240;
+  useEffect(()=>{ if(LS("pos_seed_all","")==="v1") return; courseStart(); seedAllCourses(undefined,false); SS("pos_seed_all","v1"); refresh(); },[refresh]);
   const log=(k:string,v:number)=>{ if(!(v>0))return; const d=loadStudy(D); d[k]=(d[k]||0)+v; SS(studyKey(D),d); refresh(); };
   const cur=LS("pos_curriculum",seedCurr()); if(!LS("pos_curriculum",null)) SS("pos_curriculum",cur);
   return <>
@@ -441,6 +458,8 @@ function Study({ refresh, tick, date }: any) {
           <ul className="list">{pr.recent.map((r:any,i:number)=><li className="li" key={i}><span className="dot" style={{background:"var(--emerald)"}}/><div style={{flex:1}} className="between"><span style={{fontSize:13}}>✅ {r.label}</span><span className="muted" style={{fontSize:11}}>{r.date}</span></div></li>)}</ul>
         </div>}
       </div>; })()}
+    <div style={{marginTop:16}}><CoursePlanner /></div>
+    <GoalPlanner sett={sett} mode="study" />
     <Curriculum />
   </>;
 }
@@ -572,7 +591,7 @@ function Goals({ sett, tick }: any) {
       <div className="val" style={{fontSize:30,fontWeight:770,marginTop:10}}>{pct}%</div><Bar v={pct} goal={100} color="linear-gradient(90deg,var(--pink),var(--indigo))"/>
       <div className="muted" style={{marginTop:6}}>Day {dayNo} of {sett.planDays} · started {sett.planStart}</div>
     </div>
-    <GoalPlanner sett={sett}/>
+    <GoalPlanner sett={sett} mode="goals"/>
     <PlanCalendar sett={sett}/>
   </>;
 }
@@ -799,7 +818,7 @@ function CoursePlanner(){
     </div>}
   </div>;
 }
-function GoalPlanner({ sett }: any) {
+function GoalPlanner({ sett, mode="all" }: any) {
   const days=sett.planDays||120;
   const [sel,setSel]=useState(today());
   const [p,setP]=useState<any>(loadPlan(today()));
@@ -990,6 +1009,7 @@ function GoalPlanner({ sett }: any) {
       </div>
     </div>
 
+    {mode!=="study" && <>
     <PRow icon="🏋️" tint="blue" title="Exercise — add each session (e.g. 6 AM walk, 1 PM gym)" action={<div className="row" style={{gap:8}}><button className="btn ghost sm" onClick={awayDay} title="Walk only today — push your gym sessions forward 1 day">🧳 Away</button><button className="btn ghost sm" onClick={skipExercise}>😴 Rest</button><button className="btn ghost sm" onClick={clearEx}>🗑 Clear</button></div>}>
       <div className="card" style={{marginBottom:12,background:"rgba(59,130,246,.07)",padding:"10px 12px"}}>
         <div className="between" style={{flexWrap:"wrap",gap:8}}>
@@ -1117,7 +1137,9 @@ function GoalPlanner({ sett }: any) {
           <span className="muted" style={{fontSize:13}}>🔥 <b style={{color:"#E7ECF3"}}>{Math.round(dayTotal.cal)}</b> kcal · P {Math.round(dayTotal.protein)}g · C {Math.round(dayTotal.carbs)}g · F {Math.round(dayTotal.fat)}g · Fiber {Math.round(dayTotal.fiber)}g</span></div>
       </div>:null}
     </PRow>
+    </>}
 
+    {mode!=="goals" && <>
     <PRow icon="📚" tint="purple" title="Study — add subjects, AI builds a timed plan for each" action={<div className="row" style={{gap:8,flexWrap:"wrap"}}><button className="btn ghost sm" onClick={restoreCourses}>↻ Restore courses</button><button className="btn ghost sm" onClick={skipStudy}>😴 Skip/Rest</button><button className="btn ghost sm" onClick={clearStudy}>🗑 Clear</button></div>}>
       <div className="row" style={{flexWrap:"wrap",gap:8}}>
         <input className="in" value={studyDraft.label} onChange={e=>setStudyDraft((s:any)=>({...s,label:e.target.value}))} placeholder="e.g. 2 hour data structures" style={{flex:1,minWidth:200}} onKeyDown={e=>{ if(e.key==="Enter") addSubject(); }}/>
@@ -1212,7 +1234,9 @@ function GoalPlanner({ sett }: any) {
         <div className="muted" style={{fontSize:11,marginTop:6}}>Course links, PDFs &amp; notes are kept when a subject isn&apos;t renamed.</div>
       </div>
     </div>
+    </>}
 
+    {mode!=="study" && <>
     <PRow icon="📓" tint="orange" title="Daily Journal" action={clearBtn(clearJournal)}>
       <div className="between" style={{flexWrap:"wrap",gap:8,marginBottom:10,paddingBottom:10,borderBottom:"1px solid rgba(255,255,255,.08)"}}>
         <div><div style={{fontSize:16,fontWeight:700}}>{new Date(sel).toLocaleDateString(undefined,{weekday:"long"})}</div><div className="muted" style={{fontSize:12}}>{new Date(sel).toLocaleDateString(undefined,{day:"numeric",month:"long",year:"numeric"})}</div></div>
@@ -1223,6 +1247,7 @@ function GoalPlanner({ sett }: any) {
     </PRow>
 
     <div className="card" style={{marginTop:2}}><strong>{days}-Day Plan Overview</strong><div className="muted" style={{fontSize:12,marginTop:2,marginBottom:6}}>Green = planned. Tap any day to edit it.</div><div className="cal-grid">{cells}</div></div>
+    </>}
   </div>;
 }
 
@@ -1417,5 +1442,7 @@ function Settings({ sett, save }: any) {
         <div style={{marginTop:16}} className="muted"><div className="li"><span className="dot" style={{background:"var(--emerald)"}}/><div>Gmail & Calendar — live via your Google sign-in</div></div></div>
       </div>
     </div>
+    <ReminderCenter />
+    <DataControls />
   </>;
 }

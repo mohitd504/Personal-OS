@@ -4,6 +4,29 @@ A private command center: live **Gmail** + **Google Calendar**, plus Health, Exe
 Nutrition (full macros), Study (AI/DevOps/System Design + curriculum), Goals and a 180-day plan calendar.
 Built with Next.js 14 (App Router), TypeScript, NextAuth (Google) and Tailwind.
 
+## Current capabilities
+
+- Unified **Today** view with priorities, movement, nutrition, study, and schedule.
+- Dedicated Study workspace with Today, Courses, Study Plan, Calendar, Review, Quiz & AI, Library, and Progress tabs.
+- Full-screen focus timer, automatic session logging, distraction counter, and session notes.
+- Spaced repetition reviews at 1, 3, 7, and 21 days, plus course-grounded quizzes and Q&A.
+- **Weekly Review** with seven-day consistency and next-week recommendations.
+- Browser reminders for workouts, study, and end-of-day review.
+- Cross-device Supabase sync with visible status, retries, offline handling, and versioned migrations.
+- JSON backup export and restore from Settings.
+- Authenticated, rate-limited AI endpoints with validated requests and clearly labelled estimates.
+
+## Quality checks
+
+Run the complete local verification suite before pushing:
+
+```bash
+npm run check
+npm run build
+```
+
+GitHub Actions runs the same checks for every push and pull request. Optional AI limits can be configured with `AI_RATE_LIMIT_PER_MINUTE` and `AI_RATE_LIMIT_PER_DAY`.
+
 Personal logs are stored in your browser (localStorage). Gmail/Calendar are read live from your Google account.
 
 ---
@@ -54,7 +77,7 @@ Done — open the URL on any device, sign in, and Gmail/Calendar sync live.
   (Vercel Postgres / Supabase) and swap the `LS/SS` helpers in `components/Dashboard.tsx` for API calls — ask and I can add this.
 - **Replies**: the Gmail tab saves replies as **drafts** in your Gmail (safe); open Gmail to send.
 
-## Cross-device data sync (optional, Supabase)
+## Cross-device data sync (Supabase)
 
 By default your logs are saved per-browser. To sync them across every device you sign into:
 
@@ -72,7 +95,7 @@ By default your logs are saved per-browser. To sync them across every device you
    - **service_role** secret key  → env var `SUPABASE_SERVICE_ROLE_KEY`  (keep this secret; server-only)
 4. In **Vercel → Settings → Environment Variables**, add both, then **Redeploy**.
 
-Now signing in with the same Google account on any device pulls your data and pushes changes automatically.
+Now signing in with the same Google account on any device pulls your data and pushes changes automatically. The bottom-right status indicator shows syncing, synced, offline, or retrying state.
 
 ## Strava integration (optional)
 1. Create a free API app at https://www.strava.com/settings/api
