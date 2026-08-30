@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { exerciseRequestSchema, nutritionEstimateSchema, nutritionRequestSchema, studyAiRequestSchema } from "@/lib/domain";
+import { exerciseRequestSchema, gmailAiRequestSchema, nutritionEstimateSchema, nutritionRequestSchema, studyAiRequestSchema } from "@/lib/domain";
 import { migratePersonalOsData } from "@/lib/client-storage";
 import { addDays } from "@/lib/study";
 
@@ -25,6 +25,11 @@ describe("AI request validation", () => {
   it("bounds grounded study requests", () => {
     expect(studyAiRequestSchema.safeParse({ topic: "Graphs", context: "BFS and DFS", question: "Compare them" }).success).toBe(true);
     expect(studyAiRequestSchema.safeParse({ topic: "Graphs", context: "x".repeat(12_001) }).success).toBe(false);
+  });
+
+  it("accepts only bounded Gmail analysis requests", () => {
+    expect(gmailAiRequestSchema.safeParse({ mode:"analyze", message:{ from:"a@example.com",subject:"Hello",snippet:"Please review" } }).success).toBe(true);
+    expect(gmailAiRequestSchema.safeParse({ mode:"send", message:{ from:"a",subject:"b",snippet:"c" } }).success).toBe(false);
   });
 });
 

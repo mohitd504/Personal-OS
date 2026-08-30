@@ -22,6 +22,6 @@ export const config = {
     "/api/next-workout", "/api/workout-report", "/api/workout-options", "/api/edit-workout", "/api/plan-edit",
     "/api/food-photo", "/api/study-path", "/api/course-plan", "/api/notes", "/api/code", "/api/proofread",
     "/api/english-lesson", "/api/english-chat", "/api/english-feedback", "/api/english-drill", "/api/drill-review",
-    "/api/essay-check", "/api/word-set", "/api/study-quiz", "/api/study-assistant"
+    "/api/essay-check", "/api/word-set", "/api/study-quiz", "/api/study-assistant", "/api/gmail-assistant"
   ]
 };

@@ -28,6 +28,9 @@ export async function GET(req: Request) {
         const m = await r.json();
         const headers: Record<string, string> = {};
         (m.payload?.headers || []).forEach((h: any) => (headers[h.name] = h.value));
+        const attachments: { filename: string; mimeType: string }[] = [];
+        const walk = (part: any) => { if (part?.filename) attachments.push({ filename: part.filename, mimeType: part.mimeType || "application/octet-stream" }); (part?.parts || []).forEach(walk); };
+        walk(m.payload);
         return {
           id: m.id,
           threadId: m.threadId,
@@ -35,6 +38,8 @@ export async function GET(req: Request) {
           subject: headers["Subject"] || "(no subject)",
           date: headers["Date"] || "",
           snippet: m.snippet || "",
+          labelIds: m.labelIds || [],
+          attachments,
         };
       })
     );

@@ -24,6 +24,10 @@ import WeeklyReview from "@/components/features/WeeklyReview";
 import ReminderCenter from "@/components/features/ReminderCenter";
 import DataControls from "@/components/features/DataControls";
 import StudyDashboard from "@/components/features/study/StudyDashboard";
+import ExerciseWorkspace from "@/components/features/exercise/ExerciseWorkspace";
+import NutritionWorkspace from "@/components/features/nutrition/NutritionWorkspace";
+import EnglishWorkspace from "@/components/features/english/EnglishWorkspace";
+import GmailWorkspace from "@/components/features/gmail/GmailWorkspace";
 import type { AppSettings } from "@/lib/domain";
 
 /* ---------- storage helpers ---------- */
@@ -92,11 +96,11 @@ export default function Dashboard({ onSignOut, name }: { onSignOut: ()=>void; na
           {view==="home" && <Home sett={sett} tick={tick} date={selDate} />}
           {view==="weekly" && <WeeklyReview settings={sett} tick={tick} />}
           {view==="health" && <Health sett={sett} refresh={refresh} tick={tick} />}
-          {view==="exercise" && <Fitness />}
-          {view==="nutrition" && <Nutrition sett={sett} refresh={refresh} tick={tick} date={selDate} />}
+          {view==="exercise" && <ExerciseWorkspace tracker={<Fitness />} />}
+          {view==="nutrition" && <NutritionWorkspace settings={sett} tracker={<Nutrition sett={sett} refresh={refresh} tick={tick} date={selDate} />} />}
           {view==="study" && <Study sett={sett} refresh={refresh} tick={tick} date={selDate} />}
-          {view==="english" && <English />}
-          {view==="gmail" && <Gmail />}
+          {view==="english" && <EnglishWorkspace practice={<English />} />}
+          {view==="gmail" && <GmailWorkspace />}
           {view==="calendar" && <Calendar sett={sett} tick={tick} />}
           {view==="goals" && <Goals sett={sett} tick={tick} />}
           {view==="settings" && <Settings sett={sett} save={saveSett} />}

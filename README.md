@@ -10,6 +10,11 @@ Built with Next.js 14 (App Router), TypeScript, NextAuth (Google) and Tailwind.
 - Dedicated Study workspace with Today, Courses, Study Plan, Calendar, Review, Quiz & AI, Library, and Progress tabs.
 - Full-screen focus timer, automatic session logging, distraction counter, and session notes.
 - Spaced repetition reviews at 1, 3, 7, and 21 days, plus course-grounded quizzes and Q&A.
+- Modular Exercise workspace with Today, full tracker, progression, muscle volume, templates, and recovery guidance.
+- Modular Nutrition workspace with saved meals, weekly planning, grocery list, and seven-day insights.
+- Modular English workspace with guided sessions, mistake notebook, spaced vocabulary, scenarios, and progress.
+- Priority Gmail workspace with AI summaries, action extraction, follow-ups, attachment metadata, safe drafts, and Calendar handoff.
+- One bottom-right **Sync now** control pushes and pulls all Personal OS data.
 - **Weekly Review** with seven-day consistency and next-week recommendations.
 - Browser reminders for workouts, study, and end-of-day review.
 - Cross-device Supabase sync with visible status, retries, offline handling, and versioned migrations.

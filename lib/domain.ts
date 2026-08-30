@@ -63,3 +63,10 @@ export const studyAiRequestSchema = z.object({
   context: z.string().max(12_000).default(""),
   question: z.string().trim().max(1_000).optional(),
 }).strict();
+
+export const gmailAiRequestSchema = z.object({
+  mode: z.literal("analyze"),
+  message: z.object({
+    from: z.string().max(500), subject: z.string().max(500), snippet: z.string().max(5_000), date: z.string().max(200).optional(),
+  }).passthrough(),
+}).strict();
