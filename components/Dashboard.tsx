@@ -88,7 +88,7 @@ export default function Dashboard({ onSignOut, name }: { onSignOut: ()=>void; na
               <button className="btn ghost sm" onClick={()=>setSelDate(today())}>Today</button>
             </>}
             <span className="in" style={{ padding:"6px 12px" }}>{clock}</span>
-            <span className="build-mark" title="build marker — bump this to verify a deploy went live">build&nbsp;110</span>
+            <span className="build-mark" title="build marker — bump this to verify a deploy went live">build&nbsp;111</span>
           </div>
         </div>
         <div className="content"><Boundary key={view}><div className={`dashboard-screen screen-${view}`}>
@@ -586,7 +586,7 @@ function PlanCalendar({ sett }: any) {
 /* ---------- GOALS ---------- */
 function Goals({ sett, tick }: any) {
   const start=new Date(sett.planStart); const dayNo=Math.max(0,Math.floor((Date.now()-start.getTime())/86400000)); const pct=Math.min(100,Math.round(dayNo/sett.planDays*100));
-  useEffect(()=>{ if(LS("pos_seed_all","")==="v1") return; courseStart(); seedAllCourses(undefined,false); SS("pos_seed_all","v1"); },[]);
+  useEffect(()=>{ if(LS("pos_seed_all","")==="v2dsa") return; const t=dstrD(new Date()); SS("pos_course_start",t); const [y,m,d]=t.split("-").map(Number); seedAllCourses(new Date(y,m-1,d),true); SS("pos_seed_all","v2dsa"); },[]);
   useEffect(()=>{ const v=LS("pos_seed_workout",""); if(v==="v3") return; SS("pos_workout_start","2026-09-01"); seedWorkoutPlan(new Date(2026,8,1),125,true); SS("pos_seed_workout","v3"); },[]);
   return <>
     <Head t="Goals" p={`${sett.planDays}-day transformation`} />
