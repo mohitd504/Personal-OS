@@ -88,7 +88,7 @@ export default function Dashboard({ onSignOut, name }: { onSignOut: ()=>void; na
               <button className="btn ghost sm" onClick={()=>setSelDate(today())}>Today</button>
             </>}
             <span className="in" style={{ padding:"6px 12px" }}>{clock}</span>
-            <span className="build-mark" title="build marker — bump this to verify a deploy went live">build&nbsp;111</span>
+            <span className="build-mark" title="build marker — bump this to verify a deploy went live">build&nbsp;112</span>
           </div>
         </div>
         <div className="content"><Boundary key={view}><div className={`dashboard-screen screen-${view}`}>
@@ -469,7 +469,7 @@ function StudyLegacyAnalytics({ sett, refresh, tick, date }: any) {
 }
 function weekStudy(){let t=0;const d=new Date();for(let i=0;i<7;i++){const ds=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;t+=studyTotal(ds);d.setDate(d.getDate()-1);}return t;}
 function studyProgress(){
-  const courses:any={agentic:{label:"🤖 Agentic AI",done:0,total:0},sysdesign:{label:"🗄️ System Design",done:0,total:0},dsa:{label:"🧩 DSA (Abdul Bari)",done:0,total:0},other:{label:"📚 Other subjects",done:0,total:0}};
+  const courses:any={agentic:{label:"🤖 Agentic AI",done:0,total:0},sysdesign:{label:"🗄️ System Design",done:0,total:0},dsa:{label:"🧩 DSA (Srivastava)",done:0,total:0},other:{label:"📚 Other subjects",done:0,total:0}};
   let tasksDone=0, tasksTotal=0; const recent:any[]=[]; const base=new Date();
   for(let i=-200;i<=260;i++){ const d=new Date(base); d.setDate(d.getDate()+i); const ds=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
     const pl:any=LS("pos_plan_"+ds,null); if(!pl||!Array.isArray(pl.studyList)) continue;
@@ -717,7 +717,6 @@ const SYSDESIGN_COURSE=[
   {title:"Reliability & Observability",brief:"Monitoring/logging/tracing; retries, timeouts, circuit breakers, SLOs."},
   {title:"Case Study & Review",brief:"End-to-end design (e.g. URL shortener); bottlenecks and full review."},
 ];
-const DSA_PLAYLIST="https://www.youtube.com/playlist?list=PLDN4rrl48XKpZkf03iYFl-O29szjTrs_O";
 const DSA_BOOK="📘 Data Structures Through C in Depth — S. K. Srivastava & Deepali Srivastava (BPB). Find the book: https://www.google.com/search?q=Data+Structures+Through+C+in+Depth+Srivastava";
 // 45-day plan mapped to the book "Data Structures Through C in Depth" (S.K. & Deepali Srivastava).
 // Each day: read = book section + page range; steps = elaborate read → trace → code(C) → test → complexity.
@@ -784,7 +783,7 @@ function seedAllCourses(start?:Date, overwrite:boolean=true){
   SYSDESIGN_COURSE.forEach((day:any,i:number)=>{ const startMin=i*15; const timing=`${fmt(startMin)}-${fmt(startMin+15)}`; const sec=startMin*60;
     setDay("sysdesign",i,{ id:uid(), courseId:"sysdesign", label:`SD Day ${i+1}: ${day.title}`, hours:"1.5", brief:day.brief, resource:SD_DOCS, pdf:`/course/sd-day-${String(i+1).padStart(2,"0")}.pdf`, video:`▶ ${timing} of the 5h video`, courseVideo:`${SD_VIDEO}&t=${sec}s`, plan:[{time:"25 min",task:`Watch the course video ${timing} — ${day.title}`},{time:"45 min",task:"Read the PDF notes + Telusko docs; draw the architecture diagram"},{time:"20 min",task:"Write your own notes"}], next:[] }); });
   DSA_COURSE.forEach((day:any,i:number)=>{
-    setDay("dsa",i,{ id:uid(), courseId:"dsa", label:`DSA Day ${i+1}: ${day.title}`, hours:"1.5", brief:`${day.brief}  📖 Book: ${day.read}`, resource:`${DSA_BOOK}  ·  Today: ${day.read}`, pdf:`/course/dsa-day-${String(i+1).padStart(2,"0")}.pdf`, video:`📖 Read from "Data Structures Through C in Depth" (Srivastava) — ${day.read}`, courseVideo:DSA_PLAYLIST, plan:day.plan||[], next:[] }); });
+    setDay("dsa",i,{ id:uid(), courseId:"dsa", label:`DSA Day ${i+1}: ${day.title}`, hours:"1.5", brief:`${day.brief}  📖 Book: ${day.read}`, resource:`${DSA_BOOK}  ·  Today: ${day.read}`, pdf:`/course/dsa-day-${String(i+1).padStart(2,"0")}.pdf`, video:`📖 Read from "Data Structures Through C in Depth" (Srivastava) — ${day.read}`, courseVideo:"https://www.google.com/search?q=Data+Structures+Through+C+in+Depth+Srivastava", plan:day.plan||[], next:[] }); });
 }
 function CoursePlanner(){
   const [course,setCourse]=useState("Complete Agentic AI Course In 10 Hours — LangChain, LangGraph, RAG, Vectorless RAG, Guardrails, Evals (Krish Naik)");
