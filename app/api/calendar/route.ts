@@ -4,6 +4,8 @@ import { authOptions } from "@/lib/auth";
 export async function GET(req: Request) {
   const session = await getServerSession(authOptions);
   const token = (session as any)?.accessToken;
+  if ((session as any)?.error === "RefreshAccessTokenError")
+    return Response.json({ error: "reauth", message: "Your Google sign-in expired — please sign in again." }, { status: 401 });
   if (!token) return Response.json({ error: "unauthorized" }, { status: 401 });
 
   const url = new URL(req.url);
