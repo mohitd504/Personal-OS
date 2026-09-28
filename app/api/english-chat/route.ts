@@ -1,10 +1,9 @@
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { guardAiRequest, isGuardResponse } from "@/lib/api-security";
 import { askLLM } from "@/lib/llm";
 
 export async function POST(req: Request) {
-  const s = await getServerSession(authOptions);
-  if (!(s as any)?.user?.email) return Response.json({ error: "unauthorized" }, { status: 401 });
+  const guard = await guardAiRequest(req, "english-chat");
+  if (isGuardResponse(guard)) return guard;
   const { messages, topic } = await req.json();
   const transcript = (Array.isArray(messages) ? messages : []).map((m: any) => `${m.role === "user" ? "Learner" : "Interviewer"}: ${m.content}`).join("\n");
   const out = await askLLM(
@@ -15,7 +14,7 @@ export async function POST(req: Request) {
     "'reply' = your natural, human conversational response (stay in character for the scenario). " +
     "If there is no conversation yet, set corrected=\"\", issues=[] and open with a warm, natural question on the theme. Return ONLY JSON: {\"corrected\":string,\"issues\":[string],\"reply\":string}.",
     `Theme: ${topic || "a relaxed friendly chat about everyday life"}\n\nConversation so far:\n${transcript || "(none yet — start the chat naturally)"}`,
-    600
+    600, { json: true }
   );
   const m = out.match(/\{[\s\S]*\}/);
   if (m) { try { const j = JSON.parse(m[0]); if (j.reply) return Response.json({ corrected: j.corrected || "", issues: Array.isArray(j.issues) ? j.issues : [], reply: j.reply }); } catch (e) {} }

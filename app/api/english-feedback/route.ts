@@ -1,10 +1,9 @@
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { guardAiRequest, isGuardResponse } from "@/lib/api-security";
 import { askLLM } from "@/lib/llm";
 
 export async function POST(req: Request) {
-  const s = await getServerSession(authOptions);
-  if (!(s as any)?.user?.email) return Response.json({ error: "unauthorized" }, { status: 401 });
+  const guard = await guardAiRequest(req, "english-feedback");
+  if (isGuardResponse(guard)) return guard;
   const { messages } = await req.json();
   const learnerLines = (Array.isArray(messages) ? messages : []).filter((m: any) => m.role === "user").map((m: any) => m.content);
   if (!learnerLines.length) return Response.json({ error: "Have a conversation first." });

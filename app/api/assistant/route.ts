@@ -1,5 +1,4 @@
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { guardAiRequest, isGuardResponse } from "@/lib/api-security";
 import { askLLM } from "@/lib/llm";
 
 const SYS = `You are the user's fitness & nutrition assistant. You help them build a DRAFT entry, refine it, then save it only when they confirm.
@@ -20,12 +19,12 @@ Action schema — "kind" is one of meal|walk|cardio|weight|workout:
 Integers; grams for macros; km for distance; minutes for duration. Estimate sensible values when not stated.`;
 
 export async function POST(req: Request) {
-  const s = await getServerSession(authOptions);
-  if (!(s as any)?.user?.email) return Response.json({ error: "unauthorized" }, { status: 401 });
+  const guard = await guardAiRequest(req, "assistant");
+  if (isGuardResponse(guard)) return guard;
   if (!process.env.OPENAI_API_KEY && !process.env.ANTHROPIC_API_KEY) return Response.json({ error: "no-key" });
   const { text, context, pending } = await req.json();
   if (!text) return Response.json({ error: "empty" }, { status: 400 });
-  const out = await askLLM(SYS, `CONTEXT: ${JSON.stringify(context || {})}\nPENDING: ${JSON.stringify(pending || null)}\nMESSAGE: ${text}`, 700);
+  const out = await askLLM(SYS, `CONTEXT: ${JSON.stringify(context || {})}\nPENDING: ${JSON.stringify(pending || null)}\nMESSAGE: ${text}`, 700, { json: true });
   const m = out.match(/\{[\s\S]*\}/);
   if (!m) return Response.json({ error: "no-parse", raw: out });
   try { return Response.json(JSON.parse(m[0])); } catch (e) { return Response.json({ error: "bad-json", raw: out }); }

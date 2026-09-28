@@ -1,10 +1,9 @@
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { guardAiRequest, isGuardResponse } from "@/lib/api-security";
 import { askLLM } from "@/lib/llm";
 
 export async function POST(req: Request) {
-  const s = await getServerSession(authOptions);
-  if (!(s as any)?.user?.email) return Response.json({ error: "unauthorized" }, { status: 401 });
+  const guard = await guardAiRequest(req, "drill-review");
+  if (isGuardResponse(guard)) return guard;
   const { attempts } = await req.json();
   if (!Array.isArray(attempts) || !attempts.length) return Response.json({ error: "No attempts to review." });
   const out = await askLLM(
