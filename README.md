@@ -99,6 +99,7 @@ By default your logs are saved per-browser. To sync them across every device you
    - **Project URL**  → env var `SUPABASE_URL`
    - **service_role** secret key  → env var `SUPABASE_SERVICE_ROLE_KEY`  (keep this secret; server-only)
 4. In **Vercel → Settings → Environment Variables**, add both, then **Redeploy**.
+5. For per-key sync (only changed data is sent, and edits on different devices merge instead of overwriting each other), open `supabase/sync_v2.sql`, copy **all of its text** into the SQL Editor and run it. Without it, sync still works but sends and receives everything each time.
 
 Now signing in with the same Google account on any device pulls your data and pushes changes automatically. The bottom-right status indicator shows syncing, synced, offline, or retrying state.
 
