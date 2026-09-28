@@ -102,6 +102,13 @@ By default your logs are saved per-browser. To sync them across every device you
 
 Now signing in with the same Google account on any device pulls your data and pushes changes automatically. The bottom-right status indicator shows syncing, synced, offline, or retrying state.
 
+## AI usage limits
+
+Every AI route goes through `guardAiRequest` (`lib/api-security.ts`): sign-in check, request size check, a per-route per-minute limit, and a **daily limit per user across all AI routes**.
+
+- To make the daily limit reliable on Vercel (shared across instances, survives cold starts), run `supabase/ai_usage.sql` once in the Supabase **SQL Editor**. Without it the limit falls back to an in-memory counter, which resets often.
+- Tune with env vars: `AI_RATE_LIMIT_PER_DAY` (default 200), `AI_RATE_LIMIT_PER_MINUTE` (default 12), `LLM_TIMEOUT_MS` (default 25000).
+
 ## Strava integration (optional)
 1. Create a free API app at https://www.strava.com/settings/api
    - Authorization Callback Domain: your Vercel domain (e.g. personal-os-teal-alpha.vercel.app)

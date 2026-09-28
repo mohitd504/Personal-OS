@@ -18,7 +18,7 @@ export async function POST(req: Request) {
   const parsed = nutritionRequestSchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return Response.json({ error: "Enter a valid food description (maximum 300 characters)." }, { status: 400 });
   const { food } = parsed.data;
-  const out = await askLLM('You are a nutrition estimator. Reply with ONLY compact JSON {"cal":0,"protein":0,"carbs":0,"fat":0,"fiber":0} (grams, integers).', `Entry: "${food}"`, 200);
+  const out = await askLLM('You are a nutrition estimator. Reply with ONLY compact JSON {"cal":0,"protein":0,"carbs":0,"fat":0,"fiber":0} (grams, integers).', `Entry: "${food}"`, 200, { json: true });
   const m = out.match(/\{[\s\S]*?\}/);
   if (m) { try { const o = nutritionEstimateSchema.safeParse(JSON.parse(m[0])); if (o.success) return Response.json({ source:"ai", estimated:true, assumption:"Typical serving sizes were assumed; edit before saving if your portion differs.", ...o.data }, { headers: aiHeaders(guard) }); } catch(e){} }
   const t = tableLookup(food); if (t) return Response.json({ source:"table", estimated:true, assumption:"Calculated from the built-in standard-serving reference.", ...t }, { headers: aiHeaders(guard) });

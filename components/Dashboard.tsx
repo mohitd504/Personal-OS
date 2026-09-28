@@ -45,9 +45,19 @@ const NAV = [
   { k:"calendar", ic:"📅", t:"Calendar" }, { k:"goals", ic:"🎯", t:"Goals" }, { k:"settings", ic:"⚙️", t:"Settings" },
 ];
 
+// Own component so the per-second tick re-renders only this span, not the whole Dashboard tree.
+function Clock() {
+  const [clock, setClock] = useState("");
+  useEffect(() => {
+    const f = () => { const d = new Date(); let h = d.getHours(); const ap = h>=12?"PM":"AM"; h = h%12||12;
+      setClock(`${h}:${String(d.getMinutes()).padStart(2,"0")}:${String(d.getSeconds()).padStart(2,"0")} ${ap}`); };
+    f(); const i = setInterval(f, 1000); return () => clearInterval(i);
+  }, []);
+  return <span className="in" style={{ padding:"6px 12px" }}>{clock}</span>;
+}
+
 export default function Dashboard({ onSignOut, name }: { onSignOut: ()=>void; name: string }) {
   const [view, setView] = useState<string>("today");
-  const [clock, setClock] = useState("");
   const [sett, setSett] = useState<Sett>(DEF_SETT);
   const [tick, setTick] = useState(0);
   const [selDate, setSelDate] = useState(today());
@@ -55,11 +65,6 @@ export default function Dashboard({ onSignOut, name }: { onSignOut: ()=>void; na
   const shiftDate = (n:number) => { const d=new Date(selDate); d.setDate(d.getDate()+n); const nd=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; if(nd<=today()) setSelDate(nd); };
 
   useEffect(() => { setSett({ ...DEF_SETT, ...LS("pos_settings", {}), name }); }, [name]);
-  useEffect(() => {
-    const f = () => { const d = new Date(); let h = d.getHours(); const ap = h>=12?"PM":"AM"; h = h%12||12;
-      setClock(`${h}:${String(d.getMinutes()).padStart(2,"0")}:${String(d.getSeconds()).padStart(2,"0")} ${ap}`); };
-    f(); const i = setInterval(f, 1000); return () => clearInterval(i);
-  }, []);
   const saveSett = (s: Sett) => { setSett(s); SS("pos_settings", s); };
 
   return (
@@ -87,7 +92,7 @@ export default function Dashboard({ onSignOut, name }: { onSignOut: ()=>void; na
               <button className="btn ghost sm" onClick={()=>shiftDate(1)} disabled={selDate>=today()}>›</button>
               <button className="btn ghost sm" onClick={()=>setSelDate(today())}>Today</button>
             </>}
-            <span className="in" style={{ padding:"6px 12px" }}>{clock}</span>
+            <Clock />
             <span className="build-mark" title="build marker — bump this to verify a deploy went live">build&nbsp;112</span>
           </div>
         </div>

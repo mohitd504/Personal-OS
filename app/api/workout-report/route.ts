@@ -1,10 +1,9 @@
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { guardAiRequest, isGuardResponse } from "@/lib/api-security";
 import { askLLM } from "@/lib/llm";
 
 export async function POST(req: Request) {
-  const s = await getServerSession(authOptions);
-  if (!(s as any)?.user?.email) return Response.json({ error: "unauthorized" }, { status: 401 });
+  const guard = await guardAiRequest(req, "workout-report");
+  if (isGuardResponse(guard)) return guard;
   const { workout } = await req.json();
   if (!workout) return Response.json({ error: "no workout" }, { status: 400 });
   const out = await askLLM(
@@ -13,7 +12,7 @@ export async function POST(req: Request) {
     "(2) Design the NEXT workout of the SAME split but ROTATING the focus (Push chest-focus -> next Push shoulder-focus; Pull back -> biceps; Legs quad -> glute/ham; then rotate back). Pick 6-9 exercises for that focus and suggest a target weight for each using sensible progressive overload from today's numbers (small increase if reps were strong, hold if not). " +
     "Return ONLY JSON: {\"report\": string, \"nextFocus\": string, \"next\": [{\"name\": string, \"sets\": number, \"reps\": number, \"weight\": number}], \"note\": string}. Reply with ONLY the JSON.",
     JSON.stringify(workout),
-    1100
+    1100, { json: true }
   );
   const m = out.match(/\{[\s\S]*\}/);
   if (m) { try { return Response.json(JSON.parse(m[0])); } catch (e) {} }
