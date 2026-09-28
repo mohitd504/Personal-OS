@@ -15,20 +15,28 @@ class Boundary extends Component<{ children: any }, { err: any }> {
     return this.props.children;
   }
 }
-import { PieChart, Pie, Cell, BarChart, Bar as RBar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
-import Fitness, { HOWTO, demoLink, exEmoji } from "@/components/Fitness";
+import { HOWTO, demoLink, exEmoji } from "@/lib/exercise-guide";
 import SyncManager from "@/components/SyncManager";
 import Assistant from "@/components/Assistant";
 import TodayView from "@/components/features/TodayView";
-import WeeklyReview from "@/components/features/WeeklyReview";
-import ReminderCenter from "@/components/features/ReminderCenter";
-import DataControls from "@/components/features/DataControls";
-import StudyDashboard from "@/components/features/study/StudyDashboard";
-import ExerciseWorkspace from "@/components/features/exercise/ExerciseWorkspace";
-import NutritionWorkspace from "@/components/features/nutrition/NutritionWorkspace";
-import EnglishWorkspace from "@/components/features/english/EnglishWorkspace";
-import GmailWorkspace from "@/components/features/gmail/GmailWorkspace";
 import type { AppSettings } from "@/lib/domain";
+import dynamic from "next/dynamic";
+
+/* ---------- lazily loaded tabs: each is downloaded the first time it is opened ---------- */
+const TabLoading = () => <div className="card muted">Loading…</div>;
+const Fitness = dynamic(() => import("@/components/Fitness"), { ssr: false, loading: TabLoading });
+const WeeklyReview = dynamic(() => import("@/components/features/WeeklyReview"), { ssr: false, loading: TabLoading });
+const ReminderCenter = dynamic(() => import("@/components/features/ReminderCenter"), { ssr: false, loading: TabLoading });
+const DataControls = dynamic(() => import("@/components/features/DataControls"), { ssr: false, loading: TabLoading });
+const StudyDashboard = dynamic(() => import("@/components/features/study/StudyDashboard"), { ssr: false, loading: TabLoading });
+const ExerciseWorkspace = dynamic(() => import("@/components/features/exercise/ExerciseWorkspace"), { ssr: false, loading: TabLoading });
+const NutritionWorkspace = dynamic(() => import("@/components/features/nutrition/NutritionWorkspace"), { ssr: false, loading: TabLoading });
+const EnglishWorkspace = dynamic(() => import("@/components/features/english/EnglishWorkspace"), { ssr: false, loading: TabLoading });
+const GmailWorkspace = dynamic(() => import("@/components/features/gmail/GmailWorkspace"), { ssr: false, loading: TabLoading });
+const ChartLoading = () => <div className="card muted" style={{ height: 262 }}>Loading chart…</div>;
+const PieCard = dynamic(() => import("@/components/charts").then(m => m.PieCard), { ssr: false, loading: ChartLoading });
+const BarCard = dynamic(() => import("@/components/charts").then(m => m.BarCard), { ssr: false, loading: ChartLoading });
+const LineCard = dynamic(() => import("@/components/charts").then(m => m.LineCard), { ssr: false, loading: ChartLoading });
 
 /* ---------- storage helpers ---------- */
 const LS = (k: string, d: any) => { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch { return d; } };
@@ -125,38 +133,7 @@ function Head({ t, p }: any) { return <div className="head"><h1>{t}</h1><p>{p}</
 function Bar({ v, goal, color }: any) { const p = goal? Math.min(v/goal*100,100):0; return <div className="bar"><span style={{width:p+"%",background:color}} /></div>; }
 
 /* ---------- charts ---------- */
-const PIE_COLORS = ["#3B82F6","#10B981","#F59E0B","#A855F7","#EC4899","#06B6D4"];
-const TT = { background:"#0f172a", border:"1px solid rgba(255,255,255,.12)", borderRadius:8, color:"#E7ECF3" } as any;
 function last7(){ const out:{name:string;ds:string}[]=[]; for(let i=6;i>=0;i--){ const x=new Date(); x.setDate(x.getDate()-i); const ds=`${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,"0")}-${String(x.getDate()).padStart(2,"0")}`; out.push({name:["Su","Mo","Tu","We","Th","Fr","Sa"][x.getDay()],ds}); } return out; }
-function PieCard({ title, data }: { title:string; data:{name:string;value:number}[] }) {
-  const empty = data.every(d=>!d.value);
-  return <div className="card"><strong>{title}</strong>
-    <div style={{height:230,marginTop:6}}>{empty? <div className="muted" style={{textAlign:"center",paddingTop:92}}>No data yet — log some to see the chart</div> :
-      <ResponsiveContainer width="100%" height="100%"><PieChart>
-        <Pie data={data} dataKey="value" nameKey="name" innerRadius={55} outerRadius={85} paddingAngle={3} stroke="none">
-          {data.map((_,i)=><Cell key={i} fill={PIE_COLORS[i%PIE_COLORS.length]} />)}
-        </Pie><Tooltip contentStyle={TT}/></PieChart></ResponsiveContainer>}</div>
-    <div className="row" style={{flexWrap:"wrap",gap:12,marginTop:6}}>{data.map((d,i)=><span key={i} className="muted" style={{fontSize:12}}><span style={{display:"inline-block",width:10,height:10,borderRadius:3,background:PIE_COLORS[i%PIE_COLORS.length],marginRight:6}}/>{d.name}: {d.value}</span>)}</div>
-  </div>;
-}
-function BarCard({ title, data, color }: { title:string; data:{name:string;value:number}[]; color:string }) {
-  return <div className="card"><strong>{title}</strong><div style={{height:230,marginTop:6}}>
-    <ResponsiveContainer width="100%" height="100%"><BarChart data={data}>
-      <XAxis dataKey="name" tick={{fill:"#8A94A6",fontSize:11}} axisLine={false} tickLine={false}/>
-      <YAxis tick={{fill:"#8A94A6",fontSize:11}} axisLine={false} tickLine={false} width={30}/>
-      <Tooltip cursor={{fill:"rgba(255,255,255,.05)"}} contentStyle={TT}/>
-      <RBar dataKey="value" fill={color} radius={[6,6,0,0]}/>
-    </BarChart></ResponsiveContainer></div></div>;
-}
-function LineCard({ title, data, color }: { title:string; data:{name:string;value:number}[]; color:string }) {
-  return <div className="card"><strong>{title}</strong><div style={{height:230,marginTop:6}}>
-    <ResponsiveContainer width="100%" height="100%"><LineChart data={data}>
-      <XAxis dataKey="name" tick={{fill:"#8A94A6",fontSize:11}} axisLine={false} tickLine={false}/>
-      <YAxis domain={["auto","auto"]} tick={{fill:"#8A94A6",fontSize:11}} axisLine={false} tickLine={false} width={34}/>
-      <Tooltip contentStyle={TT}/>
-      <Line type="monotone" dataKey="value" stroke={color} strokeWidth={2.5} dot={{r:3,fill:color}}/>
-    </LineChart></ResponsiveContainer></div></div>;
-}
 
 /* ---------- HOME ---------- */
 function Home({ sett, tick, date }: any) {
