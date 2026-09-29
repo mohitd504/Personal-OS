@@ -75,7 +75,7 @@ export default function Dashboard({ onSignOut, name }: { onSignOut: ()=>void; na
         <div className="topbar">
           <div className="topbar-title"><span>PERSONAL OS</span><strong>{view === "home" ? "Dashboard" : NAV.find(n=>n.k===view)?.t || view}</strong></div>
           <div className="row" style={{gap:6,flexWrap:"wrap"}}>
-            {["home","nutrition","study"].includes(view) && <>
+            {["home","nutrition"].includes(view) && <>
               <button className="btn ghost sm" onClick={()=>shiftDate(-1)}>‹</button>
               <input className="in" type="date" value={selDate} max={today()} onChange={e=>setSelDate(e.target.value)} style={{width:150}}/>
               <button className="btn ghost sm" onClick={()=>shiftDate(1)} disabled={selDate>=today()}>›</button>
