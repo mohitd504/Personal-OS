@@ -1,4 +1,6 @@
-# Personal OS — Project Handoff & Context
+# Personal Dashboard — Project Handoff & Context
+
+(Formerly "Personal OS". Shown in the app as "<First name>'s Dashboard" using the signed-in account's name; storage keys keep the `pos_` prefix.)
 
 A single-user (multi-user capable) life-management web app: health, exercise, nutrition, study, a 3-course study planner, a 45-day English fluency coach, Gmail/Calendar, and AI helpers. This document gives a new AI assistant (ChatGPT, Cursor, Claude, etc.) everything needed to continue development.
 
@@ -7,12 +9,12 @@ A single-user (multi-user capable) life-management web app: health, exercise, nu
 2. Install deps: `npm install`. Run locally: `npm run dev`. Before pushing: `npm run check` (lint + typecheck + tests) and `npm run build`. CI runs both on every push.
 3. To edit AI behaviour, change the `app/api/*/route.ts` files. To edit UI, find the tab under `components/dashboard/views/` or `components/fitness/` (see Components).
 4. To deploy: `git push` then `npx vercel --prod` (see Deploy).
-5. Build marker: shown top-right in the app (currently **build 113**). Bump the `build&nbsp;NN` string in `components/Dashboard.tsx` on each deploy to verify it went live.
+5. Build marker: shown top-right in the app (currently **build 114**). Bump the `build&nbsp;NN` string in `components/Dashboard.tsx` on each deploy to verify it went live.
 
 ## Tech stack
 - Next.js 14 (App Router), React, TypeScript.
 - Styling: custom CSS in `app/globals.css` (dark theme, CSS variables) — minimal Tailwind.
-- Auth: NextAuth (Auth.js) Google provider (`lib/auth.ts`). Scopes: openid, email, profile, gmail.readonly, gmail.compose, calendar.readonly.
+- Auth: NextAuth (Auth.js) Google provider (`lib/auth.ts`). Scopes: openid, email, profile, gmail.readonly, gmail.compose, calendar.readonly. No forced consent screen: the Google refresh token from the first consent is stored in Supabase (`google_tokens`, `lib/google-tokens.ts`, `supabase/google_tokens.sql`) and reused, so later sign-ins are one click. Opening the app signed out redirects straight to Google (except right after "Sign out"). Sessions last 90 days of inactivity.
 - AI: OpenAI (ChatGPT) — `lib/llm.ts` → `askLLM(system, user, maxTokens, { json })` and `askLLMImage(...)`. Model `gpt-4o-mini` (env `OPENAI_MODEL` to override). Falls back to Anthropic if only `ANTHROPIC_API_KEY` is set. 25 s timeout, one retry on 429/5xx, failures logged; `{ json: true }` turns on OpenAI JSON mode.
 - Storage/sync: browser `localStorage` (all keys prefixed `pos_`) synced per key to **Supabase** per user email (see Sync).
 - Tests: Vitest (`tests/`).

@@ -153,7 +153,7 @@ export default function SystemDesignLab(){
       <a className="sd-brand" href="/system-design"><span className="brand-glyph">SD</span><span><b>System Design</b><small>LEARNING LAB</small></span></a>
       <nav>{lessons.map((l,i)=><button key={l.id} onClick={()=>open(l.id)} className={active===l.id?"on":""}><span>{String(i+1).padStart(2,"0")}</span><div><b>{l.title}</b><small>{l.eyebrow.split(" · ")[0]}</small></div>{done.includes(l.id)&&<em>✓</em>}</button>)}</nav>
       <div className="progressBox"><div><span>Your progress</span><b>{covered}/{total}</b></div><div className="track"><i style={{width:`${covered/total*100}%`}}/></div><small>{covered===total?"Course complete — excellent work.":"20 questions in every lesson · 140 total."}</small></div>
-      <a className="back" href="/">← Back to Personal OS</a>
+      <a className="back" href="/">← Back to my dashboard</a>
     </aside>
     <section className="sd-main">
       <header className="sd-top"><div className="crumb">COURSE / {lesson.eyebrow.toUpperCase()}</div><div className="top-actions"><span>◷ {lesson.time}</span><button onClick={()=>setMode(mode==="learn"?"quiz":"learn")}>{mode==="learn"?"Test knowledge →":"← Back to lesson"}</button></div></header>

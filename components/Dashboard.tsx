@@ -29,7 +29,7 @@ class Boundary extends Component<{ children: any }, { err: any }> {
 }
 
 const NAV = [
-  { k:"today", ic:"☀️", t:"Today" }, { k:"home", ic:"🏠", t:"Dashboard" }, { k:"weekly", ic:"📈", t:"Weekly Review" }, { k:"health", ic:"❤️", t:"Health" }, { k:"exercise", ic:"🏋️", t:"Exercise" },
+  { k:"today", ic:"☀️", t:"Today" }, { k:"home", ic:"🏠", t:"Overview" }, { k:"weekly", ic:"📈", t:"Weekly Review" }, { k:"health", ic:"❤️", t:"Health" }, { k:"exercise", ic:"🏋️", t:"Exercise" },
   { k:"nutrition", ic:"🍎", t:"Nutrition" }, { k:"study", ic:"📚", t:"Study" }, { k:"english", ic:"🗣️", t:"English" }, { k:"gmail", ic:"📧", t:"Gmail" },
   { k:"calendar", ic:"📅", t:"Calendar" }, { k:"goals", ic:"🎯", t:"Goals" }, { k:"settings", ic:"⚙️", t:"Settings" },
 ];
@@ -55,13 +55,17 @@ export default function Dashboard({ onSignOut, name }: { onSignOut: ()=>void; na
 
   useEffect(() => { setSett({ ...DEF_SETT, ...LS("pos_settings", {}), name }); }, [name]);
   const saveSett = (s: Sett) => { setSett(s); SS("pos_settings", s); };
+  // "Mohit's Dashboard" — first name from the signed-in account (or Settings).
+  const firstName = String(sett.name || name || "").trim().split(/\s+/)[0];
+  const owner = firstName && firstName !== "You" ? `${firstName}'s Dashboard` : "Personal Dashboard";
+  useEffect(() => { document.title = owner; }, [owner]);
 
   return (
     <div className="app">
       <SyncManager onSync={refresh} />
       <Assistant onApplied={refresh} />
       <nav className="sidebar">
-        <div className="brand"><span className="mark" /><span className="bt">Personal OS<small>Command Center</small></span></div>
+        <div className="brand"><span className="mark" /><span className="bt">{owner}<small>Personal Dashboard</small></span></div>
         {NAV.map(n => (
           <div key={n.k} className={"nav" + (view===n.k?" active":"")} onClick={()=>setView(n.k)}>
             <span className="ic">{n.ic}</span><span className="tx">{n.t}</span>
@@ -73,7 +77,7 @@ export default function Dashboard({ onSignOut, name }: { onSignOut: ()=>void; na
       </nav>
       <div className={`main view-${view}`}>
         <div className="topbar">
-          <div className="topbar-title"><span>PERSONAL OS</span><strong>{view === "home" ? "Dashboard" : NAV.find(n=>n.k===view)?.t || view}</strong></div>
+          <div className="topbar-title"><span>{owner.toUpperCase()}</span><strong>{view === "home" ? "Overview" : NAV.find(n=>n.k===view)?.t || view}</strong></div>
           <div className="row" style={{gap:6,flexWrap:"wrap"}}>
             {["home","nutrition"].includes(view) && <>
               <button className="btn ghost sm" onClick={()=>shiftDate(-1)}>‹</button>
@@ -82,7 +86,7 @@ export default function Dashboard({ onSignOut, name }: { onSignOut: ()=>void; na
               <button className="btn ghost sm" onClick={()=>setSelDate(today())}>Today</button>
             </>}
             <Clock />
-            <span className="build-mark" title="build marker — bump this to verify a deploy went live">build&nbsp;113</span>
+            <span className="build-mark" title="build marker — bump this to verify a deploy went live">build&nbsp;114</span>
           </div>
         </div>
         <div className="content"><Boundary key={view}><div className={`dashboard-screen screen-${view}`}>

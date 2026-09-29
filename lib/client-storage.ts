@@ -33,7 +33,7 @@ export function createExport(): PersonalOsSnapshot {
 }
 
 export function restoreExport(snapshot: PersonalOsSnapshot) {
-  if (!snapshot || typeof snapshot.data !== "object") throw new Error("Invalid Personal OS backup");
+  if (!snapshot || typeof snapshot.data !== "object") throw new Error("Invalid dashboard backup file");
   const migrated = migratePersonalOsData(snapshot.data, Number(snapshot.version || 1));
   Object.entries(migrated).forEach(([key, value]) => {
     if (key.startsWith("pos_") && typeof value === "string") localStorage.setItem(key, value);

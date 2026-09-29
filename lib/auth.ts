@@ -1,5 +1,6 @@
 import type { NextAuthOptions } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
+import { loadRefreshToken, saveRefreshToken } from "@/lib/google-tokens";
 
 const SCOPES = [
   "openid",
@@ -45,18 +46,30 @@ export const authOptions: NextAuthOptions = {
       clientId: process.env.GOOGLE_CLIENT_ID as string,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
       authorization: {
-        params: { scope: SCOPES, access_type: "offline", prompt: "consent" },
+        // No forced consent screen: Google signs straight in once access was granted.
+        // The refresh token from the first consent is kept in Supabase (lib/google-tokens.ts);
+        // the client re-requests consent only if none is stored (session.error "NoRefreshToken").
+        params: { scope: SCOPES, access_type: "offline", include_granted_scopes: "true" },
       },
     }),
   ],
-  session: { strategy: "jwt" },
+  // Stay signed in for 90 days of inactivity (refreshed on use).
+  session: { strategy: "jwt", maxAge: 90 * 24 * 60 * 60 },
   callbacks: {
     async jwt({ token, account }) {
       // First sign-in: capture tokens from the provider.
       if (account) {
         token.accessToken = account.access_token;
         token.expiresAt = account.expires_at;
-        if (account.refresh_token) token.refreshToken = account.refresh_token;
+        token.error = undefined;
+        const email = token.email as string | undefined;
+        if (account.refresh_token) {
+          token.refreshToken = account.refresh_token;
+          if (email) await saveRefreshToken(email, account.refresh_token);
+        } else {
+          token.refreshToken = email ? await loadRefreshToken(email) : null;
+          if (!token.refreshToken) token.error = "NoRefreshToken";
+        }
         return token;
       }
       // Access token still valid (with a 2-minute safety buffer) — reuse it.

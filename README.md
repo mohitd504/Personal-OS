@@ -1,4 +1,4 @@
-# Personal OS — live, deployable version
+# Personal Dashboard — live, deployable version
 
 A private command center: live **Gmail** + **Google Calendar**, plus Health, Exercise (PPL + running),
 Nutrition (full macros), Study (AI/DevOps/System Design + curriculum), Goals and a 180-day plan calendar.
@@ -14,7 +14,7 @@ Built with Next.js 14 (App Router), TypeScript, NextAuth (Google) and Tailwind.
 - Modular Nutrition workspace with saved meals, weekly planning, grocery list, and seven-day insights.
 - Modular English workspace with guided sessions, mistake notebook, spaced vocabulary, scenarios, and progress.
 - Priority Gmail workspace with AI summaries, action extraction, follow-ups, attachment metadata, safe drafts, and Calendar handoff.
-- One bottom-right **Sync now** control pushes and pulls all Personal OS data.
+- One bottom-right **Sync now** control pushes and pulls all Personal Dashboard data.
 - **Weekly Review** with seven-day consistency and next-week recommendations.
 - Browser reminders for workouts, study, and end-of-day review.
 - Cross-device Supabase sync with visible status, retries, offline handling, and versioned migrations.
@@ -38,7 +38,7 @@ Personal logs are stored in your browser (localStorage). Gmail/Calendar are read
 
 ## 1. Get Google credentials (~10 min, one-time)
 
-1. Go to https://console.cloud.google.com/ and create a project (e.g. "Personal OS").
+1. Go to https://console.cloud.google.com/ and create a project (e.g. "Personal Dashboard").
 2. **APIs & Services → Library**: enable **Gmail API** and **Google Calendar API**.
 3. **APIs & Services → OAuth consent screen**:
    - User type: **External** → Create.
@@ -102,6 +102,10 @@ By default your logs are saved per-browser. To sync them across every device you
 5. For per-key sync (only changed data is sent, and edits on different devices merge instead of overwriting each other), open `supabase/sync_v2.sql`, copy **all of its text** into the SQL Editor and run it. Without it, sync still works but sends and receives everything each time.
 
 Now signing in with the same Google account on any device pulls your data and pushes changes automatically. The bottom-right status indicator shows syncing, synced, offline, or retrying state.
+
+## One-click sign-in
+
+Sign-in doesn't show Google's permission screen every time. Run `supabase/google_tokens.sql` once in the Supabase **SQL Editor** (paste the file's text, then Run): it stores the Google refresh token from your first sign-in so later sign-ins go straight through. Without the table, sign-in still works but shows the permission screen each time.
 
 ## AI usage limits
 
