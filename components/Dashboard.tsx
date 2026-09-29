@@ -9,7 +9,6 @@ import { WeeklyReview, ExerciseWorkspace, Fitness, NutritionWorkspace, EnglishWo
 import { Health } from "@/components/dashboard/views/Health";
 import { Nutrition } from "@/components/dashboard/views/Nutrition";
 import { Study } from "@/components/dashboard/views/Study";
-import { English } from "@/components/dashboard/views/English";
 import { Calendar } from "@/components/dashboard/views/Calendar";
 import { Goals } from "@/components/dashboard/views/Goals";
 import { Settings } from "@/components/dashboard/views/Settings";
@@ -83,7 +82,7 @@ export default function Dashboard({ onSignOut, name }: { onSignOut: ()=>void; na
               <button className="btn ghost sm" onClick={()=>setSelDate(today())}>Today</button>
             </>}
             <Clock />
-            <span className="build-mark" title="build marker — bump this to verify a deploy went live">build&nbsp;112</span>
+            <span className="build-mark" title="build marker — bump this to verify a deploy went live">build&nbsp;113</span>
           </div>
         </div>
         <div className="content"><Boundary key={view}><div className={`dashboard-screen screen-${view}`}>
@@ -94,7 +93,7 @@ export default function Dashboard({ onSignOut, name }: { onSignOut: ()=>void; na
           {view==="exercise" && <ExerciseWorkspace tracker={<Fitness />} />}
           {view==="nutrition" && <NutritionWorkspace settings={sett} tracker={<Nutrition sett={sett} refresh={refresh} tick={tick} date={selDate} />} />}
           {view==="study" && <Study sett={sett} refresh={refresh} tick={tick} date={selDate} />}
-          {view==="english" && <EnglishWorkspace practice={<English />} />}
+          {view==="english" && <EnglishWorkspace />}
           {view==="gmail" && <GmailWorkspace />}
           {view==="calendar" && <Calendar sett={sett} tick={tick} />}
           {view==="goals" && <Goals sett={sett} tick={tick} />}

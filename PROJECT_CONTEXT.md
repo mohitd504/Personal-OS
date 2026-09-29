@@ -7,7 +7,7 @@ A single-user (multi-user capable) life-management web app: health, exercise, nu
 2. Install deps: `npm install`. Run locally: `npm run dev`. Before pushing: `npm run check` (lint + typecheck + tests) and `npm run build`. CI runs both on every push.
 3. To edit AI behaviour, change the `app/api/*/route.ts` files. To edit UI, find the tab under `components/dashboard/views/` or `components/fitness/` (see Components).
 4. To deploy: `git push` then `npx vercel --prod` (see Deploy).
-5. Build marker: shown top-right in the app (currently **build 112**). Bump the `build&nbsp;NN` string in `components/Dashboard.tsx` on each deploy to verify it went live.
+5. Build marker: shown top-right in the app (currently **build 113**). Bump the `build&nbsp;NN` string in `components/Dashboard.tsx` on each deploy to verify it went live.
 
 ## Tech stack
 - Next.js 14 (App Router), React, TypeScript.
@@ -31,7 +31,6 @@ A single-user (multi-user capable) life-management web app: health, exercise, nu
 - `components/dashboard/views/` — one file per tab:
   - `Home`, `Health`, `Nutrition`, `Calendar` (incl. 120-day plan calendar), `Settings`.
   - `Study` — study tab + curriculum; uses `StudyDashboard` and the Goals planner in study mode.
-  - `English` — 45-day fluency coach: lesson, speaking coach with scenarios + voice, essay check, shadowing drill, pronunciation, spelling.
   - `Goals` — the big daily planner (`GoalPlanner`): exercise sessions, meals with AI macros, study courses with timers, journal, 10-day outlooks with AI edit, skip/rest, undo, course start anchor; plus `CoursePlanner`.
 - `components/dashboard/data.tsx` — storage helpers (`LS`/`SS`), settings defaults, the 3 seeded courses (Agentic AI 15d, System Design 20d, DSA 45d from S. K. Srivastava's *Data Structures Through C in Depth*), workout plan seeding, markdown→HTML, misc helpers.
 - `components/dashboard/ui.tsx` — small shared UI (`Chip`, `Kpi`, `Head`, `Bar`, `MiniTimer`, `PRow`). `lazy.tsx` — tabs and charts loaded on demand with `next/dynamic`.
@@ -40,13 +39,14 @@ A single-user (multi-user capable) life-management web app: health, exercise, nu
   - `GoogleHealth` — Google Health card + board (sync today or a past day up to 15 days back). `StravaView`, `SleepBoard`.
   - `data.ts` / `ui.tsx` — helpers and chart/layout pieces.
 - `components/features/` — `TodayView` (default tab), `WeeklyReview`, `ReminderCenter`, `DataControls` (export/restore backup), and the Study / Exercise / Nutrition / English / Gmail workspaces.
+- `components/features/english/` — the English tab (45-day fluency coach). `EnglishWorkspace` (tabs: Today, Vocabulary, Mistakes, Progress, Scenarios), `TodayPlan` (hero, 45-day journey, step rail), `steps/` (Lesson, Speak, Write, Shadow drill, Pronounce/Spell), `english-core.ts` (pure logic: step completion, streaks, scores, spaced repetition, mistake grouping — unit-tested), `useSpeech.ts` (Web Speech, en-IN). `components/ui/toast.tsx` — shared toasts.
 - `components/charts.tsx` — recharts cards (loaded on demand). `components/Assistant.tsx` — global ✨ assistant chat. `components/SyncManager.tsx` — sync client.
 - `lib/exercise-guide.ts` — exercise emoji, how-to text and demo links shared by Goals and PlanWorkout.
 
 ## API routes (app/api/*)
 - Auth/data: `auth`, `sync`.
 - Google: `gmail`, `gmail/draft`, `calendar`, `ghealth/{connect,callback,steps,activities,range}`, `strava/{connect,callback,sync}`.
-- AI (all go through `guardAiRequest` in `lib/api-security.ts`: sign-in, size, per-minute and daily limits): `assistant`, `nutrition`, `parse-activity`, `gh-activity`, `plan-nutrition`, `exercise`, `next-workout`, `workout-report`, `workout-options`, `edit-workout`, `plan-edit`, `food-photo`, `study-path`, `study-quiz`, `study-assistant`, `course-plan`, `notes`, `code`, `proofread`, `english-lesson`, `english-chat`, `english-feedback`, `english-drill`, `drill-review`, `essay-check`, `word-set`, `gmail-assistant`.
+- AI (all go through `guardAiRequest` in `lib/api-security.ts`: sign-in, size, per-minute and daily limits): `assistant`, `nutrition`, `parse-activity`, `gh-activity`, `plan-nutrition`, `exercise`, `next-workout`, `workout-report`, `workout-options`, `edit-workout`, `plan-edit`, `food-photo`, `study-path`, `study-quiz`, `study-assistant`, `course-plan`, `notes`, `code`, `proofread`, `english-lesson`, `english-chat`, `english-feedback`, `english-drill`, `drill-review`, `essay-check`, `word-set`, `vocab-explain`, `mistake-quiz`, `gmail-assistant`.
 
 ## Sync
 - `components/SyncManager.tsx` + `app/api/sync/route.ts` + pure logic in `lib/sync-core.ts`.
@@ -59,7 +59,7 @@ A single-user (multi-user capable) life-management web app: health, exercise, nu
 - `pos_settings` — profile & goals. `pos_health` — today's watch metrics. `pos_ghealth` — daily watch history (180d). `pos_gh_acts` — watch activities. `pos_sleep`, `pos_walks`, `pos_cardio`, `pos_weightlog`, `pos_workouts` (with planned vs actual), `pos_strava`.
 - `pos_nutri_<date>` — meals+water per day. `pos_plan_<date>` — the Goals daily plan `{exSessions, meals{breakfast,lunch,dinner}, studyList[], journal}`.
 - `pos_course_start` — fixed course anchor date; `pos_seed_all` — seed flag. Courses seed relative to `pos_course_start`, idempotent (fill missing days, never wipe progress).
-- English: `pos_eng_start`, `pos_eng_<date>` (lesson/chat/essay/report), `pos_engdrill_<date>`, `pos_engpron_<date>`, `pos_engspell_<date>`.
+- English: `pos_eng_start`, `pos_eng_<date>` (lesson/chat/essay/report), `pos_engdrill_<date>`, `pos_engpron_<date>`, `pos_engspell_<date>`, `pos_eng_vocab` (spaced-repetition deck), `pos_eng_mistakes` (own notes), `pos_eng_mastered` (mastered mistake ids).
 - `pos_reminders`, `pos_data_version`, `pos_curriculum`, study minutes, etc.
 
 ## Deploy
