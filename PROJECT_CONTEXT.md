@@ -1,4 +1,6 @@
-# Personal OS — Project Handoff & Context
+# Personal Dashboard — Project Handoff & Context
+
+(Formerly "Personal OS". Shown in the app as "<First name>'s Dashboard" using the signed-in account's name; storage keys keep the `pos_` prefix.)
 
 A single-user (multi-user capable) life-management web app: health, exercise, nutrition, study, a 3-course study planner, a 45-day English fluency coach, Gmail/Calendar, and AI helpers. This document gives a new AI assistant (ChatGPT, Cursor, Claude, etc.) everything needed to continue development.
 
@@ -7,7 +9,7 @@ A single-user (multi-user capable) life-management web app: health, exercise, nu
 2. Install deps: `npm install`. Run locally: `npm run dev`. Before pushing: `npm run check` (lint + typecheck + tests) and `npm run build`. CI runs both on every push.
 3. To edit AI behaviour, change the `app/api/*/route.ts` files. To edit UI, find the tab under `components/dashboard/views/` or `components/fitness/` (see Components).
 4. To deploy: `git push` then `npx vercel --prod` (see Deploy).
-5. Build marker: shown top-right in the app (currently **build 113**). Bump the `build&nbsp;NN` string in `components/Dashboard.tsx` on each deploy to verify it went live.
+5. Build marker: shown top-right in the app (currently **build 114**). Bump the `build&nbsp;NN` string in `components/Dashboard.tsx` on each deploy to verify it went live.
 
 ## Tech stack
 - Next.js 14 (App Router), React, TypeScript.

@@ -11,9 +11,9 @@ export default function Page() {
       <div className="center">
         <div className="signin card">
           <div className="mark" style={{ margin: "0 auto 16px" }} />
-          <h1 style={{ margin: "0 0 6px", fontSize: 24, fontWeight: 760 }}>Personal OS</h1>
+          <h1 style={{ margin: "0 0 6px", fontSize: 24, fontWeight: 760 }}>Personal Dashboard</h1>
           <p className="muted" style={{ marginTop: 0 }}>
-            Your fitness, nutrition, study, Gmail and Calendar — one live command center.
+            Your fitness, nutrition, study, Gmail and Calendar — all in one personal dashboard.
           </p>
           <button className="btn" onClick={() => signIn("google")} style={{ marginTop: 8 }}>
             Sign in with Google

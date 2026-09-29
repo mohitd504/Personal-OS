@@ -3,10 +3,10 @@ import Providers from "./providers";
 import type { Viewport } from "next";
 
 export const metadata = {
-  title: "Personal OS",
-  description: "Your life, one command center.",
+  title: "Personal Dashboard",
+  description: "Your fitness, nutrition, study and day — one personal dashboard.",
   manifest: "/manifest.webmanifest",
-  appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "Personal OS" },
+  appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "My Dashboard" },
   icons: { apple: "/apple-icon.png", icon: "/icon-192.png" },
 };
 

@@ -1,9 +1,9 @@
 import type { MetadataRoute } from "next";
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Personal OS",
-    short_name: "Personal OS",
-    description: "Your fitness, nutrition, study, Gmail & calendar — one command center.",
+    name: "Personal Dashboard",
+    short_name: "My Dashboard",
+    description: "Your fitness, nutrition, study, Gmail & calendar — one personal dashboard.",
     start_url: "/",
     display: "standalone",
     background_color: "#080B14",
