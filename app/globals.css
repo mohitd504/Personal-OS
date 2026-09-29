@@ -471,3 +471,51 @@ html{background:#050912}
   .timeline:before{left:19px}.tl-item{grid-template-columns:40px minmax(0,1fr)}.tl-time{display:none}.tl-dot{margin:6px 3px 0 0}
   .ex-table th:nth-child(3),.ex-table td:nth-child(3){display:none}
 }
+
+/* ============ Study ============ */
+.st{display:grid;gap:14px;min-width:0}.st>*{min-width:0}
+.st-head{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap;padding:20px 22px;border-radius:18px;border:1px solid rgba(59,130,246,.22);background:radial-gradient(600px 200px at 0% 0%,rgba(59,130,246,.16),transparent),linear-gradient(180deg,#101a2c,#0a1220)}
+.st-head h2{margin:12px 0 4px;font-size:24px;font-weight:780;letter-spacing:-.03em}.st-head p{margin:0;font-size:13px}
+.st-head__nav{display:flex;gap:6px;flex-wrap:wrap}.st-head__nav .in{width:150px}
+.st-head__stats{display:flex;gap:10px;flex-wrap:wrap}
+.st-stat{min-width:96px;padding:10px 14px;border-radius:12px;background:rgba(255,255,255,.04);border:1px solid var(--stroke)}.st-stat span{display:block;font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--mut)}.st-stat b{font-size:20px;letter-spacing:-.02em}.st-stat small{font-size:12px;color:var(--mut)}
+.course-strip{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.course-card{display:grid;gap:8px;text-align:left;padding:14px 16px;border-radius:14px;border:1px solid var(--stroke);border-top:3px solid var(--accent);background:linear-gradient(180deg,rgba(16,26,41,.98),rgba(10,18,30,.98));color:var(--txt);font:inherit;cursor:pointer;transition:.15s}
+.course-card:hover{transform:translateY(-1px);border-color:color-mix(in srgb,var(--accent) 50%,transparent)}
+.course-card__top{display:flex;align-items:center;gap:10px}.course-card__top b{display:block;font-size:14px}.course-card__top small{font-size:11px;color:var(--mut)}
+.course-card__icon{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;background:color-mix(in srgb,var(--accent) 16%,transparent);font-size:16px}
+.course-card__pct{margin-left:auto;font-weight:800;color:var(--accent)}
+.course-card__next{font-size:12.5px;color:#d5dbe6;line-height:1.4}.course-card__next span{display:block;font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--mut);margin-bottom:2px}
+.course-card__behind{font-size:11px;color:#fbbf24}
+.lesson{border-radius:16px;border:1px solid var(--stroke);border-left:4px solid var(--accent);background:linear-gradient(180deg,rgba(16,26,41,.98),rgba(10,18,30,.98));padding:18px 20px;display:grid;gap:14px}
+.lesson.is-done{opacity:.8}
+.lesson__head{display:flex;align-items:center;gap:14px}
+.lesson__icon{width:46px;height:46px;flex:0 0 46px;border-radius:13px;display:grid;place-items:center;font-size:22px;background:color-mix(in srgb,var(--accent) 16%,transparent)}
+.lesson__title{flex:1;min-width:0}.lesson__title h3{margin:2px 0 3px;font-size:19px;font-weight:760;letter-spacing:-.02em}
+.lesson__ring .ring{--s:58px}.lesson__ring .ring:before{inset:6px;background:#0e1728}.lesson__ring .ring .rc b{font-size:13px}
+.lesson__brief{margin:0;font-size:13.5px;line-height:1.65;color:#cbd5e1;padding:12px 14px;border-radius:12px;background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.05)}
+.lesson__res{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px}
+.res{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;border:1px solid var(--stroke);background:rgba(255,255,255,.02);color:var(--txt);text-decoration:none;min-width:0;transition:.15s}
+.res:hover{border-color:color-mix(in srgb,var(--accent) 50%,transparent);background:color-mix(in srgb,var(--accent) 7%,transparent)}
+.res>span{width:30px;height:30px;flex:0 0 30px;border-radius:9px;display:grid;place-items:center;background:color-mix(in srgb,var(--accent) 16%,transparent)}
+.res div{min-width:0}.res b{display:block;font-size:13px}.res small{display:block;font-size:11px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lesson__tasks{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.lesson__tasks li{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:12px;border:1px solid rgba(255,255,255,.05);background:rgba(255,255,255,.015)}
+.lesson__task{flex:1;min-width:0;display:grid;gap:2px}.lesson__task span{font-size:13.5px;line-height:1.5}.lesson__task small{font-size:11px;color:var(--mut)}
+.lesson__tasks li.done .lesson__task span{text-decoration:line-through;color:var(--mut)}
+.lesson__foot{display:flex;gap:8px;flex-wrap:wrap}
+.roadmap-hero{display:flex;align-items:center;gap:22px;padding:20px 22px;border-radius:18px;border:1px solid color-mix(in srgb,var(--accent) 35%,transparent);background:radial-gradient(500px 200px at 0% 0%,color-mix(in srgb,var(--accent) 18%,transparent),transparent),linear-gradient(180deg,#101a2c,#0a1220);flex-wrap:wrap}
+.roadmap-hero .ring:before{background:#0d1626}.roadmap-hero__body{flex:1;min-width:220px;display:grid;gap:8px;justify-items:start}.roadmap-hero h2{margin:0;font-size:21px;font-weight:780}.roadmap-hero p{margin:0;font-size:13px}
+.roadmap-hero__stats{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--mut)}.roadmap-hero__stats b{color:var(--txt);font-size:15px;margin-right:3px}.roadmap-hero__stats .warn b{color:#fbbf24}
+.roadmap-hero .toggle{align-self:flex-start}
+.road{list-style:none;margin:10px 0 0;padding:0;display:grid;gap:6px}
+.road__item{width:100%;display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:12px;border:1px solid var(--stroke);background:rgba(255,255,255,.015);color:var(--txt);font:inherit;text-align:left;cursor:pointer;transition:.12s}
+.road__item:hover{border-color:color-mix(in srgb,var(--accent) 50%,transparent)}
+.road__day{width:34px;height:34px;flex:0 0 34px;border-radius:10px;display:grid;place-items:center;font-weight:800;font-size:13px;background:rgba(148,163,184,.1);color:var(--mut)}
+.road__item.is-done .road__day{background:var(--accent);color:#fff}.road__item.is-today{border-color:color-mix(in srgb,var(--accent) 60%,transparent);background:color-mix(in srgb,var(--accent) 8%,transparent)}.road__item.is-today .road__day{box-shadow:inset 0 0 0 2px var(--accent);color:var(--txt)}
+.road__item.is-partial .road__day{background:color-mix(in srgb,var(--accent) 30%,transparent);color:var(--txt)}
+.road__body{flex:1;min-width:0;display:grid;gap:2px}.road__body b{font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.road__body small{font-size:11px;color:var(--mut)}
+.road__status{font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;padding:3px 8px;border-radius:8px;background:rgba(148,163,184,.1);color:var(--mut);white-space:nowrap}
+.road__status.is-done{background:rgba(34,197,94,.14);color:#4ade80}.road__status.is-today{background:rgba(59,130,246,.18);color:#93c5fd}.road__status.is-partial{background:rgba(245,158,11,.14);color:#fbbf24}.road__status.is-missed{background:rgba(244,114,182,.1);color:#f9a8d4}
+@media(max-width:900px){.course-strip{grid-template-columns:1fr}}
+@media(max-width:680px){.st-head{padding:16px}.st-head__stats{width:100%}.st-stat{flex:1;min-width:0}.lesson{padding:14px}.lesson__ring{display:none}.lesson__tasks li{flex-wrap:wrap}.lesson__tasks li .btn{margin-left:34px}.roadmap-hero{padding:16px}.lesson__res{grid-template-columns:repeat(3,minmax(0,1fr))}.res{flex-direction:column;text-align:center;padding:10px 6px;gap:6px}.res small{display:none}}
