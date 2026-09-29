@@ -103,6 +103,10 @@ By default your logs are saved per-browser. To sync them across every device you
 
 Now signing in with the same Google account on any device pulls your data and pushes changes automatically. The bottom-right status indicator shows syncing, synced, offline, or retrying state.
 
+## One-click sign-in
+
+Sign-in doesn't show Google's permission screen every time. Run `supabase/google_tokens.sql` once in the Supabase **SQL Editor** (paste the file's text, then Run): it stores the Google refresh token from your first sign-in so later sign-ins go straight through. Without the table, sign-in still works but shows the permission screen each time.
+
 ## AI usage limits
 
 Every AI route goes through `guardAiRequest` (`lib/api-security.ts`): sign-in check, request size check, a per-route per-minute limit, and a **daily limit per user across all AI routes**.

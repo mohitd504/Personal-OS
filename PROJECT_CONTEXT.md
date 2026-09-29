@@ -14,7 +14,7 @@ A single-user (multi-user capable) life-management web app: health, exercise, nu
 ## Tech stack
 - Next.js 14 (App Router), React, TypeScript.
 - Styling: custom CSS in `app/globals.css` (dark theme, CSS variables) — minimal Tailwind.
-- Auth: NextAuth (Auth.js) Google provider (`lib/auth.ts`). Scopes: openid, email, profile, gmail.readonly, gmail.compose, calendar.readonly.
+- Auth: NextAuth (Auth.js) Google provider (`lib/auth.ts`). Scopes: openid, email, profile, gmail.readonly, gmail.compose, calendar.readonly. No forced consent screen: the Google refresh token from the first consent is stored in Supabase (`google_tokens`, `lib/google-tokens.ts`, `supabase/google_tokens.sql`) and reused, so later sign-ins are one click. Opening the app signed out redirects straight to Google (except right after "Sign out"). Sessions last 90 days of inactivity.
 - AI: OpenAI (ChatGPT) — `lib/llm.ts` → `askLLM(system, user, maxTokens, { json })` and `askLLMImage(...)`. Model `gpt-4o-mini` (env `OPENAI_MODEL` to override). Falls back to Anthropic if only `ANTHROPIC_API_KEY` is set. 25 s timeout, one retry on 429/5xx, failures logged; `{ json: true }` turns on OpenAI JSON mode.
 - Storage/sync: browser `localStorage` (all keys prefixed `pos_`) synced per key to **Supabase** per user email (see Sync).
 - Tests: Vitest (`tests/`).
