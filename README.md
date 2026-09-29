@@ -118,8 +118,4 @@ Every AI route goes through `guardAiRequest` (`lib/api-security.ts`): sign-in ch
    create table if not exists strava_tokens (email text primary key, access_token text, refresh_token text, expires_at bigint);
 4. Redeploy. In the app: Exercise -> Cardio -> Connect Strava, then Sync now.
 
-## Fitbit integration (steps & daily activity)
-1. Create a Personal app at https://dev.fitbit.com (OAuth type: Personal; Redirect URL: https://YOUR-DOMAIN/api/fitbit/callback).
-2. Add FITBIT_CLIENT_ID & FITBIT_CLIENT_SECRET in Vercel.
-3. Supabase SQL: create table if not exists fitbit_tokens (email text primary key, access_token text, refresh_token text, expires_at bigint);
-4. Redeploy. Exercise -> Overview -> Connect Fitbit -> Sync steps.
+Fitbit watch data (steps, heart rate, sleep, activities) comes through the Google Health integration (`GHEALTH_CLIENT_ID` / `GHEALTH_CLIENT_SECRET`, routes under `app/api/ghealth/`). The older direct Fitbit API integration has been removed.
