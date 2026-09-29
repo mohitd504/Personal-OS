@@ -46,6 +46,8 @@ export default function GymToday({ onOpenTracker }: { onOpenTracker: () => void 
   return (
     <div className="gym">
       <section className="gym-hero" style={{ ["--accent" as any]: color }}>
+        {/* Small local .webp; plain <img> avoids spending Vercel image-optimisation quota. */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
         {gym && SPLIT_VISUAL[gym.type] && <img className="gym-hero__img" src={SPLIT_VISUAL[gym.type]} alt="" />}
         <div className="gym-hero__body">
           <div className="td-chips">
