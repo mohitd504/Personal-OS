@@ -77,7 +77,7 @@ export const OPT = { background:"#0f172a", color:"#E7ECF3" } as any;
 export const uid=()=>Math.random().toString(36).slice(2,9);
 export const firstUrl=(s:string)=>{ const m=String(s||"").match(/https?:\/\/\S+/); return m?m[0]:""; };
 export function mdToHtml(md:string){ const escc=(s:string)=>s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
-  const inline=(t:string)=> escc(t).replace(/\*\*(.+?)\*\*/g,"<b>$1</b>").replace(/`(.+?)`/g,'<code>$1</code>');
+  const inline=(t:string)=> escc(t).replace(/\*\*(.+?)\*\*/g,"<b>$1</b>").replace(/(^|[\s(])\*(?!\s)([^*]+?)\*(?=[\s).,;:!?]|$)/g,"$1<i>$2</i>").replace(/`(.+?)`/g,'<code>$1</code>');
   const lines=String(md||"").split(/\r?\n/); let html=""; let ul=false;
   for(const raw of lines){ const l=raw.trim();
     if(/^#{1,6}\s/.test(l)){ if(ul){html+="</ul>";ul=false;} const lvl=(l.match(/^#+/)||["#"])[0].length; const txt=l.replace(/^#+\s/,""); html+=`<h${lvl<=2?4:5} style="font-size:${lvl<=2?17:15}px;margin:16px 0 6px;color:#c4b5fd">${inline(txt)}</h${lvl<=2?4:5}>`; continue; }
